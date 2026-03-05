@@ -22,7 +22,7 @@ impl Database {
     }
 
     fn initialize(&self) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
 
         conn.execute_batch("
             PRAGMA journal_mode=WAL;
@@ -74,7 +74,7 @@ impl Database {
     }
 
     pub fn get_setting(&self, key: &str) -> Result<Option<String>, String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
         let mut stmt = conn
             .prepare("SELECT value FROM app_settings WHERE key = ?1")
             .map_err(|e| e.to_string())?;
@@ -85,7 +85,7 @@ impl Database {
     }
 
     pub fn set_setting(&self, key: &str, value: &str) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
         conn.execute(
             "INSERT OR REPLACE INTO app_settings (key, value) VALUES (?1, ?2)",
             params![key, value],
@@ -95,9 +95,11 @@ impl Database {
     }
 
     pub fn upsert_work(&self, work: &Work) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
-        let urls_json = serde_json::to_string(&work.urls).unwrap_or_default();
-        let playlists_json = serde_json::to_string(&work.playlists).unwrap_or_default();
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
+        let urls_json = serde_json::to_string(&work.urls)
+            .map_err(|e| format!("Failed to serialize urls: {}", e))?;
+        let playlists_json = serde_json::to_string(&work.playlists)
+            .map_err(|e| format!("Failed to serialize playlists: {}", e))?;
 
         conn.execute(
             "INSERT OR REPLACE INTO works (id, title, cover_image, default_playlist, created_at, status, physical_path, total_duration_sec, added_at, error_message, urls_json, playlists_json)
@@ -142,7 +144,7 @@ impl Database {
     }
 
     pub fn get_all_works(&self) -> Result<Vec<WorkSummary>, String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
         let mut stmt = conn
             .prepare(
                 "SELECT w.id, w.title, w.cover_image, w.status, w.physical_path,
@@ -199,7 +201,7 @@ impl Database {
     }
 
     pub fn get_work(&self, id: &str) -> Result<Option<Work>, String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
         let mut stmt = conn
             .prepare(
                 "SELECT id, title, cover_image, default_playlist, created_at, status,
@@ -272,14 +274,14 @@ impl Database {
     }
 
     pub fn mark_all_missing(&self) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
         conn.execute("UPDATE works SET status = 'missing' WHERE status = 'normal'", [])
             .map_err(|e| e.to_string())?;
         Ok(())
     }
 
     pub fn mark_found(&self, id: &str) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
         conn.execute(
             "UPDATE works SET status = 'normal' WHERE id = ?1",
             params![id],
@@ -289,14 +291,14 @@ impl Database {
     }
 
     pub fn delete_work(&self, id: &str) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
         conn.execute("DELETE FROM works WHERE id = ?1", params![id])
             .map_err(|e| e.to_string())?;
         Ok(())
     }
 
     pub fn update_work_tags(&self, work_id: &str, tags: &[String]) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
         conn.execute("DELETE FROM work_tags WHERE work_id = ?1", params![work_id])
             .map_err(|e| e.to_string())?;
 
@@ -314,7 +316,7 @@ impl Database {
     }
 
     pub fn get_all_tags(&self) -> Result<Vec<String>, String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
         let mut stmt = conn
             .prepare("SELECT DISTINCT t.name FROM tags t JOIN work_tags wt ON t.id = wt.tag_id ORDER BY t.name")
             .map_err(|e| e.to_string())?;
@@ -327,7 +329,7 @@ impl Database {
     }
 
     pub fn work_exists_by_path(&self, path: &str) -> Result<Option<String>, String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
         let mut stmt = conn
             .prepare("SELECT id FROM works WHERE physical_path = ?1")
             .map_err(|e| e.to_string())?;

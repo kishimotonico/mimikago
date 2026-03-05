@@ -33,6 +33,22 @@ function App() {
     }
   }, [lib.loading, lib.rootFolder]);
 
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
+      if (isInput) return;
+
+      if (e.code === "Space" && player.state.currentWork) {
+        e.preventDefault();
+        player.togglePlay();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [player]);
+
   // Load full work data when selected
   useEffect(() => {
     if (lib.selectedWorkId) {

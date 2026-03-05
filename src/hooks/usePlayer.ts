@@ -15,6 +15,7 @@ export interface PlayerState {
 
 export function usePlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const loopRef = useRef(false);
   const [state, setState] = useState<PlayerState>({
     isPlaying: false,
     currentTrackIndex: -1,
@@ -26,6 +27,9 @@ export function usePlayer() {
     loop: false,
     showFullPlayer: false,
   });
+
+  // Keep loopRef in sync with state
+  loopRef.current = state.loop;
 
   useEffect(() => {
     if (!audioRef.current) {
@@ -42,7 +46,7 @@ export function usePlayer() {
       setState((s) => ({ ...s, duration: audio.duration || 0 }));
     };
     const onEnded = () => {
-      if (state.loop) {
+      if (loopRef.current) {
         audio.currentTime = 0;
         audio.play();
       } else {
@@ -71,7 +75,8 @@ export function usePlayer() {
       audio.removeEventListener("play", onPlay);
       audio.removeEventListener("pause", onPause);
     };
-  }, [state.loop]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load and play when track index changes
   useEffect(() => {

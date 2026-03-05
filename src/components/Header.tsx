@@ -129,6 +129,30 @@ const Header: React.FC<HeaderProps> = ({
   scanning,
 }) => {
   const [searchFocused, setSearchFocused] = React.useState(false);
+  const [localQuery, setLocalQuery] = React.useState(searchQuery);
+  const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync external changes to local
+  React.useEffect(() => {
+    setLocalQuery(searchQuery);
+  }, [searchQuery]);
+
+  React.useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  const handleSearchChange = React.useCallback(
+    (value: string) => {
+      setLocalQuery(value);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        setSearchQuery(value);
+      }, 200);
+    },
+    [setSearchQuery]
+  );
 
   const canDecrement = gridSizeIdx > 0;
   const canIncrement = gridSizeIdx < GRID_SIZE_KEYS.length - 1;
@@ -171,8 +195,8 @@ const Header: React.FC<HeaderProps> = ({
       >
         <input
           type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          value={localQuery}
+          onChange={(e) => handleSearchChange(e.target.value)}
           onFocus={() => setSearchFocused(true)}
           onBlur={() => setSearchFocused(false)}
           placeholder="作品名・タグで検索..."

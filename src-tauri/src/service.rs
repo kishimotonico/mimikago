@@ -87,8 +87,13 @@ impl AppService {
         if let Some(w) = work {
             if let Some(cover) = &w.cover_image {
                 let full_path = Path::new(&w.physical_path).join(cover);
-                if full_path.exists() {
-                    return Ok(Some(full_path.to_string_lossy().to_string()));
+                let resolved = full_path.canonicalize().map_err(|e| e.to_string())?;
+                let work_dir = Path::new(&w.physical_path).canonicalize().map_err(|e| e.to_string())?;
+                if !resolved.starts_with(&work_dir) {
+                    return Err("Path traversal detected".to_string());
+                }
+                if resolved.exists() {
+                    return Ok(Some(resolved.to_string_lossy().to_string()));
                 }
             }
         }
@@ -99,8 +104,13 @@ impl AppService {
         let work = self.db.get_work(work_id)?;
         if let Some(w) = work {
             let full_path = Path::new(&w.physical_path).join(relative_path);
-            if full_path.exists() {
-                return Ok(Some(full_path.to_string_lossy().to_string()));
+            let resolved = full_path.canonicalize().map_err(|e| e.to_string())?;
+            let work_dir = Path::new(&w.physical_path).canonicalize().map_err(|e| e.to_string())?;
+            if !resolved.starts_with(&work_dir) {
+                return Err("Path traversal detected".to_string());
+            }
+            if resolved.exists() {
+                return Ok(Some(resolved.to_string_lossy().to_string()));
             }
         }
         Ok(None)

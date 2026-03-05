@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import type { WorkSummary } from "../types";
 import CoverImage from "./CoverImage";
 import { formatDuration } from "../hooks/usePlayer";
@@ -20,6 +20,12 @@ const WorkCard: React.FC<WorkCardProps> = ({
 }) => {
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hovered, setHovered] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (clickTimer.current) clearTimeout(clickTimer.current);
+    };
+  }, []);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {

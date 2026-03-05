@@ -38,7 +38,7 @@ function App() {
     if (lib.selectedWorkId) {
       api.getWork(lib.selectedWorkId).then((w) => {
         if (w) setSelectedWork(w);
-      });
+      }).catch((e) => console.error("Failed to load work:", e));
     } else {
       setSelectedWork(null);
     }
@@ -48,7 +48,7 @@ function App() {
     if (lib.fullViewWorkId) {
       api.getWork(lib.fullViewWorkId).then((w) => {
         if (w) setFullViewWork(w);
-      });
+      }).catch((e) => console.error("Failed to load work:", e));
     } else {
       setFullViewWork(null);
     }

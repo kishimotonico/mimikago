@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 
 interface SettingsModalProps {
   rootFolder: string | null;
@@ -17,6 +17,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onScan,
   onChangeFolder,
 }) => {
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [onClose]);
+
   return (
     <div
       onClick={onClose}

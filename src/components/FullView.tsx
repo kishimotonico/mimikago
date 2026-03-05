@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import type { Work, Track } from "../types";
 import CoverImage from "./CoverImage";
 import UrlButtons from "./UrlButtons";
@@ -36,6 +36,14 @@ const FullView: React.FC<FullViewProps> = ({
   onUpdateTags,
 }) => {
   const [activeTab, setActiveTab] = useState<TabId>("tracks");
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [onClose]);
 
   const tracks: Track[] =
     work.playlists.length > 0 ? work.playlists[0].tracks : [];

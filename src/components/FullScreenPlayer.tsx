@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import type { Track, WorkSummary, Work } from "../types";
 import CoverImage from "./CoverImage";
 import { formatTime } from "../hooks/usePlayer";
@@ -63,6 +63,14 @@ const FullScreenPlayer: React.FC<FullScreenPlayerProps> = ({
   onClose,
   onSelectTrack,
 }) => {
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [onClose]);
+
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
   const currentTrack = currentTrackIndex >= 0 && currentTrackIndex < tracks.length
     ? tracks[currentTrackIndex]

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import type { Work, Track } from "../types";
 import CoverImage from "./CoverImage";
 import UrlButtons from "./UrlButtons";
@@ -53,6 +53,14 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
   onUpdateTags,
 }) => {
   void keyframesInjected;
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [onClose]);
 
   const tracks: Track[] =
     work.playlists.length > 0 ? work.playlists[0].tracks : [];

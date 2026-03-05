@@ -12,6 +12,7 @@ type HeaderProps = {
   setGridSizeIdx: (idx: number) => void;
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
+  scanning?: boolean;
 };
 
 const iconBtnBase: React.CSSProperties = {
@@ -125,6 +126,7 @@ const Header: React.FC<HeaderProps> = ({
   setGridSizeIdx,
   viewMode,
   setViewMode,
+  scanning,
 }) => {
   const [searchFocused, setSearchFocused] = React.useState(false);
 
@@ -268,7 +270,7 @@ const Header: React.FC<HeaderProps> = ({
 
         {/* Refresh */}
         <IconButton title="更新" onClick={onRefresh}>
-          ↻
+          <span style={scanning ? { animation: "spin 1s linear infinite", display: "inline-block" } : undefined}>↻</span>
         </IconButton>
 
         {/* Settings */}

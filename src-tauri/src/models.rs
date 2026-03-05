@@ -84,9 +84,3 @@ pub struct ScanResult {
     pub missing: usize,
     pub new_work_ids: Vec<String>,
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SortOption {
-    pub field: String,
-    pub direction: String,
-}

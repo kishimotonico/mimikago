@@ -305,7 +305,7 @@ fn generate_meta_for_folder(dir: &Path, db: &Database) -> Result<String, String>
 
     // Also add to DB
     let physical_path = dir.to_string_lossy().to_string();
-    let track_count = meta.playlists.first().map(|p| p.tracks.len()).unwrap_or(0);
+    let _track_count = meta.playlists.first().map(|p| p.tracks.len()).unwrap_or(0);
 
     let work = Work {
         id: id.clone(),

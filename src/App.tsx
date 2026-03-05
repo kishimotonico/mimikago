@@ -167,6 +167,7 @@ function App() {
         setGridSizeIdx={lib.setGridSizeIdx}
         viewMode={lib.viewMode}
         setViewMode={lib.setViewMode}
+        scanning={lib.scanning}
       />
 
       {!fullViewWork && (

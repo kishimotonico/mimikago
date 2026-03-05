@@ -134,17 +134,13 @@ const Header: React.FC<HeaderProps> = ({
   return (
     <header
       style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        right: 0,
         height: 52,
+        flexShrink: 0,
         background: "#1a1a2e",
         borderBottom: "1px solid #2a2a40",
         display: "flex",
         alignItems: "center",
         padding: "0 16px",
-        zIndex: 1000,
         fontFamily: FONT_FAMILY,
         gap: 12,
       }}

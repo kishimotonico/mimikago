@@ -4,7 +4,7 @@ mod models;
 mod scanner;
 mod service;
 
-use service::AppService;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -17,10 +17,10 @@ pub fn run() {
                 .app_data_dir()
                 .expect("Failed to get app data dir");
 
-            let service = AppService::new(&app_data_dir)
+            let svc = service::AppService::new(&app_data_dir)
                 .expect("Failed to initialize service");
 
-            app.manage(std::sync::Mutex::new(service));
+            app.manage(std::sync::Mutex::new(svc));
 
             Ok(())
         })

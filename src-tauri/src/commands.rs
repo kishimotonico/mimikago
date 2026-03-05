@@ -4,6 +4,7 @@ use std::sync::Mutex;
 use crate::models::{ScanResult, Work, WorkSummary};
 use crate::service::AppService;
 
+
 pub type ServiceState = Mutex<AppService>;
 
 #[tauri::command]
@@ -23,7 +24,7 @@ pub fn scan_library(service: State<'_, ServiceState>) -> Result<ScanResult, Stri
     let svc = service.lock().map_err(|e| e.to_string())?;
     let result = svc.scan()?;
     // Update last scan time
-    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M").to_string();
+    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
     svc.db.set_setting("last_scan_time", &now)?;
     Ok(result)
 }

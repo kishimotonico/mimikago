@@ -83,11 +83,10 @@ export function usePlayer() {
     ) {
       const track = state.tracks[state.currentTrackIndex];
       const workPath = state.currentWork.physicalPath;
-      // Use Tauri's asset protocol to serve local files
       const audioPath = `${workPath}/${track.file}`;
-      // Convert to asset URL for Tauri
+      // Tauri asset protocol: encode each path segment but keep slashes
       const assetUrl = window.__TAURI__
-        ? `asset://localhost/${encodeURIComponent(audioPath)}`
+        ? `asset://localhost/${audioPath.split("/").map(encodeURIComponent).join("/")}`
         : audioPath;
 
       audioRef.current.src = assetUrl;

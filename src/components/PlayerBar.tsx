@@ -113,6 +113,7 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
           <CoverImage
             workId={currentWork.id}
             coverImage={currentWork.coverImage}
+            physicalPath={currentWork?.physicalPath}
             size={48}
           />
         ) : (

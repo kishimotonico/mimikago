@@ -86,6 +86,7 @@ const WorkCard: React.FC<WorkCardProps> = ({
       <CoverImage
         workId={work.id}
         coverImage={work.coverImage}
+        physicalPath={work.physicalPath}
         size={coverSize}
         hasError={hasError}
       />

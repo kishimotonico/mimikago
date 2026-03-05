@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 
 interface CoverImageProps {
   workId: string;
   coverImage: string | null;
+  physicalPath?: string;
   size: number;
   hasError?: boolean;
   bookmarked?: boolean;
@@ -17,15 +18,22 @@ function hashHue(workId: string): number {
   return hash;
 }
 
+function buildAssetUrl(physicalPath: string, coverImage: string): string {
+  const fullPath = `${physicalPath}/${coverImage}`;
+  return `asset://localhost/${fullPath.split("/").map(encodeURIComponent).join("/")}`;
+}
+
 const CoverImage: React.FC<CoverImageProps> = ({
   workId,
   coverImage,
+  physicalPath,
   size,
   hasError,
   bookmarked,
   style,
 }) => {
   const hue = hashHue(workId);
+  const [imgError, setImgError] = useState(false);
 
   const containerStyle: React.CSSProperties = {
     position: "relative",
@@ -46,43 +54,14 @@ const CoverImage: React.FC<CoverImageProps> = ({
     justifyContent: "center",
   };
 
-  const noImageTextStyle: React.CSSProperties = {
-    color: "#555",
-    fontSize: Math.max(10, size * 0.08),
-    userSelect: "none",
-  };
-
-  const errorBadgeStyle: React.CSSProperties = {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    width: Math.max(14, size * 0.12),
-    height: Math.max(14, size * 0.12),
-    borderRadius: "50%",
-    background: "#e53e3e",
-    color: "#fff",
-    fontSize: Math.max(9, size * 0.07),
-    fontWeight: 700,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    lineHeight: 1,
-  };
-
-  const bookmarkStyle: React.CSSProperties = {
-    position: "absolute",
-    top: 0,
-    left: 6,
-    width: Math.max(12, size * 0.1),
-    color: "#5b8def",
-    filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.5))",
-  };
+  const showImage = coverImage && physicalPath && !imgError && window.__TAURI__;
+  const imgSrc = showImage ? buildAssetUrl(physicalPath, coverImage) : "";
 
   return (
     <div style={containerStyle}>
-      {coverImage ? (
+      {showImage ? (
         <img
-          src={`asset://localhost/${encodeURIComponent(coverImage)}`}
+          src={imgSrc}
           alt=""
           style={{
             width: "100%",
@@ -91,18 +70,56 @@ const CoverImage: React.FC<CoverImageProps> = ({
             display: "block",
           }}
           draggable={false}
+          onError={() => setImgError(true)}
         />
       ) : (
         <div style={placeholderStyle}>
-          <span style={noImageTextStyle}>No Image</span>
+          <span
+            style={{
+              color: "#555",
+              fontSize: Math.max(10, size * 0.08),
+              userSelect: "none",
+            }}
+          >
+            No Image
+          </span>
         </div>
       )}
 
-      {hasError && <div style={errorBadgeStyle}>!</div>}
+      {hasError && (
+        <div
+          style={{
+            position: "absolute",
+            top: 4,
+            right: 4,
+            width: Math.max(14, size * 0.12),
+            height: Math.max(14, size * 0.12),
+            borderRadius: "50%",
+            background: "#e53e3e",
+            color: "#fff",
+            fontSize: Math.max(9, size * 0.07),
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            lineHeight: 1,
+            boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
+          }}
+        >
+          !
+        </div>
+      )}
 
       {bookmarked && (
         <svg
-          style={bookmarkStyle}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 6,
+            width: Math.max(12, size * 0.1),
+            color: "#5b8def",
+            filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.5))",
+          }}
           viewBox="0 0 12 16"
           fill="currentColor"
           xmlns="http://www.w3.org/2000/svg"

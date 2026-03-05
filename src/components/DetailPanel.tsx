@@ -176,6 +176,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
           <CoverImage
             workId={work.id}
             coverImage={work.coverImage}
+            physicalPath={work.physicalPath}
             size={90}
           />
           <div style={{ flex: 1, minWidth: 0 }}>

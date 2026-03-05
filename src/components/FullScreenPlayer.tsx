@@ -170,6 +170,7 @@ const FullScreenPlayer: React.FC<FullScreenPlayerProps> = ({
             <CoverImage
               workId={currentWork.id}
               coverImage={currentWork.coverImage}
+              physicalPath={currentWork?.physicalPath}
               size={220}
               style={{ borderRadius: 10 }}
             />

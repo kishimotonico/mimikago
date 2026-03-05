@@ -202,6 +202,7 @@ const FullView: React.FC<FullViewProps> = ({
           <CoverImage
             workId={work.id}
             coverImage={work.coverImage}
+            physicalPath={work.physicalPath}
             size={260}
             style={{ marginBottom: 14, borderRadius: 8 }}
           />

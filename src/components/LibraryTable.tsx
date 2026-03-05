@@ -185,6 +185,7 @@ const TableRow: React.FC<TableRowProps> = ({
         <CoverImage
           workId={work.id}
           coverImage={work.coverImage}
+          physicalPath={work.physicalPath}
           size={36}
           hasError={hasError}
         />

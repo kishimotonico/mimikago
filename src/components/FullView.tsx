@@ -264,7 +264,10 @@ const FullView: React.FC<FullViewProps> = ({
                     <span
                       style={tagDeleteStyle}
                       onClick={() => handleRemoveTag(i)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleRemoveTag(i); }}
                       role="button"
+                      tabIndex={0}
+                      aria-label={`タグ「${tag}」を削除`}
                     >
                       &#x2715;
                     </span>

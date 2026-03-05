@@ -336,9 +336,9 @@ function App() {
         />
       )}
 
-      {lib.scanResult && lib.scanResult.newWorkIds.length > 0 && (
+      {lib.scanResult && (
         <NewWorkPopup
-          newWorkIds={lib.scanResult.newWorkIds}
+          scanResult={lib.scanResult}
           onClose={() => lib.setScanResult(null)}
         />
       )}

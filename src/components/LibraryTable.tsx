@@ -138,6 +138,7 @@ const TableRow: React.FC<TableRowProps> = ({
   );
 
   const hasError = work.status === "error" || !!work.errorMessage;
+  const isMissing = work.status === "missing";
 
   const rowStyle: React.CSSProperties = {
     display: "flex",
@@ -154,6 +155,7 @@ const TableRow: React.FC<TableRowProps> = ({
     outlineOffset: -1,
     borderRadius: 4,
     userSelect: "none",
+    opacity: isMissing ? 0.5 : 1,
   };
 
   const maxTags = 3;
@@ -194,6 +196,7 @@ const TableRow: React.FC<TableRowProps> = ({
           physicalPath={work.physicalPath}
           size={36}
           hasError={hasError}
+          isMissing={isMissing}
         />
       </div>
 

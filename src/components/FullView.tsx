@@ -234,6 +234,30 @@ const FullView: React.FC<FullViewProps> = ({
             {tracks.length} トラック / {formatTime(work.totalDurationSec)}
           </div>
 
+          {/* Error/Missing message */}
+          {(work.status === "error" || work.status === "missing" || work.errorMessage) && (
+            <div
+              style={{
+                marginBottom: 14,
+                padding: "8px 10px",
+                borderRadius: 6,
+                background: work.status === "missing" ? "rgba(214,158,46,0.08)" : "rgba(229,62,62,0.08)",
+                border: `1px solid ${work.status === "missing" ? "rgba(214,158,46,0.2)" : "rgba(229,62,62,0.2)"}`,
+                fontSize: 12,
+                color: work.status === "missing" ? "#d69e2e" : C.error,
+              }}
+            >
+              <div style={{ fontWeight: 600, marginBottom: work.errorMessage ? 4 : 0 }}>
+                {work.status === "missing" ? "行方不明: この作品のフォルダーが見つかりません" : "エラー"}
+              </div>
+              {work.errorMessage && (
+                <div style={{ color: C.textSecondary, fontSize: 11, wordBreak: "break-word" }}>
+                  {work.errorMessage}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Tags */}
           <div style={{ marginBottom: 16 }}>
             <div

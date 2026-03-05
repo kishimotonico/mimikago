@@ -6,6 +6,7 @@ interface CoverImageProps {
   physicalPath?: string;
   size: number;
   hasError?: boolean;
+  isMissing?: boolean;
   bookmarked?: boolean;
   style?: React.CSSProperties;
 }
@@ -29,6 +30,7 @@ const CoverImage: React.FC<CoverImageProps> = ({
   physicalPath,
   size,
   hasError,
+  isMissing,
   bookmarked,
   style,
 }) => {
@@ -82,6 +84,30 @@ const CoverImage: React.FC<CoverImageProps> = ({
             }}
           >
             No Image
+          </span>
+        </div>
+      )}
+
+      {isMissing && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <span
+            style={{
+              color: "#d69e2e",
+              fontSize: Math.max(10, size * 0.08),
+              fontWeight: 600,
+              userSelect: "none",
+            }}
+          >
+            ?
           </span>
         </div>
       )}

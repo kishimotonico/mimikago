@@ -1,12 +1,62 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import type { ScanResult, WorkSummary } from "../types";
+import * as api from "../api";
 
 interface NewWorkPopupProps {
-  newWorkIds: string[];
+  scanResult: ScanResult;
   onClose: () => void;
 }
 
-const NewWorkPopup: React.FC<NewWorkPopupProps> = ({ newWorkIds, onClose }) => {
-  if (newWorkIds.length === 0) return null;
+const C = {
+  bgSurface: "#1e1e34",
+  bgInput: "#252540",
+  border: "#2a2a40",
+  borderLight: "#3a3a55",
+  textPrimary: "#e2e2f0",
+  textSecondary: "#888",
+  textDisabled: "#555",
+  accent: "#5b8def",
+  accentDim: "rgba(91,141,239,0.08)",
+  error: "#e53e3e",
+  warning: "#d69e2e",
+};
+
+const NewWorkPopup: React.FC<NewWorkPopupProps> = ({ scanResult, onClose }) => {
+  const [newWorks, setNewWorks] = useState<WorkSummary[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [onClose]);
+
+  useEffect(() => {
+    if (scanResult.newWorkIds.length > 0) {
+      api.getAllWorks().then((all) => {
+        const found = all.filter((w) => scanResult.newWorkIds.includes(w.id));
+        setNewWorks(found);
+      }).catch(() => {});
+    }
+  }, [scanResult.newWorkIds]);
+
+  const handleStartEdit = (work: WorkSummary) => {
+    setEditingId(work.id);
+    setEditTitle(work.title);
+  };
+
+  const handleSaveTitle = async (workId: string) => {
+    if (editTitle.trim()) {
+      await api.updateWorkTitle(workId, editTitle.trim()).catch(() => {});
+      setNewWorks((prev) =>
+        prev.map((w) => (w.id === workId ? { ...w, title: editTitle.trim() } : w))
+      );
+    }
+    setEditingId(null);
+  };
 
   return (
     <div
@@ -24,26 +74,140 @@ const NewWorkPopup: React.FC<NewWorkPopupProps> = ({ newWorkIds, onClose }) => {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "#1e1e34",
+          background: C.bgSurface,
           borderRadius: 10,
           padding: 22,
-          width: 420,
+          width: 520,
           maxWidth: "90vw",
-          color: "#e2e2f0",
-          textAlign: "center",
+          maxHeight: "80vh",
+          color: C.textPrimary,
+          display: "flex",
+          flexDirection: "column",
         }}
       >
-        <div style={{ fontSize: 36, marginBottom: 12 }}>{"\u2728"}</div>
-        <h2 style={{ margin: "0 0 10px", fontSize: 18, fontWeight: 700 }}>
-          {"\u65B0\u3057\u3044\u4F5C\u54C1\u304C\u898B\u3064\u304B\u308A\u307E\u3057\u305F"}
+        {/* Header */}
+        <h2 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700, textAlign: "center" }}>
+          スキャン完了
         </h2>
-        <p style={{ color: "#888", fontSize: 14, margin: "0 0 20px" }}>
-          {newWorkIds.length} {"\u4EF6\u306E\u65B0\u3057\u3044\u4F5C\u54C1\u304C\u691C\u51FA\u3055\u308C\u307E\u3057\u305F\u3002"}
-        </p>
+
+        {/* Summary stats */}
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            marginBottom: 16,
+            justifyContent: "center",
+          }}
+        >
+          <StatBadge label="登録済み" value={scanResult.registered} color={C.accent} />
+          <StatBadge label="新規検出" value={scanResult.newlyGenerated} color="#48bb78" />
+          {scanResult.errors > 0 && (
+            <StatBadge label="エラー" value={scanResult.errors} color={C.error} />
+          )}
+          {scanResult.missing > 0 && (
+            <StatBadge label="行方不明" value={scanResult.missing} color={C.warning} />
+          )}
+        </div>
+
+        {/* New works list */}
+        {newWorks.length > 0 && (
+          <>
+            <div
+              style={{
+                color: C.textSecondary,
+                fontSize: 12,
+                marginBottom: 8,
+              }}
+            >
+              新規検出された作品（タイトルをクリックして編集できます）:
+            </div>
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                marginBottom: 16,
+                maxHeight: 300,
+              }}
+            >
+              {newWorks.map((work) => (
+                <div
+                  key={work.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "6px 8px",
+                    borderRadius: 4,
+                    background: C.accentDim,
+                    marginBottom: 4,
+                  }}
+                >
+                  <span
+                    style={{
+                      color: "#48bb78",
+                      fontSize: 11,
+                      flexShrink: 0,
+                    }}
+                  >
+                    NEW
+                  </span>
+                  {editingId === work.id ? (
+                    <input
+                      autoFocus
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      onBlur={() => handleSaveTitle(work.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveTitle(work.id);
+                        if (e.key === "Escape") setEditingId(null);
+                      }}
+                      style={{
+                        flex: 1,
+                        background: C.bgInput,
+                        border: `1px solid ${C.accent}`,
+                        borderRadius: 4,
+                        padding: "3px 8px",
+                        fontSize: 13,
+                        color: C.textPrimary,
+                        outline: "none",
+                      }}
+                    />
+                  ) : (
+                    <span
+                      onClick={() => handleStartEdit(work)}
+                      style={{
+                        flex: 1,
+                        fontSize: 13,
+                        cursor: "pointer",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                      title="クリックしてタイトルを編集"
+                    >
+                      {work.title}
+                    </span>
+                  )}
+                  <span
+                    style={{
+                      color: C.textDisabled,
+                      fontSize: 11,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {work.trackCount} tracks
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Close button */}
         <button
           onClick={onClose}
           style={{
-            background: "#5b8def",
+            background: C.accent,
             border: "none",
             borderRadius: 6,
             color: "#fff",
@@ -51,6 +215,7 @@ const NewWorkPopup: React.FC<NewWorkPopupProps> = ({ newWorkIds, onClose }) => {
             padding: "10px 28px",
             fontSize: 14,
             fontWeight: 600,
+            alignSelf: "center",
           }}
         >
           OK
@@ -59,5 +224,30 @@ const NewWorkPopup: React.FC<NewWorkPopupProps> = ({ newWorkIds, onClose }) => {
     </div>
   );
 };
+
+function StatBadge({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: number;
+  color: string;
+}) {
+  return (
+    <div
+      style={{
+        textAlign: "center",
+        padding: "6px 14px",
+        borderRadius: 6,
+        background: `${color}10`,
+        border: `1px solid ${color}30`,
+      }}
+    >
+      <div style={{ fontSize: 20, fontWeight: 700, color }}>{value}</div>
+      <div style={{ fontSize: 11, color: "#888" }}>{label}</div>
+    </div>
+  );
+}
 
 export default NewWorkPopup;

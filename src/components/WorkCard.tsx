@@ -81,10 +81,11 @@ const WorkCard: React.FC<WorkCardProps> = ({
   };
 
   const hasError = work.status === "error" || !!work.errorMessage;
+  const isMissing = work.status === "missing";
 
   return (
     <div
-      style={cardStyle}
+      style={{ ...cardStyle, opacity: isMissing ? 0.5 : 1 }}
       onClick={handleClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -95,12 +96,13 @@ const WorkCard: React.FC<WorkCardProps> = ({
         physicalPath={work.physicalPath}
         size={coverSize}
         hasError={hasError}
+        isMissing={isMissing}
       />
       <div style={titleStyle} title={work.title}>
         {work.title}
       </div>
       <div style={metaStyle}>
-        {work.trackCount} tracks &middot; {formatDuration(work.totalDurationSec)}
+        {isMissing ? "行方不明" : `${work.trackCount} tracks \u00B7 ${formatDuration(work.totalDurationSec)}`}
       </div>
     </div>
   );

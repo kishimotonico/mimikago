@@ -1,6 +1,7 @@
 use tauri::State;
 use std::sync::Mutex;
 
+use crate::dlsite::DlsiteWorkInfo;
 use crate::models::{FileEntry, ScanResult, SearchPreset, Work, WorkSummary};
 use crate::service::AppService;
 
@@ -159,4 +160,23 @@ pub fn list_work_files(service: State<'_, ServiceState>, work_id: String) -> Res
 pub fn export_library(service: State<'_, ServiceState>) -> Result<String, String> {
     let svc = service.lock().map_err(|e| e.to_string())?;
     svc.export_library()
+}
+
+#[tauri::command]
+pub fn fetch_dlsite_info(service: State<'_, ServiceState>, work_id: String) -> Result<DlsiteWorkInfo, String> {
+    let svc = service.lock().map_err(|e| e.to_string())?;
+    svc.fetch_dlsite_info(&work_id)
+}
+
+#[tauri::command]
+pub fn apply_dlsite_info(
+    service: State<'_, ServiceState>,
+    work_id: String,
+    info: DlsiteWorkInfo,
+    apply_title: bool,
+    apply_tags: bool,
+    apply_cover: bool,
+) -> Result<(), String> {
+    let svc = service.lock().map_err(|e| e.to_string())?;
+    svc.apply_dlsite_info(&work_id, &info, apply_title, apply_tags, apply_cover)
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import type { Work, Track, Playlist, FileEntry } from "../types";
+import type { Work, Track, Playlist, FileEntry, DlsiteWorkInfo } from "../types";
 import CoverImage from "./CoverImage";
 import UrlButtons from "./UrlButtons";
 import { formatTime, formatFileSize } from "../hooks/usePlayer";
@@ -12,6 +12,7 @@ interface FullViewProps {
   playingTrackIndex: number | null;
   onUpdateTags: (tags: string[]) => void;
   onToggleBookmark: () => void;
+  onWorkUpdated?: () => void;
 }
 
 const C = {
@@ -46,8 +47,13 @@ const FullView: React.FC<FullViewProps> = ({
   playingTrackIndex,
   onUpdateTags,
   onToggleBookmark,
+  onWorkUpdated,
 }) => {
   const [activeTab, setActiveTab] = useState<TabId>("tracks");
+  const [dlsiteInfo, setDlsiteInfo] = useState<DlsiteWorkInfo | null>(null);
+  const [dlsiteFetching, setDlsiteFetching] = useState(false);
+  const [dlsiteError, setDlsiteError] = useState<string | null>(null);
+  const [dlsiteApplying, setDlsiteApplying] = useState(false);
   const [fileTree, setFileTree] = useState<FileEntry | null>(null);
   const [loadingFiles, setLoadingFiles] = useState(false);
   const [selectedPlaylist, setSelectedPlaylist] = useState<string>(
@@ -97,6 +103,34 @@ const FullView: React.FC<FullViewProps> = ({
     const value = window.prompt("タグを入力");
     if (value && value.trim()) {
       onUpdateTags([...work.tags, value.trim()]);
+    }
+  };
+
+  const handleFetchDlsite = async () => {
+    setDlsiteFetching(true);
+    setDlsiteError(null);
+    setDlsiteInfo(null);
+    try {
+      const info = await api.fetchDlsiteInfo(work.id);
+      setDlsiteInfo(info);
+    } catch (e: unknown) {
+      setDlsiteError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDlsiteFetching(false);
+    }
+  };
+
+  const handleApplyDlsite = async (applyTitle: boolean, applyTags: boolean, applyCover: boolean) => {
+    if (!dlsiteInfo) return;
+    setDlsiteApplying(true);
+    try {
+      await api.applyDlsiteInfo(work.id, dlsiteInfo, applyTitle, applyTags, applyCover);
+      setDlsiteInfo(null);
+      onWorkUpdated?.();
+    } catch (e: unknown) {
+      setDlsiteError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDlsiteApplying(false);
     }
   };
 
@@ -259,6 +293,132 @@ const FullView: React.FC<FullViewProps> = ({
             </svg>
             {work.bookmarked ? "ブックマーク済み" : "ブックマーク"}
           </button>
+
+          {/* DLsite fetch */}
+          <button
+            onClick={handleFetchDlsite}
+            disabled={dlsiteFetching}
+            style={{
+              background: "transparent",
+              border: `1px solid ${C.borderLight}`,
+              color: dlsiteFetching ? C.textDisabled : C.textSecondary,
+              borderRadius: 6,
+              padding: "4px 10px",
+              fontSize: 12,
+              cursor: dlsiteFetching ? "default" : "pointer",
+              marginBottom: 8,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            {dlsiteFetching ? "取得中..." : "DLsite情報を取得"}
+          </button>
+
+          {dlsiteError && (
+            <div style={{ color: C.error, fontSize: 11, marginBottom: 8, wordBreak: "break-word" }}>
+              {dlsiteError}
+            </div>
+          )}
+
+          {dlsiteInfo && (
+            <div style={{
+              marginBottom: 14,
+              padding: 10,
+              borderRadius: 6,
+              background: C.bgInput,
+              border: `1px solid ${C.borderLight}`,
+              fontSize: 12,
+            }}>
+              <div style={{ fontWeight: 600, color: C.textPrimary, marginBottom: 6 }}>
+                {dlsiteInfo.rjCode} - DLsite情報
+              </div>
+              <div style={{ color: C.textSecondary, marginBottom: 4 }}>
+                <span style={{ color: C.textDisabled }}>タイトル: </span>{dlsiteInfo.title}
+              </div>
+              {dlsiteInfo.circle && (
+                <div style={{ color: C.textSecondary, marginBottom: 4 }}>
+                  <span style={{ color: C.textDisabled }}>サークル: </span>{dlsiteInfo.circle}
+                </div>
+              )}
+              {dlsiteInfo.cvs.length > 0 && (
+                <div style={{ color: C.textSecondary, marginBottom: 4 }}>
+                  <span style={{ color: C.textDisabled }}>CV: </span>{dlsiteInfo.cvs.join(", ")}
+                </div>
+              )}
+              {dlsiteInfo.genreTags.length > 0 && (
+                <div style={{ color: C.textSecondary, marginBottom: 4 }}>
+                  <span style={{ color: C.textDisabled }}>ジャンル: </span>{dlsiteInfo.genreTags.join(", ")}
+                </div>
+              )}
+              {dlsiteInfo.coverUrl && (
+                <div style={{ color: C.textSecondary, marginBottom: 6 }}>
+                  <span style={{ color: C.textDisabled }}>カバー画像: </span>あり
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                <button
+                  onClick={() => handleApplyDlsite(true, true, true)}
+                  disabled={dlsiteApplying}
+                  style={{
+                    background: C.accent,
+                    border: "none",
+                    color: "#fff",
+                    borderRadius: 4,
+                    padding: "4px 10px",
+                    fontSize: 11,
+                    cursor: dlsiteApplying ? "default" : "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  {dlsiteApplying ? "適用中..." : "すべて適用"}
+                </button>
+                <button
+                  onClick={() => handleApplyDlsite(false, true, false)}
+                  disabled={dlsiteApplying}
+                  style={{
+                    background: "transparent",
+                    border: `1px solid ${C.borderLight}`,
+                    color: C.textSecondary,
+                    borderRadius: 4,
+                    padding: "4px 8px",
+                    fontSize: 11,
+                    cursor: dlsiteApplying ? "default" : "pointer",
+                  }}
+                >
+                  タグのみ
+                </button>
+                <button
+                  onClick={() => handleApplyDlsite(true, false, false)}
+                  disabled={dlsiteApplying}
+                  style={{
+                    background: "transparent",
+                    border: `1px solid ${C.borderLight}`,
+                    color: C.textSecondary,
+                    borderRadius: 4,
+                    padding: "4px 8px",
+                    fontSize: 11,
+                    cursor: dlsiteApplying ? "default" : "pointer",
+                  }}
+                >
+                  タイトルのみ
+                </button>
+                <button
+                  onClick={() => setDlsiteInfo(null)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: C.textDisabled,
+                    fontSize: 11,
+                    cursor: "pointer",
+                    padding: "4px",
+                  }}
+                >
+                  閉じる
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Last played */}
           {work.lastPlayedAt && (

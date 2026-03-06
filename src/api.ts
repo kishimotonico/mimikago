@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Work, WorkSummary, ScanResult, SearchPreset, FileEntry } from "./types";
+import type { Work, WorkSummary, ScanResult, SearchPreset, FileEntry, DlsiteWorkInfo } from "./types";
 
 export async function getRootFolder(): Promise<string | null> {
   return invoke<string | null>("get_root_folder");
@@ -105,4 +105,18 @@ export async function listWorkFiles(workId: string): Promise<FileEntry | null> {
 
 export async function exportLibrary(): Promise<string> {
   return invoke<string>("export_library");
+}
+
+export async function fetchDlsiteInfo(workId: string): Promise<DlsiteWorkInfo> {
+  return invoke<DlsiteWorkInfo>("fetch_dlsite_info", { workId });
+}
+
+export async function applyDlsiteInfo(
+  workId: string,
+  info: DlsiteWorkInfo,
+  applyTitle: boolean,
+  applyTags: boolean,
+  applyCover: boolean
+): Promise<void> {
+  return invoke("apply_dlsite_info", { workId, info, applyTitle, applyTags, applyCover });
 }

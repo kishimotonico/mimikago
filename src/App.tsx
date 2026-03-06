@@ -249,6 +249,10 @@ function App() {
             await lib.toggleBookmark(fullViewWork.id);
             refreshFullViewWork();
           }}
+          onWorkUpdated={() => {
+            refreshFullViewWork();
+            lib.loadWorks();
+          }}
         />
       ) : (
         <div style={{ flex: 1, overflowY: "auto" }}>

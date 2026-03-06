@@ -76,6 +76,16 @@ export interface FileEntry {
   children: FileEntry[];
 }
 
+export interface DlsiteWorkInfo {
+  rjCode: string;
+  title: string;
+  circle: string | null;
+  cvs: string[];
+  genreTags: string[];
+  coverUrl: string | null;
+  url: string;
+}
+
 export type SortId =
   | "added-desc"
   | "added-asc"

@@ -1,5 +1,6 @@
 mod commands;
 mod db;
+mod dlsite;
 mod models;
 mod scanner;
 mod service;
@@ -45,6 +46,8 @@ pub fn run() {
             commands::delete_search_preset,
             commands::list_work_files,
             commands::export_library,
+            commands::fetch_dlsite_info,
+            commands::apply_dlsite_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

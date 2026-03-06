@@ -11,6 +11,7 @@ interface DetailPanelProps {
   playingTrackIndex: number | null;
   onOpenFull: () => void;
   onUpdateTags: (tags: string[]) => void;
+  onToggleBookmark: () => void;
 }
 
 const C = {
@@ -51,6 +52,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
   playingTrackIndex,
   onOpenFull,
   onUpdateTags,
+  onToggleBookmark,
 }) => {
   void keyframesInjected;
 
@@ -205,6 +207,30 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Bookmark */}
+        <button
+          onClick={onToggleBookmark}
+          style={{
+            background: work.bookmarked ? "rgba(91,141,239,0.08)" : "transparent",
+            border: `1px solid ${work.bookmarked ? "rgba(91,141,239,0.3)" : "#3a3a55"}`,
+            color: work.bookmarked ? "#5b8def" : "#888",
+            borderRadius: 6,
+            padding: "4px 10px",
+            fontSize: 11,
+            cursor: "pointer",
+            marginBottom: 14,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            width: "fit-content",
+          }}
+        >
+          <svg viewBox="0 0 12 16" fill="currentColor" width={10} height={14}>
+            <path d="M1 0h10a1 1 0 011 1v14.5a.5.5 0 01-.8.4L6 12l-5.2 3.9A.5.5 0 010 15.5V1a1 1 0 011-1z" />
+          </svg>
+          {work.bookmarked ? "ブックマーク済み" : "ブックマーク"}
+        </button>
 
         {/* Error message */}
         {(work.status === "error" || work.status === "missing" || work.errorMessage) && (

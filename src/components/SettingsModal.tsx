@@ -7,6 +7,7 @@ interface SettingsModalProps {
   onClose: () => void;
   onScan: () => void;
   onChangeFolder: () => void;
+  onExport: () => void;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -16,6 +17,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   onScan,
   onChangeFolder,
+  onExport,
 }) => {
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -58,36 +60,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             marginBottom: 20,
           }}
         >
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
-            {"\u8A2D\u5B9A"}
-          </h2>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>設定</h2>
           <button
             onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              color: "#888",
-              cursor: "pointer",
-              fontSize: 20,
-              lineHeight: 1,
-            }}
+            style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 20, lineHeight: 1 }}
           >
-            {"\u2715"}
+            ✕
           </button>
         </div>
 
         {/* Root folder */}
         <div style={{ marginBottom: 18 }}>
-          <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>
-            {"\u30EB\u30FC\u30C8\u30D5\u30A9\u30EB\u30C0"}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
+          <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>ルートフォルダー</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div
               style={{
                 flex: 1,
@@ -101,7 +86,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 whiteSpace: "nowrap",
               }}
             >
-              {rootFolder || "\u672A\u8A2D\u5B9A"}
+              {rootFolder || "未設定"}
             </div>
             <button
               onClick={onChangeFolder}
@@ -116,23 +101,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 whiteSpace: "nowrap",
               }}
             >
-              {"\u5909\u66F4"}
+              変更
             </button>
           </div>
         </div>
 
         {/* Scan */}
         <div style={{ marginBottom: 18 }}>
-          <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>
-            {"\u30B9\u30AD\u30E3\u30F3"}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
+          <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>スキャン</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button
               onClick={onScan}
               disabled={scanning}
@@ -163,13 +140,36 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   }}
                 />
               )}
-              {"\u30D5\u30EB\u30B9\u30AD\u30E3\u30F3\u5B9F\u884C"}
+              フルスキャン実行
             </button>
             {lastScanTime && (
-              <span style={{ color: "#555", fontSize: 12 }}>
-                {"\u524D\u56DE: "}{lastScanTime}
-              </span>
+              <span style={{ color: "#555", fontSize: 12 }}>前回: {lastScanTime}</span>
             )}
+          </div>
+          <div style={{ color: "#555", fontSize: 11, marginTop: 6 }}>
+            起動時に自動スキャンが実行されます
+          </div>
+        </div>
+
+        {/* Data */}
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>データ管理</div>
+          <button
+            onClick={onExport}
+            style={{
+              background: "#252540",
+              border: "1px solid #3a3a55",
+              borderRadius: 6,
+              color: "#e2e2f0",
+              cursor: "pointer",
+              padding: "8px 14px",
+              fontSize: 13,
+            }}
+          >
+            ライブラリをエクスポート
+          </button>
+          <div style={{ color: "#555", fontSize: 11, marginTop: 4 }}>
+            作品情報をJSONファイルとしてダウンロードします
           </div>
         </div>
 
@@ -182,7 +182,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             fontSize: 12,
           }}
         >
-          mimikago v0.1.0 (Phase 1)
+          mimikago v0.2.0
         </div>
       </div>
 

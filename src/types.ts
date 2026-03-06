@@ -29,6 +29,10 @@ export interface Work {
   urls: UrlEntry[];
   tags: string[];
   playlists: Playlist[];
+  bookmarked: boolean;
+  lastPlayedAt: string | null;
+  resumePosition: number;
+  resumeTrackIndex: number;
 }
 
 export interface WorkSummary {
@@ -43,6 +47,8 @@ export interface WorkSummary {
   urls: UrlEntry[];
   tags: string[];
   trackCount: number;
+  bookmarked: boolean;
+  lastPlayedAt: string | null;
 }
 
 export interface ScanResult {
@@ -53,13 +59,33 @@ export interface ScanResult {
   newWorkIds: string[];
 }
 
+export interface SearchPreset {
+  id: number;
+  name: string;
+  query: string;
+  tagFilters: string[];
+  sortId: string;
+}
+
+export interface FileEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+  size: number;
+  fileType: string;
+  children: FileEntry[];
+}
+
 export type SortId =
   | "added-desc"
   | "added-asc"
   | "title-asc"
   | "title-desc"
   | "duration-desc"
-  | "duration-asc";
+  | "duration-asc"
+  | "last-played"
+  | "random"
+  | "id-asc";
 
 export type ViewMode = "grid" | "table";
 
@@ -81,4 +107,7 @@ export const SORT_OPTIONS: { id: SortId; label: string }[] = [
   { id: "title-desc", label: "タイトル（Z→A）" },
   { id: "duration-desc", label: "再生時間（長い順）" },
   { id: "duration-asc", label: "再生時間（短い順）" },
+  { id: "last-played", label: "最近再生した順" },
+  { id: "random", label: "ランダム" },
+  { id: "id-asc", label: "ID順" },
 ];

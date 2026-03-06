@@ -37,6 +37,14 @@ pub fn run() {
             commands::get_cover_image_path,
             commands::get_audio_file_path,
             commands::get_last_scan_time,
+            commands::toggle_bookmark,
+            commands::update_last_played,
+            commands::save_resume_position,
+            commands::save_search_preset,
+            commands::get_search_presets,
+            commands::delete_search_preset,
+            commands::list_work_files,
+            commands::export_library,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

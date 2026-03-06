@@ -1,7 +1,7 @@
 use tauri::State;
 use std::sync::Mutex;
 
-use crate::models::{ScanResult, Work, WorkSummary};
+use crate::models::{FileEntry, ScanResult, SearchPreset, Work, WorkSummary};
 use crate::service::AppService;
 
 
@@ -100,4 +100,63 @@ pub fn get_audio_file_path(
 pub fn get_last_scan_time(service: State<'_, ServiceState>) -> Result<Option<String>, String> {
     let svc = service.lock().map_err(|e| e.to_string())?;
     svc.get_last_scan_time()
+}
+
+#[tauri::command]
+pub fn toggle_bookmark(service: State<'_, ServiceState>, work_id: String) -> Result<bool, String> {
+    let svc = service.lock().map_err(|e| e.to_string())?;
+    svc.toggle_bookmark(&work_id)
+}
+
+#[tauri::command]
+pub fn update_last_played(service: State<'_, ServiceState>, work_id: String) -> Result<(), String> {
+    let svc = service.lock().map_err(|e| e.to_string())?;
+    svc.update_last_played(&work_id)
+}
+
+#[tauri::command]
+pub fn save_resume_position(
+    service: State<'_, ServiceState>,
+    work_id: String,
+    position: f64,
+    track_index: i32,
+) -> Result<(), String> {
+    let svc = service.lock().map_err(|e| e.to_string())?;
+    svc.save_resume_position(&work_id, position, track_index)
+}
+
+#[tauri::command]
+pub fn save_search_preset(
+    service: State<'_, ServiceState>,
+    name: String,
+    query: String,
+    tag_filters: Vec<String>,
+    sort_id: String,
+) -> Result<i64, String> {
+    let svc = service.lock().map_err(|e| e.to_string())?;
+    svc.save_search_preset(&name, &query, &tag_filters, &sort_id)
+}
+
+#[tauri::command]
+pub fn get_search_presets(service: State<'_, ServiceState>) -> Result<Vec<SearchPreset>, String> {
+    let svc = service.lock().map_err(|e| e.to_string())?;
+    svc.get_search_presets()
+}
+
+#[tauri::command]
+pub fn delete_search_preset(service: State<'_, ServiceState>, id: i64) -> Result<(), String> {
+    let svc = service.lock().map_err(|e| e.to_string())?;
+    svc.delete_search_preset(id)
+}
+
+#[tauri::command]
+pub fn list_work_files(service: State<'_, ServiceState>, work_id: String) -> Result<Option<FileEntry>, String> {
+    let svc = service.lock().map_err(|e| e.to_string())?;
+    svc.list_work_files(&work_id)
+}
+
+#[tauri::command]
+pub fn export_library(service: State<'_, ServiceState>) -> Result<String, String> {
+    let svc = service.lock().map_err(|e| e.to_string())?;
+    svc.export_library()
 }

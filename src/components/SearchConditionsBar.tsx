@@ -1,5 +1,5 @@
 import React from "react";
-import { SortId, SORT_OPTIONS } from "../types";
+import { SortId, SORT_OPTIONS, SearchPreset } from "../types";
 
 const FONT_FAMILY = "'Segoe UI', 'Noto Sans JP', sans-serif";
 
@@ -11,6 +11,10 @@ type SearchConditionsBarProps = {
   sortId: SortId;
   setSortId: (id: SortId) => void;
   resultCount: number;
+  searchPresets: SearchPreset[];
+  onSavePreset: (name: string) => void;
+  onApplyPreset: (preset: SearchPreset) => void;
+  onDeletePreset: (id: number) => void;
 };
 
 function Chip({
@@ -74,6 +78,10 @@ const SearchConditionsBar: React.FC<SearchConditionsBarProps> = ({
   sortId,
   setSortId,
   resultCount,
+  searchPresets,
+  onSavePreset,
+  onApplyPreset,
+  onDeletePreset,
 }) => {
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   const [sortBtnHovered, setSortBtnHovered] = React.useState(false);
@@ -104,6 +112,13 @@ const SearchConditionsBar: React.FC<SearchConditionsBarProps> = ({
 
   const removeTag = (tag: string) => {
     setTagFilters(tagFilters.filter((t) => t !== tag));
+  };
+
+  const handleSavePreset = () => {
+    const name = window.prompt("プリセット名を入力:");
+    if (name && name.trim()) {
+      onSavePreset(name.trim());
+    }
   };
 
   return (
@@ -231,7 +246,7 @@ const SearchConditionsBar: React.FC<SearchConditionsBarProps> = ({
                 border: "1px solid #2a2a40",
                 borderRadius: 6,
                 padding: "4px 0",
-                minWidth: 200,
+                minWidth: 220,
                 zIndex: 1100,
                 boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
               }}
@@ -247,6 +262,65 @@ const SearchConditionsBar: React.FC<SearchConditionsBarProps> = ({
                   }}
                 />
               ))}
+
+              {/* Preset section */}
+              <div style={{ borderTop: "1px solid #2a2a40", margin: "4px 0" }} />
+
+              {searchPresets.map((preset) => (
+                <div
+                  key={preset.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "5px 14px",
+                    gap: 8,
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onApplyPreset(preset);
+                      setDropdownOpen(false);
+                    }}
+                    style={{
+                      flex: 1,
+                      textAlign: "left",
+                      background: "transparent",
+                      border: "none",
+                      color: "#e2e2f0",
+                      fontSize: 12,
+                      cursor: "pointer",
+                      fontFamily: FONT_FAMILY,
+                      padding: 0,
+                    }}
+                  >
+                    {preset.name}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDeletePreset(preset.id)}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#555",
+                      fontSize: 10,
+                      cursor: "pointer",
+                      padding: "2px",
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+
+              <SortMenuItem
+                label="プリセットとして保存..."
+                active={false}
+                onClick={() => {
+                  setDropdownOpen(false);
+                  handleSavePreset();
+                }}
+              />
             </div>
           )}
         </div>

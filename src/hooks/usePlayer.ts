@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { Track, WorkSummary, Work } from "../types";
+import * as api from "../api";
 
 export interface PlayerState {
   isPlaying: boolean;
@@ -11,11 +12,21 @@ export interface PlayerState {
   volume: number;
   loop: boolean;
   showFullPlayer: boolean;
+  playbackRate: number;
+  channelSwap: boolean;
+  abRepeat: { a: number | null; b: number | null };
 }
 
 export function usePlayer() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const loopRef = useRef(false);
+  const abRepeatRef = useRef<{ a: number | null; b: number | null }>({ a: null, b: null });
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const channelSwapNodeRef = useRef<{ splitter: ChannelSplitterNode; merger: ChannelMergerNode } | null>(null);
+  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const channelSwapEnabledRef = useRef(false);
+  const resumeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const [state, setState] = useState<PlayerState>({
     isPlaying: false,
     currentTrackIndex: -1,
@@ -26,10 +37,15 @@ export function usePlayer() {
     volume: 75,
     loop: false,
     showFullPlayer: false,
+    playbackRate: 1.0,
+    channelSwap: false,
+    abRepeat: { a: null, b: null },
   });
 
-  // Keep loopRef in sync with state
+  // Keep refs in sync with state
   loopRef.current = state.loop;
+  abRepeatRef.current = state.abRepeat;
+  channelSwapEnabledRef.current = state.channelSwap;
 
   useEffect(() => {
     if (!audioRef.current) {
@@ -40,6 +56,10 @@ export function usePlayer() {
     const audio = audioRef.current;
 
     const onTimeUpdate = () => {
+      const ab = abRepeatRef.current;
+      if (ab.a !== null && ab.b !== null && audio.currentTime >= ab.b) {
+        audio.currentTime = ab.a;
+      }
       setState((s) => ({ ...s, currentTime: audio.currentTime }));
     };
     const onDurationChange = () => {
@@ -78,6 +98,33 @@ export function usePlayer() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Save resume position periodically
+  useEffect(() => {
+    if (state.isPlaying && state.currentWork) {
+      const workId = state.currentWork.id;
+      resumeTimerRef.current = setInterval(() => {
+        if (audioRef.current && state.currentWork?.id === workId) {
+          api.saveResumePosition(workId, audioRef.current.currentTime, state.currentTrackIndex)
+            .catch(() => {});
+        }
+      }, 5000);
+    }
+    return () => {
+      if (resumeTimerRef.current) {
+        clearInterval(resumeTimerRef.current);
+        resumeTimerRef.current = null;
+      }
+    };
+  }, [state.isPlaying, state.currentWork, state.currentTrackIndex]);
+
+  // Save resume on pause/stop
+  useEffect(() => {
+    if (!state.isPlaying && state.currentWork && audioRef.current && state.currentTrackIndex >= 0) {
+      api.saveResumePosition(state.currentWork.id, audioRef.current.currentTime, state.currentTrackIndex)
+        .catch(() => {});
+    }
+  }, [state.isPlaying, state.currentWork, state.currentTrackIndex]);
+
   // Load and play when track index changes
   useEffect(() => {
     if (
@@ -89,32 +136,119 @@ export function usePlayer() {
       const track = state.tracks[state.currentTrackIndex];
       const workPath = state.currentWork.physicalPath;
       const audioPath = `${workPath}/${track.file}`;
-      // Tauri asset protocol: encode each path segment but keep slashes
       const assetUrl = window.__TAURI__
         ? `asset://localhost/${audioPath.split("/").map(encodeURIComponent).join("/")}`
         : audioPath;
 
       audioRef.current.src = assetUrl;
+      audioRef.current.playbackRate = state.playbackRate;
 
       if (track.start !== undefined) {
         audioRef.current.currentTime = track.start;
       }
 
-      audioRef.current.play().catch(() => {
-        // Playback may fail if file doesn't exist
-      });
+      audioRef.current.play().catch(() => {});
+
+      // Update last played
+      api.updateLastPlayed(state.currentWork.id).catch(() => {});
     }
-  }, [state.currentTrackIndex, state.tracks, state.currentWork]);
+  }, [state.currentTrackIndex, state.tracks, state.currentWork, state.playbackRate]);
+
+  // Setup Web Audio API for channel swap
+  const setupChannelSwap = useCallback(() => {
+    if (!audioRef.current) return;
+    if (audioContextRef.current) return; // already set up
+
+    const ctx = new AudioContext();
+    audioContextRef.current = ctx;
+
+    const source = ctx.createMediaElementSource(audioRef.current);
+    sourceNodeRef.current = source;
+
+    const splitter = ctx.createChannelSplitter(2);
+    const merger = ctx.createChannelMerger(2);
+    channelSwapNodeRef.current = { splitter, merger };
+
+    // Connect normally first
+    source.connect(ctx.destination);
+  }, []);
+
+  const applyChannelSwap = useCallback((enabled: boolean) => {
+    if (!audioContextRef.current || !sourceNodeRef.current || !channelSwapNodeRef.current) {
+      if (enabled) {
+        setupChannelSwap();
+        // retry after setup
+        setTimeout(() => {
+          if (audioContextRef.current && sourceNodeRef.current && channelSwapNodeRef.current) {
+            applyChannelSwapInternal(enabled);
+          }
+        }, 100);
+        return;
+      }
+      return;
+    }
+    applyChannelSwapInternal(enabled);
+  }, [setupChannelSwap]);
+
+  const applyChannelSwapInternal = (enabled: boolean) => {
+    const ctx = audioContextRef.current!;
+    const source = sourceNodeRef.current!;
+    const { splitter, merger } = channelSwapNodeRef.current!;
+
+    source.disconnect();
+
+    if (enabled) {
+      source.connect(splitter);
+      splitter.connect(merger, 0, 1); // L -> R
+      splitter.connect(merger, 1, 0); // R -> L
+      merger.connect(ctx.destination);
+    } else {
+      source.connect(ctx.destination);
+    }
+  };
 
   const play = useCallback(
     (work: WorkSummary | Work, tracks: Track[], trackIndex: number = 0) => {
+      // Clear A-B repeat on new play
       setState((prev) => ({
         ...prev,
         currentWork: work,
         tracks,
         currentTrackIndex: trackIndex,
         isPlaying: true,
+        abRepeat: { a: null, b: null },
       }));
+    },
+    []
+  );
+
+  const playWithResume = useCallback(
+    (work: Work) => {
+      const defaultPlaylist = work.playlists.find(
+        (p) => p.name === (work.defaultPlaylist || "default")
+      );
+      const tracks = defaultPlaylist?.tracks || work.playlists[0]?.tracks || [];
+      if (tracks.length === 0) return;
+
+      const trackIndex = Math.min(work.resumeTrackIndex, tracks.length - 1);
+
+      setState((prev) => ({
+        ...prev,
+        currentWork: work,
+        tracks,
+        currentTrackIndex: trackIndex,
+        isPlaying: true,
+        abRepeat: { a: null, b: null },
+      }));
+
+      // Seek to resume position after loading
+      if (work.resumePosition > 0) {
+        setTimeout(() => {
+          if (audioRef.current) {
+            audioRef.current.currentTime = work.resumePosition;
+          }
+        }, 200);
+      }
     },
     []
   );
@@ -172,7 +306,7 @@ export function usePlayer() {
   const nextTrack = useCallback(() => {
     setState((prev) => {
       if (prev.currentTrackIndex < prev.tracks.length - 1) {
-        return { ...prev, currentTrackIndex: prev.currentTrackIndex + 1 };
+        return { ...prev, currentTrackIndex: prev.currentTrackIndex + 1, abRepeat: { a: null, b: null } };
       }
       return prev;
     });
@@ -181,23 +315,52 @@ export function usePlayer() {
   const prevTrack = useCallback(() => {
     setState((prev) => {
       if (prev.currentTrackIndex > 0) {
-        return { ...prev, currentTrackIndex: prev.currentTrackIndex - 1 };
+        return { ...prev, currentTrackIndex: prev.currentTrackIndex - 1, abRepeat: { a: null, b: null } };
       }
       return prev;
     });
   }, []);
 
   const setTrackIndex = useCallback((index: number) => {
-    setState((prev) => ({ ...prev, currentTrackIndex: index }));
+    setState((prev) => ({ ...prev, currentTrackIndex: index, abRepeat: { a: null, b: null } }));
   }, []);
 
   const setShowFullPlayer = useCallback((show: boolean) => {
     setState((prev) => ({ ...prev, showFullPlayer: show }));
   }, []);
 
+  const setPlaybackRate = useCallback((rate: number) => {
+    if (audioRef.current) {
+      audioRef.current.playbackRate = rate;
+    }
+    setState((prev) => ({ ...prev, playbackRate: rate }));
+  }, []);
+
+  const setChannelSwap = useCallback((enabled: boolean) => {
+    applyChannelSwap(enabled);
+    setState((prev) => ({ ...prev, channelSwap: enabled }));
+  }, [applyChannelSwap]);
+
+  const setABPoint = useCallback((point: "a" | "b") => {
+    if (!audioRef.current) return;
+    const time = audioRef.current.currentTime;
+    setState((prev) => ({
+      ...prev,
+      abRepeat: { ...prev.abRepeat, [point]: time },
+    }));
+  }, []);
+
+  const clearABRepeat = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      abRepeat: { a: null, b: null },
+    }));
+  }, []);
+
   return {
     state,
     play,
+    playWithResume,
     togglePlay,
     stop,
     seek,
@@ -208,6 +371,10 @@ export function usePlayer() {
     prevTrack,
     setTrackIndex,
     setShowFullPlayer,
+    setPlaybackRate,
+    setChannelSwap,
+    setABPoint,
+    clearABRepeat,
   };
 }
 
@@ -226,4 +393,10 @@ export function formatTime(sec: number): string {
 export function formatDuration(totalSec: number): string {
   if (!totalSec) return "0:00";
   return formatTime(totalSec);
+}
+
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

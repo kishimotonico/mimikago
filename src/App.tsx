@@ -13,7 +13,7 @@ import SettingsModal from "./components/SettingsModal";
 import NewWorkPopup from "./components/NewWorkPopup";
 import { SetupScreen } from "./components/SetupScreen";
 import { GRID_SIZES, GRID_SIZE_KEYS } from "./types";
-import type { Work } from "./types";
+import type { Work, Playlist } from "./types";
 import * as api from "./api";
 
 function App() {
@@ -115,12 +115,11 @@ function App() {
   }, [lib]);
 
   const handlePlay = useCallback(
-    (work: Work, trackIndex: number) => {
-      const defaultPlaylist = work.playlists.find(
+    (work: Work, trackIndex: number, playlist?: Playlist) => {
+      const pl = playlist || work.playlists.find(
         (p) => p.name === (work.defaultPlaylist || "default")
-      );
-      const tracks =
-        defaultPlaylist?.tracks || work.playlists[0]?.tracks || [];
+      ) || work.playlists[0];
+      const tracks = pl?.tracks || [];
       if (tracks.length > 0) {
         player.play(work, tracks, trackIndex);
       }
@@ -142,6 +141,36 @@ function App() {
     },
     [lib]
   );
+
+  const handleExport = useCallback(async () => {
+    try {
+      const data = await api.exportLibrary();
+      const blob = new Blob([data], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "mimikago-export.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Export failed:", e);
+    }
+  }, []);
+
+  // Refresh fullViewWork when bookmark/tags change
+  const refreshFullViewWork = useCallback(async () => {
+    if (fullViewWork) {
+      const w = await api.getWork(fullViewWork.id);
+      if (w) setFullViewWork(w);
+    }
+  }, [fullViewWork]);
+
+  const refreshSelectedWork = useCallback(async () => {
+    if (selectedWork) {
+      const w = await api.getWork(selectedWork.id);
+      if (w) setSelectedWork(w);
+    }
+  }, [selectedWork]);
 
   const coverSize = GRID_SIZES[GRID_SIZE_KEYS[lib.gridSizeIdx]];
   const isPlayerVisible =
@@ -195,6 +224,10 @@ function App() {
           sortId={lib.sortId}
           setSortId={lib.setSortId}
           resultCount={lib.works.length}
+          searchPresets={lib.searchPresets}
+          onSavePreset={lib.savePreset}
+          onApplyPreset={lib.applyPreset}
+          onDeletePreset={lib.deletePreset}
         />
       )}
 
@@ -202,13 +235,20 @@ function App() {
         <FullView
           work={fullViewWork}
           onClose={() => lib.setFullViewWorkId(null)}
-          onPlay={(i) => handlePlay(fullViewWork, i)}
+          onPlay={(i, pl) => handlePlay(fullViewWork, i, pl)}
           playingTrackIndex={
             player.state.currentWork?.id === fullViewWork.id
               ? player.state.currentTrackIndex
               : null
           }
-          onUpdateTags={(tags) => lib.updateTags(fullViewWork.id, tags)}
+          onUpdateTags={async (tags) => {
+            await lib.updateTags(fullViewWork.id, tags);
+            refreshFullViewWork();
+          }}
+          onToggleBookmark={async () => {
+            await lib.toggleBookmark(fullViewWork.id);
+            refreshFullViewWork();
+          }}
         />
       ) : (
         <div style={{ flex: 1, overflowY: "auto" }}>
@@ -278,7 +318,14 @@ function App() {
                 : null
             }
             onOpenFull={() => handleOpenFull(selectedWork.id)}
-            onUpdateTags={(tags) => lib.updateTags(selectedWork.id, tags)}
+            onUpdateTags={async (tags) => {
+              await lib.updateTags(selectedWork.id, tags);
+              refreshSelectedWork();
+            }}
+            onToggleBookmark={async () => {
+              await lib.toggleBookmark(selectedWork.id);
+              refreshSelectedWork();
+            }}
           />
         </>
       )}
@@ -292,6 +339,9 @@ function App() {
           duration={player.state.duration}
           volume={player.state.volume}
           loop={player.state.loop}
+          playbackRate={player.state.playbackRate}
+          channelSwap={player.state.channelSwap}
+          abRepeat={player.state.abRepeat}
           onTogglePlay={player.togglePlay}
           onSeek={player.seek}
           onSeekRelative={player.seekRelative}
@@ -300,6 +350,10 @@ function App() {
           onNext={player.nextTrack}
           onPrev={player.prevTrack}
           onExpand={() => player.setShowFullPlayer(true)}
+          onSetPlaybackRate={player.setPlaybackRate}
+          onSetChannelSwap={player.setChannelSwap}
+          onSetABPoint={player.setABPoint}
+          onClearABRepeat={player.clearABRepeat}
         />
       )}
 
@@ -313,6 +367,9 @@ function App() {
           duration={player.state.duration}
           volume={player.state.volume}
           loop={player.state.loop}
+          playbackRate={player.state.playbackRate}
+          channelSwap={player.state.channelSwap}
+          abRepeat={player.state.abRepeat}
           onTogglePlay={player.togglePlay}
           onSeek={player.seek}
           onSeekRelative={player.seekRelative}
@@ -322,6 +379,10 @@ function App() {
           onPrev={player.prevTrack}
           onClose={() => player.setShowFullPlayer(false)}
           onSelectTrack={player.setTrackIndex}
+          onSetPlaybackRate={player.setPlaybackRate}
+          onSetChannelSwap={player.setChannelSwap}
+          onSetABPoint={player.setABPoint}
+          onClearABRepeat={player.clearABRepeat}
         />
       )}
 
@@ -333,6 +394,7 @@ function App() {
           onClose={() => setShowSettings(false)}
           onScan={lib.doScan}
           onChangeFolder={handleChangeFolder}
+          onExport={handleExport}
         />
       )}
 

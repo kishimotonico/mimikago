@@ -57,6 +57,10 @@ pub struct Work {
     pub urls: Vec<UrlEntry>,
     pub tags: Vec<String>,
     pub playlists: Vec<Playlist>,
+    pub bookmarked: bool,
+    pub last_played_at: Option<String>,
+    pub resume_position: f64,
+    pub resume_track_index: i32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,6 +77,29 @@ pub struct WorkSummary {
     pub urls: Vec<UrlEntry>,
     pub tags: Vec<String>,
     pub track_count: usize,
+    pub bookmarked: bool,
+    pub last_played_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchPreset {
+    pub id: i64,
+    pub name: String,
+    pub query: String,
+    pub tag_filters: Vec<String>,
+    pub sort_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileEntry {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+    pub size: u64,
+    pub file_type: String,
+    pub children: Vec<FileEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

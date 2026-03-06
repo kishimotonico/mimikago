@@ -11,6 +11,9 @@ interface PlayerBarProps {
   duration: number;
   volume: number;
   loop: boolean;
+  playbackRate: number;
+  channelSwap: boolean;
+  abRepeat: { a: number | null; b: number | null };
   onTogglePlay: () => void;
   onSeek: (time: number) => void;
   onSeekRelative: (delta: number) => void;
@@ -19,6 +22,10 @@ interface PlayerBarProps {
   onNext: () => void;
   onPrev: () => void;
   onExpand: () => void;
+  onSetPlaybackRate: (rate: number) => void;
+  onSetChannelSwap: (enabled: boolean) => void;
+  onSetABPoint: (point: "a" | "b") => void;
+  onClearABRepeat: () => void;
 }
 
 const btnStyle: React.CSSProperties = {
@@ -41,6 +48,8 @@ const btnDisabledStyle: React.CSSProperties = {
   cursor: "default",
 };
 
+const PLAYBACK_RATES = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
 const PlayerBar: React.FC<PlayerBarProps> = ({
   currentTrack,
   currentWork,
@@ -49,6 +58,9 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
   duration,
   volume,
   loop,
+  playbackRate,
+  channelSwap,
+  abRepeat,
   onTogglePlay,
   onSeek,
   onSeekRelative,
@@ -57,6 +69,10 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
   onNext,
   onPrev,
   onExpand,
+  onSetPlaybackRate,
+  onSetChannelSwap,
+  onSetABPoint,
+  onClearABRepeat,
 }) => {
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
@@ -79,7 +95,18 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
     [onSetVolume]
   );
 
+  const cyclePlaybackRate = useCallback(() => {
+    const idx = PLAYBACK_RATES.indexOf(playbackRate);
+    const next = PLAYBACK_RATES[(idx + 1) % PLAYBACK_RATES.length];
+    onSetPlaybackRate(next);
+  }, [playbackRate, onSetPlaybackRate]);
+
   const hasTrack = currentTrack !== null;
+  const abActive = abRepeat.a !== null && abRepeat.b !== null;
+
+  // A-B repeat markers on seek bar
+  const aPos = abRepeat.a !== null && duration > 0 ? (abRepeat.a / duration) * 100 : null;
+  const bPos = abRepeat.b !== null && duration > 0 ? (abRepeat.b / duration) * 100 : null;
 
   return (
     <div
@@ -239,6 +266,58 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
           >
             {"\u23ED"}
           </button>
+
+          {/* Playback rate */}
+          <button
+            onClick={cyclePlaybackRate}
+            style={{
+              ...btnStyle,
+              fontSize: 11,
+              color: playbackRate !== 1.0 ? "#5b8def" : "#888",
+              padding: "2px 4px",
+              minWidth: 32,
+            }}
+            title="Playback speed"
+          >
+            {playbackRate}x
+          </button>
+
+          {/* L/R swap */}
+          <button
+            onClick={() => onSetChannelSwap(!channelSwap)}
+            style={{
+              ...btnStyle,
+              fontSize: 11,
+              color: channelSwap ? "#5b8def" : "#888",
+              padding: "2px 4px",
+            }}
+            title="L/R入れ替え"
+          >
+            L⇄R
+          </button>
+
+          {/* A-B repeat */}
+          <button
+            onClick={() => {
+              if (abRepeat.a === null) {
+                onSetABPoint("a");
+              } else if (abRepeat.b === null) {
+                onSetABPoint("b");
+              } else {
+                onClearABRepeat();
+              }
+            }}
+            style={{
+              ...btnStyle,
+              fontSize: 11,
+              color: abActive ? "#5b8def" : abRepeat.a !== null ? "#d69e2e" : "#888",
+              padding: "2px 4px",
+            }}
+            disabled={!hasTrack}
+            title={abRepeat.a === null ? "A点を設定" : abRepeat.b === null ? "B点を設定" : "A-Bリピート解除"}
+          >
+            {abActive ? "A-B" : abRepeat.a !== null ? "A..." : "A-B"}
+          </button>
         </div>
 
         {/* Seek bar */}
@@ -265,6 +344,27 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
               position: "relative",
             }}
           >
+            {/* A-B repeat range highlight */}
+            {aPos !== null && bPos !== null && (
+              <div
+                style={{
+                  position: "absolute",
+                  left: `${aPos}%`,
+                  width: `${bPos - aPos}%`,
+                  height: "100%",
+                  background: "rgba(91,141,239,0.3)",
+                  borderRadius: 3,
+                }}
+              />
+            )}
+            {/* A marker */}
+            {aPos !== null && (
+              <div style={{ position: "absolute", left: `${aPos}%`, top: -2, width: 2, height: 10, background: "#d69e2e" }} />
+            )}
+            {/* B marker */}
+            {bPos !== null && (
+              <div style={{ position: "absolute", left: `${bPos}%`, top: -2, width: 2, height: 10, background: "#d69e2e" }} />
+            )}
             <div
               style={{
                 width: `${progress}%`,

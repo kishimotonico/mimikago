@@ -42,7 +42,11 @@ impl Database {
                 added_at TEXT NOT NULL DEFAULT (datetime('now')),
                 error_message TEXT,
                 urls_json TEXT NOT NULL DEFAULT '[]',
-                playlists_json TEXT NOT NULL DEFAULT '[]'
+                playlists_json TEXT NOT NULL DEFAULT '[]',
+                bookmarked INTEGER NOT NULL DEFAULT 0,
+                last_played_at TEXT,
+                resume_position REAL NOT NULL DEFAULT 0,
+                resume_track_index INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS tags (
@@ -68,7 +72,24 @@ impl Database {
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS search_presets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                query TEXT NOT NULL DEFAULT '',
+                tag_filters_json TEXT NOT NULL DEFAULT '[]',
+                sort_id TEXT NOT NULL DEFAULT 'added-desc',
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
         ").map_err(|e| format!("Failed to create tables: {}", e))?;
+
+        // Migrate existing databases: add new columns if they don't exist
+        let _ = conn.execute_batch("
+            ALTER TABLE works ADD COLUMN bookmarked INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE works ADD COLUMN last_played_at TEXT;
+            ALTER TABLE works ADD COLUMN resume_position REAL NOT NULL DEFAULT 0;
+            ALTER TABLE works ADD COLUMN resume_track_index INTEGER NOT NULL DEFAULT 0;
+        ");
 
         Ok(())
     }
@@ -102,8 +123,8 @@ impl Database {
             .map_err(|e| format!("Failed to serialize playlists: {}", e))?;
 
         conn.execute(
-            "INSERT OR REPLACE INTO works (id, title, cover_image, default_playlist, created_at, status, physical_path, total_duration_sec, added_at, error_message, urls_json, playlists_json)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            "INSERT OR REPLACE INTO works (id, title, cover_image, default_playlist, created_at, status, physical_path, total_duration_sec, added_at, error_message, urls_json, playlists_json, bookmarked, last_played_at, resume_position, resume_track_index)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
             params![
                 work.id,
                 work.title,
@@ -117,6 +138,10 @@ impl Database {
                 work.error_message,
                 urls_json,
                 playlists_json,
+                work.bookmarked,
+                work.last_played_at,
+                work.resume_position,
+                work.resume_track_index,
             ],
         )
         .map_err(|e| format!("Failed to upsert work: {}", e))?;
@@ -148,7 +173,8 @@ impl Database {
         let mut stmt = conn
             .prepare(
                 "SELECT w.id, w.title, w.cover_image, w.status, w.physical_path,
-                        w.total_duration_sec, w.added_at, w.error_message, w.urls_json, w.playlists_json
+                        w.total_duration_sec, w.added_at, w.error_message, w.urls_json, w.playlists_json,
+                        w.bookmarked, w.last_played_at
                  FROM works w
                  ORDER BY w.added_at DESC",
             )
@@ -162,6 +188,7 @@ impl Database {
                 let urls: Vec<UrlEntry> = serde_json::from_str(&urls_json).unwrap_or_default();
                 let playlists: Vec<Playlist> = serde_json::from_str(&playlists_json).unwrap_or_default();
                 let track_count = playlists.first().map(|p| p.tracks.len()).unwrap_or(0);
+                let bookmarked_int: i32 = row.get(10)?;
 
                 Ok(WorkSummary {
                     id,
@@ -175,6 +202,8 @@ impl Database {
                     urls,
                     tags: Vec::new(), // filled below
                     track_count,
+                    bookmarked: bookmarked_int != 0,
+                    last_played_at: row.get(11)?,
                 })
             })
             .map_err(|e| e.to_string())?
@@ -206,7 +235,8 @@ impl Database {
             .prepare(
                 "SELECT id, title, cover_image, default_playlist, created_at, status,
                         physical_path, total_duration_sec, added_at, error_message,
-                        urls_json, playlists_json
+                        urls_json, playlists_json, bookmarked, last_played_at,
+                        resume_position, resume_track_index
                  FROM works WHERE id = ?1",
             )
             .map_err(|e| e.to_string())?;
@@ -215,6 +245,7 @@ impl Database {
             .query_row(params![id], |row| {
                 let urls_json: String = row.get(10)?;
                 let playlists_json: String = row.get(11)?;
+                let bookmarked_int: i32 = row.get(12)?;
 
                 Ok(Work {
                     id: row.get(0)?,
@@ -230,6 +261,10 @@ impl Database {
                     urls: serde_json::from_str(&urls_json).unwrap_or_default(),
                     tags: Vec::new(),
                     playlists: serde_json::from_str(&playlists_json).unwrap_or_default(),
+                    bookmarked: bookmarked_int != 0,
+                    last_played_at: row.get(13)?,
+                    resume_position: row.get(14)?,
+                    resume_track_index: row.get(15)?,
                 })
             })
             .ok();
@@ -326,6 +361,95 @@ impl Database {
             .filter_map(|r| r.ok())
             .collect();
         Ok(tags)
+    }
+
+    pub fn toggle_bookmark(&self, work_id: &str) -> Result<bool, String> {
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
+        conn.execute(
+            "UPDATE works SET bookmarked = CASE WHEN bookmarked = 0 THEN 1 ELSE 0 END WHERE id = ?1",
+            params![work_id],
+        ).map_err(|e| e.to_string())?;
+        let bookmarked: bool = conn.query_row(
+            "SELECT bookmarked FROM works WHERE id = ?1",
+            params![work_id],
+            |row| { let v: i32 = row.get(0)?; Ok(v != 0) },
+        ).map_err(|e| e.to_string())?;
+        Ok(bookmarked)
+    }
+
+    pub fn update_last_played(&self, work_id: &str) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
+        let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
+        conn.execute(
+            "UPDATE works SET last_played_at = ?1 WHERE id = ?2",
+            params![now, work_id],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn save_resume_position(&self, work_id: &str, position: f64, track_index: i32) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
+        conn.execute(
+            "UPDATE works SET resume_position = ?1, resume_track_index = ?2 WHERE id = ?3",
+            params![position, track_index, work_id],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    // Search presets
+    pub fn save_search_preset(&self, name: &str, query: &str, tag_filters: &[String], sort_id: &str) -> Result<i64, String> {
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
+        let tag_filters_json = serde_json::to_string(tag_filters)
+            .map_err(|e| format!("Failed to serialize tag_filters: {}", e))?;
+        conn.execute(
+            "INSERT INTO search_presets (name, query, tag_filters_json, sort_id) VALUES (?1, ?2, ?3, ?4)",
+            params![name, query, tag_filters_json, sort_id],
+        ).map_err(|e| e.to_string())?;
+        Ok(conn.last_insert_rowid())
+    }
+
+    pub fn get_search_presets(&self) -> Result<Vec<crate::models::SearchPreset>, String> {
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
+        let mut stmt = conn.prepare(
+            "SELECT id, name, query, tag_filters_json, sort_id FROM search_presets ORDER BY created_at DESC"
+        ).map_err(|e| e.to_string())?;
+        let presets = stmt.query_map([], |row| {
+            let tag_filters_json: String = row.get(3)?;
+            Ok(crate::models::SearchPreset {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                query: row.get(2)?,
+                tag_filters: serde_json::from_str(&tag_filters_json).unwrap_or_default(),
+                sort_id: row.get(4)?,
+            })
+        }).map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+        Ok(presets)
+    }
+
+    pub fn delete_search_preset(&self, id: i64) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
+        conn.execute("DELETE FROM search_presets WHERE id = ?1", params![id])
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn find_work_by_id_any_path(&self, id: &str) -> Result<Option<String>, String> {
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
+        let mut stmt = conn.prepare("SELECT physical_path FROM works WHERE id = ?1")
+            .map_err(|e| e.to_string())?;
+        let result = stmt.query_row(params![id], |row| row.get(0)).ok();
+        Ok(result)
+    }
+
+    pub fn update_work_path(&self, work_id: &str, new_path: &str) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| format!("Database lock poisoned: {}", e))?;
+        conn.execute(
+            "UPDATE works SET physical_path = ?1 WHERE id = ?2",
+            params![new_path, work_id],
+        ).map_err(|e| e.to_string())?;
+        Ok(())
     }
 
     pub fn work_exists_by_path(&self, path: &str) -> Result<Option<String>, String> {

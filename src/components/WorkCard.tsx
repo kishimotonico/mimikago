@@ -97,6 +97,7 @@ const WorkCard: React.FC<WorkCardProps> = ({
         size={coverSize}
         hasError={hasError}
         isMissing={isMissing}
+        bookmarked={work.bookmarked}
       />
       <div style={titleStyle} title={work.title}>
         {work.title}

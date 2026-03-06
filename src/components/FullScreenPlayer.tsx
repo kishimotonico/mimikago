@@ -12,6 +12,9 @@ interface FullScreenPlayerProps {
   duration: number;
   volume: number;
   loop: boolean;
+  playbackRate: number;
+  channelSwap: boolean;
+  abRepeat: { a: number | null; b: number | null };
   onTogglePlay: () => void;
   onSeek: (time: number) => void;
   onSeekRelative: (delta: number) => void;
@@ -21,6 +24,10 @@ interface FullScreenPlayerProps {
   onPrev: () => void;
   onClose: () => void;
   onSelectTrack: (index: number) => void;
+  onSetPlaybackRate: (rate: number) => void;
+  onSetChannelSwap: (enabled: boolean) => void;
+  onSetABPoint: (point: "a" | "b") => void;
+  onClearABRepeat: () => void;
 }
 
 const btnStyle: React.CSSProperties = {
@@ -36,6 +43,8 @@ const btnStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
 };
+
+const PLAYBACK_RATES = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
 const slideUpKeyframes = `
 @keyframes slideUp {
@@ -53,6 +62,9 @@ const FullScreenPlayer: React.FC<FullScreenPlayerProps> = ({
   duration,
   volume,
   loop,
+  playbackRate,
+  channelSwap,
+  abRepeat,
   onTogglePlay,
   onSeek,
   onSeekRelative,
@@ -62,6 +74,10 @@ const FullScreenPlayer: React.FC<FullScreenPlayerProps> = ({
   onPrev,
   onClose,
   onSelectTrack,
+  onSetPlaybackRate,
+  onSetChannelSwap,
+  onSetABPoint,
+  onClearABRepeat,
 }) => {
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -95,7 +111,16 @@ const FullScreenPlayer: React.FC<FullScreenPlayerProps> = ({
     [onSetVolume]
   );
 
+  const cyclePlaybackRate = useCallback(() => {
+    const idx = PLAYBACK_RATES.indexOf(playbackRate);
+    const next = PLAYBACK_RATES[(idx + 1) % PLAYBACK_RATES.length];
+    onSetPlaybackRate(next);
+  }, [playbackRate, onSetPlaybackRate]);
+
   const urls = currentWork?.urls ?? [];
+  const abActive = abRepeat.a !== null && abRepeat.b !== null;
+  const aPos = abRepeat.a !== null && duration > 0 ? (abRepeat.a / duration) * 100 : null;
+  const bPos = abRepeat.b !== null && duration > 0 ? (abRepeat.b / duration) * 100 : null;
 
   return (
     <>
@@ -183,14 +208,7 @@ const FullScreenPlayer: React.FC<FullScreenPlayerProps> = ({
               style={{ borderRadius: 10 }}
             />
           ) : (
-            <div
-              style={{
-                width: 220,
-                height: 220,
-                borderRadius: 10,
-                background: "#1c1c32",
-              }}
-            />
+            <div style={{ width: 220, height: 220, borderRadius: 10, background: "#1c1c32" }} />
           )}
 
           {/* Track title */}
@@ -248,6 +266,11 @@ const FullScreenPlayer: React.FC<FullScreenPlayerProps> = ({
                 position: "relative",
               }}
             >
+              {aPos !== null && bPos !== null && (
+                <div style={{ position: "absolute", left: `${aPos}%`, width: `${bPos - aPos}%`, height: "100%", background: "rgba(91,141,239,0.3)", borderRadius: 3 }} />
+              )}
+              {aPos !== null && <div style={{ position: "absolute", left: `${aPos}%`, top: -2, width: 2, height: 10, background: "#d69e2e" }} />}
+              {bPos !== null && <div style={{ position: "absolute", left: `${bPos}%`, top: -2, width: 2, height: 10, background: "#d69e2e" }} />}
               <div
                 style={{
                   width: `${progress}%`,
@@ -278,52 +301,40 @@ const FullScreenPlayer: React.FC<FullScreenPlayerProps> = ({
 
           {/* Controls */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button
-              onClick={() => onSetLoop(!loop)}
-              style={{
-                ...btnStyle,
-                color: loop ? "#5b8def" : "#888",
-                fontSize: 20,
-              }}
-              title="Loop"
-            >
+            <button onClick={() => onSetLoop(!loop)} style={{ ...btnStyle, color: loop ? "#5b8def" : "#888", fontSize: 20 }} title="Loop">
               {"\uD83D\uDD01"}
             </button>
-            <button onClick={onPrev} style={btnStyle} title="Previous">
-              {"\u23EE"}
-            </button>
-            <button
-              onClick={() => onSeekRelative(-10)}
-              style={{ ...btnStyle, fontSize: 14 }}
-              title="-10s"
-            >
-              -10s
-            </button>
+            <button onClick={onPrev} style={btnStyle} title="Previous">{"\u23EE"}</button>
+            <button onClick={() => onSeekRelative(-10)} style={{ ...btnStyle, fontSize: 14 }} title="-10s">-10s</button>
             <button
               onClick={onTogglePlay}
-              style={{
-                ...btnStyle,
-                fontSize: 30,
-                width: 56,
-                height: 56,
-                borderRadius: 28,
-                background: "#5b8def",
-                color: "#fff",
-                justifyContent: "center",
-              }}
+              style={{ ...btnStyle, fontSize: 30, width: 56, height: 56, borderRadius: 28, background: "#5b8def", color: "#fff", justifyContent: "center" }}
               title={isPlaying ? "Pause" : "Play"}
             >
               {isPlaying ? "\u23F8" : "\u25B6"}
             </button>
-            <button
-              onClick={() => onSeekRelative(10)}
-              style={{ ...btnStyle, fontSize: 14 }}
-              title="+10s"
-            >
-              +10s
+            <button onClick={() => onSeekRelative(10)} style={{ ...btnStyle, fontSize: 14 }} title="+10s">+10s</button>
+            <button onClick={onNext} style={btnStyle} title="Next">{"\u23ED"}</button>
+          </div>
+
+          {/* Extra controls row */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button onClick={cyclePlaybackRate} style={{ ...btnStyle, fontSize: 13, color: playbackRate !== 1.0 ? "#5b8def" : "#888" }} title="Playback speed">
+              {playbackRate}x
             </button>
-            <button onClick={onNext} style={btnStyle} title="Next">
-              {"\u23ED"}
+            <button onClick={() => onSetChannelSwap(!channelSwap)} style={{ ...btnStyle, fontSize: 13, color: channelSwap ? "#5b8def" : "#888" }} title="L/R入れ替え">
+              L⇄R
+            </button>
+            <button
+              onClick={() => {
+                if (abRepeat.a === null) onSetABPoint("a");
+                else if (abRepeat.b === null) onSetABPoint("b");
+                else onClearABRepeat();
+              }}
+              style={{ ...btnStyle, fontSize: 13, color: abActive ? "#5b8def" : abRepeat.a !== null ? "#d69e2e" : "#888" }}
+              title={abRepeat.a === null ? "A点を設定" : abRepeat.b === null ? "B点を設定" : "A-Bリピート解除"}
+            >
+              {abActive ? "A-B" : abRepeat.a !== null ? "A..." : "A-B"}
             </button>
           </div>
 
@@ -332,36 +343,10 @@ const FullScreenPlayer: React.FC<FullScreenPlayerProps> = ({
             <span style={{ color: "#888", fontSize: 18 }}>{"\uD83D\uDD0A"}</span>
             <div
               onClick={handleVolumeClick}
-              style={{
-                width: 120,
-                height: 5,
-                background: "#252540",
-                borderRadius: 3,
-                cursor: "pointer",
-                position: "relative",
-              }}
+              style={{ width: 120, height: 5, background: "#252540", borderRadius: 3, cursor: "pointer", position: "relative" }}
             >
-              <div
-                style={{
-                  width: `${volume}%`,
-                  height: "100%",
-                  background: "#5b8def",
-                  borderRadius: 3,
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  top: "50%",
-                  left: `${volume}%`,
-                  transform: "translate(-50%, -50%)",
-                  width: 12,
-                  height: 12,
-                  borderRadius: "50%",
-                  background: "#e2e2f0",
-                  boxShadow: "0 0 4px rgba(0,0,0,0.4)",
-                }}
-              />
+              <div style={{ width: `${volume}%`, height: "100%", background: "#5b8def", borderRadius: 3 }} />
+              <div style={{ position: "absolute", top: "50%", left: `${volume}%`, transform: "translate(-50%, -50%)", width: 12, height: 12, borderRadius: "50%", background: "#e2e2f0", boxShadow: "0 0 4px rgba(0,0,0,0.4)" }} />
             </div>
           </div>
         </div>
@@ -395,14 +380,7 @@ const FullScreenPlayer: React.FC<FullScreenPlayerProps> = ({
               <span style={{ minWidth: 22, textAlign: "right", color: "#555", fontSize: 12 }}>
                 {i + 1}
               </span>
-              <span
-                style={{
-                  flex: 1,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {track.title}
               </span>
               {i === currentTrackIndex && (

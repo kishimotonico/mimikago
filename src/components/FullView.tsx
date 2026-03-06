@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from "react";
-import type { Work, Track } from "../types";
+import React, { useState, useEffect, useCallback } from "react";
+import type { Work, Track, Playlist, FileEntry } from "../types";
 import CoverImage from "./CoverImage";
 import UrlButtons from "./UrlButtons";
-import { formatTime } from "../hooks/usePlayer";
+import { formatTime, formatFileSize } from "../hooks/usePlayer";
+import * as api from "../api";
 
 interface FullViewProps {
   work: Work;
   onClose: () => void;
-  onPlay: (trackIndex: number) => void;
+  onPlay: (trackIndex: number, playlist?: Playlist) => void;
   playingTrackIndex: number | null;
   onUpdateTags: (tags: string[]) => void;
+  onToggleBookmark: () => void;
 }
 
 const C = {
@@ -28,25 +30,61 @@ const C = {
 
 type TabId = "tracks" | "files";
 
+const FILE_ICONS: Record<string, string> = {
+  directory: "\uD83D\uDCC1",
+  audio: "\uD83D\uDD0A",
+  image: "\uD83D\uDDBC",
+  pdf: "\uD83D\uDCC4",
+  text: "\uD83D\uDCC4",
+  other: "\uD83D\uDCC4",
+};
+
 const FullView: React.FC<FullViewProps> = ({
   work,
   onClose,
   onPlay,
   playingTrackIndex,
   onUpdateTags,
+  onToggleBookmark,
 }) => {
   const [activeTab, setActiveTab] = useState<TabId>("tracks");
+  const [fileTree, setFileTree] = useState<FileEntry | null>(null);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [selectedPlaylist, setSelectedPlaylist] = useState<string>(
+    work.defaultPlaylist || work.playlists[0]?.name || "default"
+  );
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        if (imagePreview) {
+          setImagePreview(null);
+        } else {
+          onClose();
+        }
+      }
     };
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
-  }, [onClose]);
+  }, [onClose, imagePreview]);
 
-  const tracks: Track[] =
-    work.playlists.length > 0 ? work.playlists[0].tracks : [];
+  // Load file tree when files tab is active
+  useEffect(() => {
+    if (activeTab === "files" && !fileTree) {
+      setLoadingFiles(true);
+      api.listWorkFiles(work.id).then((tree) => {
+        setFileTree(tree);
+      }).catch((e) => {
+        console.error("Failed to load files:", e);
+      }).finally(() => {
+        setLoadingFiles(false);
+      });
+    }
+  }, [activeTab, fileTree, work.id]);
+
+  const currentPlaylist = work.playlists.find((p) => p.name === selectedPlaylist) || work.playlists[0];
+  const tracks: Track[] = currentPlaylist?.tracks || [];
 
   const isAnnotated = (tag: string) => tag.includes("/");
 
@@ -63,8 +101,24 @@ const FullView: React.FC<FullViewProps> = ({
   };
 
   const handlePlayAll = () => {
-    if (tracks.length > 0) onPlay(0);
+    if (tracks.length > 0) onPlay(0, currentPlaylist);
   };
+
+  const handleFileClick = useCallback((entry: FileEntry) => {
+    if (entry.fileType === "audio") {
+      // Play this audio file directly
+      const assetUrl = window.__TAURI__
+        ? `asset://localhost/${(work.physicalPath + "/" + entry.path).split("/").map(encodeURIComponent).join("/")}`
+        : entry.path;
+      const audio = new Audio(assetUrl);
+      audio.play().catch(() => {});
+    } else if (entry.fileType === "image") {
+      const assetUrl = window.__TAURI__
+        ? `asset://localhost/${(work.physicalPath + "/" + entry.path).split("/").map(encodeURIComponent).join("/")}`
+        : entry.path;
+      setImagePreview(assetUrl);
+    }
+  }, [work.physicalPath]);
 
   const containerStyle: React.CSSProperties = {
     position: "fixed",
@@ -88,12 +142,6 @@ const FullView: React.FC<FullViewProps> = ({
     flexShrink: 0,
   };
 
-  const bodyStyle: React.CSSProperties = {
-    flex: 1,
-    display: "flex",
-    overflow: "hidden",
-  };
-
   const sidebarStyle: React.CSSProperties = {
     width: 300,
     flexShrink: 0,
@@ -101,19 +149,6 @@ const FullView: React.FC<FullViewProps> = ({
     overflowY: "auto",
     padding: 16,
     background: C.bgSurface,
-  };
-
-  const mainAreaStyle: React.CSSProperties = {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    overflow: "hidden",
-  };
-
-  const tabBarStyle: React.CSSProperties = {
-    display: "flex",
-    borderBottom: `1px solid ${C.border}`,
-    flexShrink: 0,
   };
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
@@ -163,11 +198,7 @@ const FullView: React.FC<FullViewProps> = ({
 
   const formatDate = (d: string | null) => {
     if (!d) return "-";
-    try {
-      return new Date(d).toLocaleDateString("ja-JP");
-    } catch {
-      return d;
-    }
+    try { return new Date(d).toLocaleDateString("ja-JP"); } catch { return d; }
   };
 
   return (
@@ -176,35 +207,17 @@ const FullView: React.FC<FullViewProps> = ({
       <div style={topBarStyle}>
         <button
           onClick={onClose}
-          style={{
-            background: "none",
-            border: "none",
-            color: C.textSecondary,
-            fontSize: 13,
-            cursor: "pointer",
-            padding: "4px 8px",
-            borderRadius: 4,
-          }}
+          style={{ background: "none", border: "none", color: C.textSecondary, fontSize: 13, cursor: "pointer", padding: "4px 8px", borderRadius: 4 }}
         >
           &#x2190; 戻る
         </button>
-        <span
-          style={{
-            color: C.textPrimary,
-            fontSize: 14,
-            fontWeight: 600,
-            flex: 1,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
+        <span style={{ color: C.textPrimary, fontSize: 14, fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {work.title}
         </span>
         {work.urls.length > 0 && <UrlButtons urls={work.urls} compact />}
       </div>
 
-      <div style={bodyStyle}>
+      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {/* Left sidebar */}
         <div style={sidebarStyle}>
           <CoverImage
@@ -212,27 +225,47 @@ const FullView: React.FC<FullViewProps> = ({
             coverImage={work.coverImage}
             physicalPath={work.physicalPath}
             size={260}
+            bookmarked={work.bookmarked}
             style={{ marginBottom: 14, borderRadius: 8 }}
           />
 
-          <div
-            style={{
-              color: C.textPrimary,
-              fontSize: 16,
-              fontWeight: 600,
-              lineHeight: 1.3,
-              marginBottom: 6,
-              wordBreak: "break-word",
-            }}
-          >
+          <div style={{ color: C.textPrimary, fontSize: 16, fontWeight: 600, lineHeight: 1.3, marginBottom: 6, wordBreak: "break-word" }}>
             {work.title}
           </div>
 
-          <div
-            style={{ color: C.textSecondary, fontSize: 12, marginBottom: 14 }}
-          >
+          <div style={{ color: C.textSecondary, fontSize: 12, marginBottom: 8 }}>
             {tracks.length} トラック / {formatTime(work.totalDurationSec)}
           </div>
+
+          {/* Bookmark button */}
+          <button
+            onClick={onToggleBookmark}
+            style={{
+              background: work.bookmarked ? C.accentDim : "transparent",
+              border: `1px solid ${work.bookmarked ? "rgba(91,141,239,0.3)" : C.borderLight}`,
+              color: work.bookmarked ? C.accent : C.textSecondary,
+              borderRadius: 6,
+              padding: "4px 10px",
+              fontSize: 12,
+              cursor: "pointer",
+              marginBottom: 14,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <svg viewBox="0 0 12 16" fill="currentColor" width={12} height={16}>
+              <path d="M1 0h10a1 1 0 011 1v14.5a.5.5 0 01-.8.4L6 12l-5.2 3.9A.5.5 0 010 15.5V1a1 1 0 011-1z" />
+            </svg>
+            {work.bookmarked ? "ブックマーク済み" : "ブックマーク"}
+          </button>
+
+          {/* Last played */}
+          {work.lastPlayedAt && (
+            <div style={{ color: C.textSecondary, fontSize: 11, marginBottom: 14 }}>
+              最終再生: {formatDate(work.lastPlayedAt)}
+            </div>
+          )}
 
           {/* Error/Missing message */}
           {(work.status === "error" || work.status === "missing" || work.errorMessage) && (
@@ -260,15 +293,7 @@ const FullView: React.FC<FullViewProps> = ({
 
           {/* Tags */}
           <div style={{ marginBottom: 16 }}>
-            <div
-              style={{
-                color: C.textSecondary,
-                fontSize: 11,
-                marginBottom: 6,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-              }}
-            >
+            <div style={{ color: C.textSecondary, fontSize: 11, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>
               タグ
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
@@ -300,14 +325,7 @@ const FullView: React.FC<FullViewProps> = ({
               })}
               <button
                 onClick={handleAddTag}
-                style={{
-                  ...tagBaseStyle,
-                  background: "transparent",
-                  border: `1px dashed ${C.borderLight}`,
-                  color: C.textSecondary,
-                  cursor: "pointer",
-                  fontSize: 11,
-                }}
+                style={{ ...tagBaseStyle, background: "transparent", border: `1px dashed ${C.borderLight}`, color: C.textSecondary, cursor: "pointer", fontSize: 11 }}
               >
                 + 追加
               </button>
@@ -315,20 +333,10 @@ const FullView: React.FC<FullViewProps> = ({
           </div>
 
           {/* Meta info */}
-          <div
-            style={{
-              fontSize: 11,
-              color: C.textDisabled,
-              display: "flex",
-              flexDirection: "column",
-              gap: 4,
-            }}
-          >
+          <div style={{ fontSize: 11, color: C.textDisabled, display: "flex", flexDirection: "column", gap: 4 }}>
             <div>
               <span style={{ color: C.textSecondary }}>パス: </span>
-              <span style={{ wordBreak: "break-all" }}>
-                {work.physicalPath}
-              </span>
+              <span style={{ wordBreak: "break-all" }}>{work.physicalPath}</span>
             </div>
             <div>
               <span style={{ color: C.textSecondary }}>追加日: </span>
@@ -338,19 +346,13 @@ const FullView: React.FC<FullViewProps> = ({
         </div>
 
         {/* Right main area */}
-        <div style={mainAreaStyle}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
           {/* Tab bar */}
-          <div style={tabBarStyle}>
-            <button
-              style={tabStyle(activeTab === "tracks")}
-              onClick={() => setActiveTab("tracks")}
-            >
+          <div style={{ display: "flex", borderBottom: `1px solid ${C.border}`, flexShrink: 0 }}>
+            <button style={tabStyle(activeTab === "tracks")} onClick={() => setActiveTab("tracks")}>
               トラック
             </button>
-            <button
-              style={tabStyle(activeTab === "files")}
-              onClick={() => setActiveTab("files")}
-            >
+            <button style={tabStyle(activeTab === "files")} onClick={() => setActiveTab("files")}>
               ファイル
             </button>
           </div>
@@ -359,89 +361,72 @@ const FullView: React.FC<FullViewProps> = ({
           <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
             {activeTab === "tracks" && (
               <div>
-                <button
-                  onClick={handlePlayAll}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "6px 14px",
-                    fontSize: 13,
-                    color: C.accent,
-                    background: C.accentDim,
-                    border: `1px solid rgba(91,141,239,0.2)`,
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    marginBottom: 12,
-                    transition: "background 0.15s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "rgba(91,141,239,0.16)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = C.accentDim;
-                  }}
-                >
-                  &#x25B6; すべて再生
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                  <button
+                    onClick={handlePlayAll}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "6px 14px",
+                      fontSize: 13,
+                      color: C.accent,
+                      background: C.accentDim,
+                      border: `1px solid rgba(91,141,239,0.2)`,
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      transition: "background 0.15s",
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(91,141,239,0.16)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = C.accentDim; }}
+                  >
+                    &#x25B6; すべて再生
+                  </button>
 
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 1,
-                  }}
-                >
+                  {/* Playlist selector */}
+                  {work.playlists.length > 1 && (
+                    <select
+                      value={selectedPlaylist}
+                      onChange={(e) => setSelectedPlaylist(e.target.value)}
+                      style={{
+                        background: C.bgInput,
+                        color: C.textPrimary,
+                        border: `1px solid ${C.borderLight}`,
+                        borderRadius: 4,
+                        padding: "4px 8px",
+                        fontSize: 12,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {work.playlists.map((p) => (
+                        <option key={p.name} value={p.name}>{p.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
                   {tracks.map((track, i) => {
                     const isActive = playingTrackIndex === i;
                     return (
                       <div
                         key={i}
                         style={trackRowStyle(isActive)}
-                        onClick={() => onPlay(i)}
-                        onMouseEnter={(e) => {
-                          if (!isActive)
-                            e.currentTarget.style.background =
-                              "rgba(255,255,255,0.03)";
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!isActive)
-                            e.currentTarget.style.background = "transparent";
-                        }}
+                        onClick={() => onPlay(i, currentPlaylist)}
+                        onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}
+                        onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
                       >
-                        <span
-                          style={{
-                            width: 26,
-                            textAlign: "right",
-                            color: isActive ? C.accent : C.textDisabled,
-                            fontSize: 12,
-                            flexShrink: 0,
-                          }}
-                        >
+                        <span style={{ width: 26, textAlign: "right", color: isActive ? C.accent : C.textDisabled, fontSize: 12, flexShrink: 0 }}>
                           {i + 1}
                         </span>
-                        <span
-                          style={{
-                            flex: 1,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
+                        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {track.title}
                         </span>
-                        {track.start !== undefined &&
-                          track.end !== undefined && (
-                            <span
-                              style={{
-                                color: isActive ? C.accent : C.textDisabled,
-                                fontSize: 12,
-                                flexShrink: 0,
-                              }}
-                            >
-                              {formatTime(track.end - track.start)}
-                            </span>
-                          )}
+                        {track.start !== undefined && track.end !== undefined && (
+                          <span style={{ color: isActive ? C.accent : C.textDisabled, fontSize: 12, flexShrink: 0 }}>
+                            {formatTime(track.end - track.start)}
+                          </span>
+                        )}
                       </div>
                     );
                   })}
@@ -450,15 +435,36 @@ const FullView: React.FC<FullViewProps> = ({
             )}
 
             {activeTab === "files" && (
-              <div
-                style={{
-                  color: C.textDisabled,
-                  fontSize: 13,
-                  padding: "40px 0",
-                  textAlign: "center",
-                }}
-              >
-                フェーズ2で実装予定
+              <div>
+                {/* Image preview */}
+                {imagePreview && (
+                  <div style={{ marginBottom: 16, textAlign: "center" }}>
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      style={{ maxWidth: "100%", maxHeight: 300, borderRadius: 8, border: `1px solid ${C.border}` }}
+                      onError={() => setImagePreview(null)}
+                    />
+                    <button
+                      onClick={() => setImagePreview(null)}
+                      style={{ display: "block", margin: "8px auto", background: "none", border: "none", color: C.textSecondary, cursor: "pointer", fontSize: 12 }}
+                    >
+                      プレビューを閉じる
+                    </button>
+                  </div>
+                )}
+
+                {loadingFiles ? (
+                  <div style={{ color: C.textDisabled, fontSize: 13, padding: "40px 0", textAlign: "center" }}>
+                    読み込み中...
+                  </div>
+                ) : fileTree ? (
+                  <FileTreeView entry={fileTree} depth={0} onFileClick={handleFileClick} />
+                ) : (
+                  <div style={{ color: C.textDisabled, fontSize: 13, padding: "40px 0", textAlign: "center" }}>
+                    ファイル情報を取得できませんでした
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -467,5 +473,65 @@ const FullView: React.FC<FullViewProps> = ({
     </div>
   );
 };
+
+function FileTreeView({ entry, depth, onFileClick }: { entry: FileEntry; depth: number; onFileClick: (e: FileEntry) => void }) {
+  const [expanded, setExpanded] = useState(depth < 1);
+
+  if (entry.isDir) {
+    return (
+      <div style={{ marginLeft: depth > 0 ? 16 : 0 }}>
+        <div
+          onClick={() => setExpanded(!expanded)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "4px 6px",
+            cursor: "pointer",
+            fontSize: 13,
+            color: "#e2e2f0",
+            borderRadius: 4,
+          }}
+        >
+          <span style={{ fontSize: 10, color: "#888", width: 12 }}>{expanded ? "▼" : "▶"}</span>
+          <span>{FILE_ICONS.directory}</span>
+          <span>{entry.name || "/"}</span>
+          <span style={{ color: "#555", fontSize: 11 }}>({entry.children.length})</span>
+        </div>
+        {expanded && entry.children.map((child, i) => (
+          <FileTreeView key={i} entry={child} depth={depth + 1} onFileClick={onFileClick} />
+        ))}
+      </div>
+    );
+  }
+
+  const icon = FILE_ICONS[entry.fileType] || FILE_ICONS.other;
+  const isClickable = entry.fileType === "audio" || entry.fileType === "image";
+
+  return (
+    <div
+      onClick={isClickable ? () => onFileClick(entry) : undefined}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "3px 6px",
+        marginLeft: depth > 0 ? 16 : 0,
+        cursor: isClickable ? "pointer" : "default",
+        fontSize: 13,
+        color: isClickable ? "#e2e2f0" : "#888",
+        borderRadius: 4,
+      }}
+    >
+      <span style={{ width: 12 }} />
+      <span>{icon}</span>
+      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.name}</span>
+      <span style={{ color: "#555", fontSize: 11, flexShrink: 0 }}>{formatFileSize(entry.size)}</span>
+      {entry.fileType === "audio" && (
+        <span style={{ color: "#5b8def", fontSize: 11, flexShrink: 0 }}>▶ 再生</span>
+      )}
+    </div>
+  );
+}
 
 export default FullView;

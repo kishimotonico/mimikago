@@ -75,19 +75,15 @@ fn process_meta_file(meta_path: &Path, db: &Database) -> Result<String, String> 
         .map_err(|e| format!("Failed to parse {}: {}", meta_path.display(), e))?;
 
     let work_dir = if meta_path.file_name().map(|n| n.to_str()) == Some(Some(".meta.json")) {
-        // Folder format: .meta.json is inside the work folder
         meta_path.parent().unwrap_or(meta_path).to_path_buf()
     } else {
-        // Single file format: xxx.meta.json is alongside the audio file
         meta_path.parent().unwrap_or(meta_path).to_path_buf()
     };
 
     let physical_path = work_dir.to_string_lossy().to_string();
 
-    // Calculate total duration from default playlist
     let total_duration = calculate_total_duration(&meta);
 
-    // Check for errors (missing audio files)
     let mut error_message = None;
     if let Some(playlist) = get_default_playlist(&meta) {
         let missing_files: Vec<String> = playlist
@@ -110,6 +106,14 @@ fn process_meta_file(meta_path: &Path, db: &Database) -> Result<String, String> 
 
     let status = if error_message.is_some() { "error" } else { "normal" };
 
+    // Preserve existing work data (bookmarks, resume, last_played, added_at)
+    let (added_at, bookmarked, last_played_at, resume_position, resume_track_index) =
+        if let Ok(Some(existing)) = db.get_work(&meta.id) {
+            (existing.added_at, existing.bookmarked, existing.last_played_at, existing.resume_position, existing.resume_track_index)
+        } else {
+            (chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(), false, None, 0.0, 0)
+        };
+
     let work = Work {
         id: meta.id.clone(),
         title: meta.title,
@@ -117,25 +121,29 @@ fn process_meta_file(meta_path: &Path, db: &Database) -> Result<String, String> 
         default_playlist: meta.default_playlist,
         created_at: meta.created_at,
         status: status.to_string(),
-        physical_path,
+        physical_path: physical_path.clone(),
         total_duration_sec: total_duration,
-        added_at: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+        added_at,
         error_message,
         urls: meta.urls,
         tags: meta.tags,
         playlists: meta.playlists,
+        bookmarked,
+        last_played_at,
+        resume_position,
+        resume_track_index,
     };
 
-    // Preserve added_at if work already exists
-    if let Ok(Some(existing)) = db.get_work(&work.id) {
-        let mut updated = work;
-        updated.added_at = existing.added_at;
-        db.upsert_work(&updated)?;
-        db.mark_found(&updated.id)?;
-        return Ok(updated.id);
+    db.upsert_work(&work)?;
+
+    // If the work existed before (move tracking), update path and mark found
+    if let Ok(Some(old_path)) = db.find_work_by_id_any_path(&meta.id) {
+        if old_path != physical_path {
+            db.update_work_path(&meta.id, &physical_path)?;
+        }
+        db.mark_found(&meta.id)?;
     }
 
-    db.upsert_work(&work)?;
     Ok(meta.id)
 }
 
@@ -321,6 +329,10 @@ fn generate_meta_for_folder(dir: &Path, db: &Database) -> Result<String, String>
         urls: Vec::new(),
         tags: Vec::new(),
         playlists,
+        bookmarked: false,
+        last_played_at: None,
+        resume_position: 0.0,
+        resume_track_index: 0,
     };
 
     db.upsert_work(&work)?;

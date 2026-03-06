@@ -2,7 +2,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::db::Database;
-use crate::models::{FileEntry, MetaFile, ScanResult, SearchPreset, Work, WorkSummary};
+use crate::dlsite::{self, DlsiteWorkInfo};
+use crate::models::{FileEntry, MetaFile, ScanResult, SearchPreset, UrlEntry, Work, WorkSummary};
 use crate::scanner;
 
 pub struct AppService {
@@ -173,6 +174,86 @@ impl AppService {
             .map_err(|e| format!("Failed to serialize export: {}", e))
     }
 
+    pub fn fetch_dlsite_info(&self, work_id: &str) -> Result<DlsiteWorkInfo, String> {
+        let work = self.db.get_work(work_id)?
+            .ok_or_else(|| format!("Work not found: {}", work_id))?;
+
+        // Try to extract RJ code from folder name or title
+        let folder_name = Path::new(&work.physical_path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("");
+
+        let rj_code = dlsite::extract_rj_code(folder_name)
+            .or_else(|| dlsite::extract_rj_code(&work.title))
+            .ok_or_else(|| "RJコードが見つかりません。フォルダ名またはタイトルにRJコードを含めてください。".to_string())?;
+
+        dlsite::fetch_dlsite_info(&rj_code)
+    }
+
+    pub fn apply_dlsite_info(&self, work_id: &str, info: &DlsiteWorkInfo, apply_title: bool, apply_tags: bool, apply_cover: bool) -> Result<(), String> {
+        let mut work = self.db.get_work(work_id)?
+            .ok_or_else(|| format!("Work not found: {}", work_id))?;
+
+        if apply_title {
+            work.title = info.title.clone();
+        }
+
+        if apply_tags {
+            // Merge genre tags (avoid duplicates)
+            let mut tags = work.tags.clone();
+            for tag in &info.genre_tags {
+                if !tags.contains(tag) {
+                    tags.push(tag.clone());
+                }
+            }
+            // Add CV tags with prefix
+            for cv in &info.cvs {
+                let cv_tag = format!("CV/{}", cv);
+                if !tags.contains(&cv_tag) {
+                    tags.push(cv_tag);
+                }
+            }
+            // Add circle tag
+            if let Some(ref circle) = info.circle {
+                let circle_tag = format!("サークル/{}", circle);
+                if !tags.contains(&circle_tag) {
+                    tags.push(circle_tag);
+                }
+            }
+            work.tags = tags;
+        }
+
+        // Add DLsite URL if not already present
+        let dlsite_url_exists = work.urls.iter().any(|u| u.url.contains("dlsite.com"));
+        if !dlsite_url_exists {
+            work.urls.push(UrlEntry {
+                label: "DLsite".to_string(),
+                url: info.url.clone(),
+            });
+        }
+
+        // Download cover image
+        if apply_cover {
+            if let Some(ref cover_url) = info.cover_url {
+                let save_path = Path::new(&work.physical_path);
+                match dlsite::download_cover_image(cover_url, save_path) {
+                    Ok(filename) => {
+                        work.cover_image = Some(filename);
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to download cover: {}", e);
+                    }
+                }
+            }
+        }
+
+        self.db.upsert_work(&work)?;
+        self.write_back_meta(&work, Some(work.tags.clone()))?;
+
+        Ok(())
+    }
+
     fn write_back_meta(&self, work: &Work, tags_override: Option<Vec<String>>) -> Result<(), String> {
         let meta_path = Path::new(&work.physical_path).join(".meta.json");
         if !meta_path.exists() {
@@ -253,4 +334,120 @@ fn build_file_tree(dir: &Path, work_root: &Path) -> Result<FileEntry, String> {
         file_type: "directory".to_string(),
         children,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_file_tree_empty_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+
+        let tree = build_file_tree(root, root).unwrap();
+        assert!(tree.is_dir);
+        assert_eq!(tree.file_type, "directory");
+        assert!(tree.children.is_empty());
+    }
+
+    #[test]
+    fn test_build_file_tree_with_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("track.mp3"), "audio data").unwrap();
+        std::fs::write(root.join("cover.jpg"), "image data").unwrap();
+        std::fs::write(root.join("notes.txt"), "text data").unwrap();
+
+        let tree = build_file_tree(root, root).unwrap();
+        assert_eq!(tree.children.len(), 3);
+
+        let types: Vec<&str> = tree.children.iter().map(|c| c.file_type.as_str()).collect();
+        assert!(types.contains(&"audio"));
+        assert!(types.contains(&"image"));
+        assert!(types.contains(&"text"));
+    }
+
+    #[test]
+    fn test_build_file_tree_nested_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let sub = root.join("subdir");
+        std::fs::create_dir(&sub).unwrap();
+        std::fs::write(sub.join("track.flac"), "audio").unwrap();
+
+        let tree = build_file_tree(root, root).unwrap();
+        assert_eq!(tree.children.len(), 1);
+        let subdir_entry = &tree.children[0];
+        assert!(subdir_entry.is_dir);
+        assert_eq!(subdir_entry.name, "subdir");
+        assert_eq!(subdir_entry.children.len(), 1);
+        assert_eq!(subdir_entry.children[0].file_type, "audio");
+    }
+
+    #[test]
+    fn test_build_file_tree_hidden_files_skipped() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join(".meta.json"), "{}").unwrap();
+        std::fs::write(root.join(".hidden"), "secret").unwrap();
+        std::fs::write(root.join("visible.mp3"), "audio").unwrap();
+
+        let tree = build_file_tree(root, root).unwrap();
+        assert_eq!(tree.children.len(), 1);
+        assert_eq!(tree.children[0].name, "visible.mp3");
+    }
+
+    #[test]
+    fn test_build_file_tree_file_types() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("a.mp3"), "").unwrap();
+        std::fs::write(root.join("b.m4a"), "").unwrap();
+        std::fs::write(root.join("c.wav"), "").unwrap();
+        std::fs::write(root.join("d.ogg"), "").unwrap();
+        std::fs::write(root.join("e.flac"), "").unwrap();
+        std::fs::write(root.join("f.opus"), "").unwrap();
+        std::fs::write(root.join("g.png"), "").unwrap();
+        std::fs::write(root.join("h.pdf"), "").unwrap();
+        std::fs::write(root.join("i.md"), "").unwrap();
+        std::fs::write(root.join("j.xyz"), "").unwrap();
+
+        let tree = build_file_tree(root, root).unwrap();
+        let mut type_map: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        for child in &tree.children {
+            type_map.entry(child.file_type.clone()).or_default().push(child.name.clone());
+        }
+        assert_eq!(type_map.get("audio").map(|v| v.len()).unwrap_or(0), 6);
+        assert_eq!(type_map.get("image").map(|v| v.len()).unwrap_or(0), 1);
+        assert_eq!(type_map.get("pdf").map(|v| v.len()).unwrap_or(0), 1);
+        assert_eq!(type_map.get("text").map(|v| v.len()).unwrap_or(0), 1);
+        assert_eq!(type_map.get("other").map(|v| v.len()).unwrap_or(0), 1);
+    }
+
+    #[test]
+    fn test_build_file_tree_relative_paths() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let sub = root.join("inner");
+        std::fs::create_dir(&sub).unwrap();
+        std::fs::write(sub.join("file.mp3"), "").unwrap();
+
+        let tree = build_file_tree(root, root).unwrap();
+        let inner = &tree.children[0];
+        assert_eq!(inner.path, "inner");
+        let file = &inner.children[0];
+        assert_eq!(file.path, "inner/file.mp3");
+    }
+
+    #[test]
+    fn test_build_file_tree_file_size() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let content = "hello world"; // 11 bytes
+        std::fs::write(root.join("test.txt"), content).unwrap();
+
+        let tree = build_file_tree(root, root).unwrap();
+        assert_eq!(tree.children[0].size, 11);
+    }
 }

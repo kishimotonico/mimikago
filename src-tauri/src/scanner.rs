@@ -496,3 +496,311 @@ fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::cmp::Ordering;
+
+    // --- natural_cmp tests ---
+
+    #[test]
+    fn test_natural_cmp_equal() {
+        assert_eq!(natural_cmp("abc", "abc"), Ordering::Equal);
+    }
+
+    #[test]
+    fn test_natural_cmp_alphabetic() {
+        assert_eq!(natural_cmp("abc", "def"), Ordering::Less);
+        assert_eq!(natural_cmp("def", "abc"), Ordering::Greater);
+    }
+
+    #[test]
+    fn test_natural_cmp_numeric() {
+        assert_eq!(natural_cmp("track2", "track10"), Ordering::Less);
+        assert_eq!(natural_cmp("track10", "track2"), Ordering::Greater);
+    }
+
+    #[test]
+    fn test_natural_cmp_case_insensitive() {
+        assert_eq!(natural_cmp("ABC", "abc"), Ordering::Equal);
+    }
+
+    #[test]
+    fn test_natural_cmp_empty() {
+        assert_eq!(natural_cmp("", ""), Ordering::Equal);
+        assert_eq!(natural_cmp("", "a"), Ordering::Less);
+        assert_eq!(natural_cmp("a", ""), Ordering::Greater);
+    }
+
+    #[test]
+    fn test_natural_cmp_prefix() {
+        assert_eq!(natural_cmp("track", "track1"), Ordering::Less);
+    }
+
+    #[test]
+    fn test_natural_cmp_numbers_only() {
+        assert_eq!(natural_cmp("1", "2"), Ordering::Less);
+        assert_eq!(natural_cmp("10", "2"), Ordering::Greater);
+        assert_eq!(natural_cmp("100", "100"), Ordering::Equal);
+    }
+
+    // --- calculate_total_duration tests ---
+
+    #[test]
+    fn test_calculate_total_duration_with_start_end() {
+        let meta = MetaFile {
+            id: "test".to_string(),
+            title: "Test".to_string(),
+            urls: Vec::new(),
+            tags: Vec::new(),
+            cover_image: None,
+            playlists: vec![Playlist {
+                name: "default".to_string(),
+                tracks: vec![
+                    Track { title: "T1".to_string(), file: "t1.mp3".to_string(), start: Some(0.0), end: Some(60.0) },
+                    Track { title: "T2".to_string(), file: "t2.mp3".to_string(), start: Some(60.0), end: Some(180.0) },
+                ],
+            }],
+            default_playlist: Some("default".to_string()),
+            created_at: None,
+        };
+        assert_eq!(calculate_total_duration(&meta), 180);
+    }
+
+    #[test]
+    fn test_calculate_total_duration_no_start_end() {
+        let meta = MetaFile {
+            id: "test".to_string(),
+            title: "Test".to_string(),
+            urls: Vec::new(),
+            tags: Vec::new(),
+            cover_image: None,
+            playlists: vec![Playlist {
+                name: "default".to_string(),
+                tracks: vec![
+                    Track { title: "T1".to_string(), file: "t1.mp3".to_string(), start: None, end: None },
+                ],
+            }],
+            default_playlist: None,
+            created_at: None,
+        };
+        assert_eq!(calculate_total_duration(&meta), 0);
+    }
+
+    #[test]
+    fn test_calculate_total_duration_empty_playlists() {
+        let meta = MetaFile {
+            id: "test".to_string(),
+            title: "Test".to_string(),
+            urls: Vec::new(),
+            tags: Vec::new(),
+            cover_image: None,
+            playlists: Vec::new(),
+            default_playlist: None,
+            created_at: None,
+        };
+        assert_eq!(calculate_total_duration(&meta), 0);
+    }
+
+    // --- get_default_playlist tests ---
+
+    #[test]
+    fn test_get_default_playlist_by_name() {
+        let meta = MetaFile {
+            id: "test".to_string(),
+            title: "Test".to_string(),
+            urls: Vec::new(),
+            tags: Vec::new(),
+            cover_image: None,
+            playlists: vec![
+                Playlist { name: "other".to_string(), tracks: Vec::new() },
+                Playlist { name: "main".to_string(), tracks: vec![
+                    Track { title: "T1".to_string(), file: "t1.mp3".to_string(), start: None, end: None },
+                ]},
+            ],
+            default_playlist: Some("main".to_string()),
+            created_at: None,
+        };
+        let pl = get_default_playlist(&meta).unwrap();
+        assert_eq!(pl.name, "main");
+    }
+
+    #[test]
+    fn test_get_default_playlist_falls_back_to_first() {
+        let meta = MetaFile {
+            id: "test".to_string(),
+            title: "Test".to_string(),
+            urls: Vec::new(),
+            tags: Vec::new(),
+            cover_image: None,
+            playlists: vec![
+                Playlist { name: "first".to_string(), tracks: Vec::new() },
+                Playlist { name: "second".to_string(), tracks: Vec::new() },
+            ],
+            default_playlist: None,
+            created_at: None,
+        };
+        let pl = get_default_playlist(&meta).unwrap();
+        assert_eq!(pl.name, "first");
+    }
+
+    #[test]
+    fn test_get_default_playlist_empty() {
+        let meta = MetaFile {
+            id: "test".to_string(),
+            title: "Test".to_string(),
+            urls: Vec::new(),
+            tags: Vec::new(),
+            cover_image: None,
+            playlists: Vec::new(),
+            default_playlist: None,
+            created_at: None,
+        };
+        assert!(get_default_playlist(&meta).is_none());
+    }
+
+    // --- find_work_root tests ---
+
+    #[test]
+    fn test_find_work_root_direct_child() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let work_dir = root.join("work1");
+        std::fs::create_dir(&work_dir).unwrap();
+
+        let result = find_work_root(&work_dir, root);
+        assert_eq!(result, work_dir);
+    }
+
+    #[test]
+    fn test_find_work_root_nested() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let work_dir = root.join("work1");
+        let sub_dir = work_dir.join("audio");
+        std::fs::create_dir_all(&sub_dir).unwrap();
+
+        // Audio is in work1/audio, work root should be work1
+        let result = find_work_root(&sub_dir, root);
+        assert_eq!(result, work_dir);
+    }
+
+    #[test]
+    fn test_find_work_root_deeply_nested() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let deep = root.join("a").join("b").join("c");
+        std::fs::create_dir_all(&deep).unwrap();
+
+        let result = find_work_root(&deep, root);
+        // Should return the first child of root: "a"
+        assert_eq!(result, root.join("a"));
+    }
+
+    // --- find_cover_image tests ---
+
+    #[test]
+    fn test_find_cover_image_prefers_cover_named() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("art.jpg"), "fake").unwrap();
+        std::fs::write(root.join("cover.png"), "fake").unwrap();
+
+        let result = find_cover_image(root);
+        assert_eq!(result, Some("cover.png".to_string()));
+    }
+
+    #[test]
+    fn test_find_cover_image_prefers_jacket_named() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("image.jpg"), "fake").unwrap();
+        std::fs::write(root.join("jacket.jpg"), "fake").unwrap();
+
+        let result = find_cover_image(root);
+        assert_eq!(result, Some("jacket.jpg".to_string()));
+    }
+
+    #[test]
+    fn test_find_cover_image_falls_back_to_first() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("b_image.png"), "fake").unwrap();
+        std::fs::write(root.join("a_image.jpg"), "fake").unwrap();
+
+        let result = find_cover_image(root);
+        // Sorted alphabetically, a_image.jpg comes first
+        assert_eq!(result, Some("a_image.jpg".to_string()));
+    }
+
+    #[test]
+    fn test_find_cover_image_no_images() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("readme.txt"), "text").unwrap();
+
+        let result = find_cover_image(root);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_find_cover_image_empty_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = find_cover_image(dir.path());
+        assert!(result.is_none());
+    }
+
+    // --- build_default_tracks tests ---
+
+    #[test]
+    fn test_build_default_tracks_direct_audio() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("track02.mp3"), "fake").unwrap();
+        std::fs::write(root.join("track01.mp3"), "fake").unwrap();
+        std::fs::write(root.join("track10.mp3"), "fake").unwrap();
+
+        let tracks = build_default_tracks(root);
+        assert_eq!(tracks.len(), 3);
+        // Should be naturally sorted
+        assert_eq!(tracks[0].file, "track01.mp3");
+        assert_eq!(tracks[1].file, "track02.mp3");
+        assert_eq!(tracks[2].file, "track10.mp3");
+        assert_eq!(tracks[0].title, "track01");
+    }
+
+    #[test]
+    fn test_build_default_tracks_empty_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let tracks = build_default_tracks(dir.path());
+        assert!(tracks.is_empty());
+    }
+
+    #[test]
+    fn test_build_default_tracks_non_audio_ignored() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("readme.txt"), "text").unwrap();
+        std::fs::write(root.join("cover.jpg"), "image").unwrap();
+
+        let tracks = build_default_tracks(root);
+        assert!(tracks.is_empty());
+    }
+
+    #[test]
+    fn test_build_default_tracks_subfolder_audio() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let sub = root.join("audio");
+        std::fs::create_dir(&sub).unwrap();
+        std::fs::write(sub.join("track1.flac"), "fake").unwrap();
+        std::fs::write(sub.join("track2.flac"), "fake").unwrap();
+        // No direct audio in root
+
+        let tracks = build_default_tracks(root);
+        assert_eq!(tracks.len(), 2);
+        // Relative paths should include the subfolder
+        assert!(tracks[0].file.contains("audio"));
+    }
+}

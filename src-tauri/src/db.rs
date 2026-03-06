@@ -461,3 +461,287 @@ impl Database {
         Ok(result)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_db() -> Database {
+        Database::new(Path::new(":memory:")).unwrap()
+    }
+
+    fn make_test_work(id: &str, title: &str, tags: Vec<String>) -> Work {
+        Work {
+            id: id.to_string(),
+            title: title.to_string(),
+            cover_image: None,
+            default_playlist: None,
+            created_at: None,
+            status: "normal".to_string(),
+            physical_path: "/tmp/test".to_string(),
+            total_duration_sec: 0,
+            added_at: "2025-01-01T00:00:00Z".to_string(),
+            error_message: None,
+            urls: Vec::new(),
+            tags,
+            playlists: Vec::new(),
+            bookmarked: false,
+            last_played_at: None,
+            resume_position: 0.0,
+            resume_track_index: 0,
+        }
+    }
+
+    #[test]
+    fn test_new_creates_tables() {
+        let db = create_test_db();
+        // Verify tables exist by attempting operations
+        let result = db.get_all_works();
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_set_and_get_setting() {
+        let db = create_test_db();
+        db.set_setting("test_key", "test_value").unwrap();
+        let val = db.get_setting("test_key").unwrap();
+        assert_eq!(val, Some("test_value".to_string()));
+    }
+
+    #[test]
+    fn test_get_setting_nonexistent() {
+        let db = create_test_db();
+        let val = db.get_setting("nonexistent").unwrap();
+        assert_eq!(val, None);
+    }
+
+    #[test]
+    fn test_set_setting_overwrite() {
+        let db = create_test_db();
+        db.set_setting("key", "value1").unwrap();
+        db.set_setting("key", "value2").unwrap();
+        let val = db.get_setting("key").unwrap();
+        assert_eq!(val, Some("value2".to_string()));
+    }
+
+    #[test]
+    fn test_upsert_and_get_work() {
+        let db = create_test_db();
+        let work = make_test_work("w1", "Test Work", vec!["ASMR".to_string(), "癒し".to_string()]);
+        db.upsert_work(&work).unwrap();
+
+        let retrieved = db.get_work("w1").unwrap().unwrap();
+        assert_eq!(retrieved.id, "w1");
+        assert_eq!(retrieved.title, "Test Work");
+        assert_eq!(retrieved.tags, vec!["ASMR", "癒し"]);
+        assert_eq!(retrieved.status, "normal");
+    }
+
+    #[test]
+    fn test_get_work_nonexistent() {
+        let db = create_test_db();
+        let result = db.get_work("nonexistent").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_upsert_work_updates_existing() {
+        let db = create_test_db();
+        let work1 = make_test_work("w1", "Original Title", vec![]);
+        db.upsert_work(&work1).unwrap();
+
+        let work2 = make_test_work("w1", "Updated Title", vec!["tag1".to_string()]);
+        db.upsert_work(&work2).unwrap();
+
+        let retrieved = db.get_work("w1").unwrap().unwrap();
+        assert_eq!(retrieved.title, "Updated Title");
+        assert_eq!(retrieved.tags, vec!["tag1"]);
+    }
+
+    #[test]
+    fn test_get_all_works() {
+        let db = create_test_db();
+        let w1 = make_test_work("w1", "Work 1", vec!["tag1".to_string()]);
+        let w2 = make_test_work("w2", "Work 2", vec!["tag2".to_string()]);
+        db.upsert_work(&w1).unwrap();
+        db.upsert_work(&w2).unwrap();
+
+        let all = db.get_all_works().unwrap();
+        assert_eq!(all.len(), 2);
+        // Verify tags are populated
+        let titles: Vec<&str> = all.iter().map(|w| w.title.as_str()).collect();
+        assert!(titles.contains(&"Work 1"));
+        assert!(titles.contains(&"Work 2"));
+    }
+
+    #[test]
+    fn test_search_works_by_title() {
+        let db = create_test_db();
+        db.upsert_work(&make_test_work("w1", "ASMR Collection", vec![])).unwrap();
+        db.upsert_work(&make_test_work("w2", "Music Album", vec![])).unwrap();
+
+        let results = db.search_works("asmr", &[]).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title, "ASMR Collection");
+    }
+
+    #[test]
+    fn test_search_works_by_tag() {
+        let db = create_test_db();
+        db.upsert_work(&make_test_work("w1", "Work 1", vec!["ASMR".to_string()])).unwrap();
+        db.upsert_work(&make_test_work("w2", "Work 2", vec!["Music".to_string()])).unwrap();
+
+        let results = db.search_works("", &["ASMR".to_string()]).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].id, "w1");
+    }
+
+    #[test]
+    fn test_search_works_empty_query() {
+        let db = create_test_db();
+        db.upsert_work(&make_test_work("w1", "Work 1", vec![])).unwrap();
+        db.upsert_work(&make_test_work("w2", "Work 2", vec![])).unwrap();
+
+        let results = db.search_works("", &[]).unwrap();
+        assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn test_search_works_by_tag_in_query() {
+        let db = create_test_db();
+        db.upsert_work(&make_test_work("w1", "Work 1", vec!["癒し".to_string()])).unwrap();
+        db.upsert_work(&make_test_work("w2", "Work 2", vec![])).unwrap();
+
+        // Query text also searches tags
+        let results = db.search_works("癒し", &[]).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].id, "w1");
+    }
+
+    #[test]
+    fn test_update_work_tags() {
+        let db = create_test_db();
+        db.upsert_work(&make_test_work("w1", "Work 1", vec!["old_tag".to_string()])).unwrap();
+
+        db.update_work_tags("w1", &["new_tag1".to_string(), "new_tag2".to_string()]).unwrap();
+
+        let work = db.get_work("w1").unwrap().unwrap();
+        assert_eq!(work.tags.len(), 2);
+        assert!(work.tags.contains(&"new_tag1".to_string()));
+        assert!(work.tags.contains(&"new_tag2".to_string()));
+        assert!(!work.tags.contains(&"old_tag".to_string()));
+    }
+
+    #[test]
+    fn test_toggle_bookmark() {
+        let db = create_test_db();
+        db.upsert_work(&make_test_work("w1", "Work 1", vec![])).unwrap();
+
+        // Initially not bookmarked
+        let work = db.get_work("w1").unwrap().unwrap();
+        assert!(!work.bookmarked);
+
+        // Toggle on
+        let result = db.toggle_bookmark("w1").unwrap();
+        assert!(result);
+
+        let work = db.get_work("w1").unwrap().unwrap();
+        assert!(work.bookmarked);
+
+        // Toggle off
+        let result = db.toggle_bookmark("w1").unwrap();
+        assert!(!result);
+
+        let work = db.get_work("w1").unwrap().unwrap();
+        assert!(!work.bookmarked);
+    }
+
+    #[test]
+    fn test_save_resume_position() {
+        let db = create_test_db();
+        db.upsert_work(&make_test_work("w1", "Work 1", vec![])).unwrap();
+
+        db.save_resume_position("w1", 42.5, 3).unwrap();
+
+        let work = db.get_work("w1").unwrap().unwrap();
+        assert!((work.resume_position - 42.5).abs() < f64::EPSILON);
+        assert_eq!(work.resume_track_index, 3);
+    }
+
+    #[test]
+    fn test_mark_all_missing_and_mark_found() {
+        let db = create_test_db();
+        db.upsert_work(&make_test_work("w1", "Work 1", vec![])).unwrap();
+        db.upsert_work(&make_test_work("w2", "Work 2", vec![])).unwrap();
+
+        // Mark all missing
+        db.mark_all_missing().unwrap();
+
+        let all = db.get_all_works().unwrap();
+        assert!(all.iter().all(|w| w.status == "missing"));
+
+        // Mark one found
+        db.mark_found("w1").unwrap();
+
+        let w1 = db.get_work("w1").unwrap().unwrap();
+        let w2 = db.get_work("w2").unwrap().unwrap();
+        assert_eq!(w1.status, "normal");
+        assert_eq!(w2.status, "missing");
+    }
+
+    #[test]
+    fn test_search_preset_crud() {
+        let db = create_test_db();
+
+        // Save
+        let id = db.save_search_preset(
+            "My Preset",
+            "asmr",
+            &["tag1".to_string(), "tag2".to_string()],
+            "title-asc",
+        ).unwrap();
+        assert!(id > 0);
+
+        // Get
+        let presets = db.get_search_presets().unwrap();
+        assert_eq!(presets.len(), 1);
+        assert_eq!(presets[0].name, "My Preset");
+        assert_eq!(presets[0].query, "asmr");
+        assert_eq!(presets[0].tag_filters, vec!["tag1", "tag2"]);
+        assert_eq!(presets[0].sort_id, "title-asc");
+
+        // Delete
+        db.delete_search_preset(id).unwrap();
+        let presets = db.get_search_presets().unwrap();
+        assert!(presets.is_empty());
+    }
+
+    #[test]
+    fn test_get_all_tags_only_associated() {
+        let db = create_test_db();
+
+        // Insert a work with tags
+        db.upsert_work(&make_test_work("w1", "Work 1", vec!["ASMR".to_string(), "癒し".to_string()])).unwrap();
+
+        // Create an orphan tag by adding then removing it
+        db.upsert_work(&make_test_work("w2", "Work 2", vec!["orphan_tag".to_string()])).unwrap();
+        db.delete_work("w2").unwrap();
+
+        let tags = db.get_all_tags().unwrap();
+        // orphan_tag should not appear since it has no associated work
+        assert_eq!(tags.len(), 2);
+        assert!(tags.contains(&"ASMR".to_string()));
+        assert!(tags.contains(&"癒し".to_string()));
+        assert!(!tags.contains(&"orphan_tag".to_string()));
+    }
+
+    #[test]
+    fn test_delete_work() {
+        let db = create_test_db();
+        db.upsert_work(&make_test_work("w1", "Work 1", vec!["tag".to_string()])).unwrap();
+
+        db.delete_work("w1").unwrap();
+        assert!(db.get_work("w1").unwrap().is_none());
+    }
+}

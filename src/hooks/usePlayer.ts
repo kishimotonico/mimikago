@@ -25,6 +25,7 @@ export function usePlayer() {
   const channelSwapNodeRef = useRef<{ splitter: ChannelSplitterNode; merger: ChannelMergerNode } | null>(null);
   const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
   const channelSwapEnabledRef = useRef(false);
+  const playbackRateRef = useRef(1.0);
   const resumeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [state, setState] = useState<PlayerState>({
@@ -46,6 +47,7 @@ export function usePlayer() {
   loopRef.current = state.loop;
   abRepeatRef.current = state.abRepeat;
   channelSwapEnabledRef.current = state.channelSwap;
+  playbackRateRef.current = state.playbackRate;
 
   useEffect(() => {
     if (!audioRef.current) {
@@ -141,7 +143,7 @@ export function usePlayer() {
         : audioPath;
 
       audioRef.current.src = assetUrl;
-      audioRef.current.playbackRate = state.playbackRate;
+      audioRef.current.playbackRate = playbackRateRef.current;
 
       if (track.start !== undefined) {
         audioRef.current.currentTime = track.start;
@@ -152,7 +154,8 @@ export function usePlayer() {
       // Update last played
       api.updateLastPlayed(state.currentWork.id).catch(() => {});
     }
-  }, [state.currentTrackIndex, state.tracks, state.currentWork, state.playbackRate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.currentTrackIndex, state.tracks, state.currentWork]);
 
   // Setup Web Audio API for channel swap
   const setupChannelSwap = useCallback(() => {

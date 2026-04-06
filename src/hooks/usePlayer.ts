@@ -136,11 +136,9 @@ export function usePlayer() {
       audioRef.current
     ) {
       const track = state.tracks[state.currentTrackIndex];
-      const workPath = state.currentWork.physicalPath;
-      const audioPath = `${workPath}/${track.file}`;
-      const assetUrl = window.__TAURI__
-        ? `asset://localhost/${audioPath.split("/").map(encodeURIComponent).join("/")}`
-        : audioPath;
+      const workId = state.currentWork.id;
+      const encoded = track.file.split("/").map(encodeURIComponent).join("/");
+      const assetUrl = `/api/audio/${encodeURIComponent(workId)}/${encoded}`;
 
       audioRef.current.src = assetUrl;
       audioRef.current.playbackRate = playbackRateRef.current;

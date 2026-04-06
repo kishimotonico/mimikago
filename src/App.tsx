@@ -70,20 +70,9 @@ function App() {
     }
   }, [lib.fullViewWorkId]);
 
-  const handleSelectFolder = useCallback(async () => {
-    try {
-      const { open } = await import("@tauri-apps/plugin-dialog");
-      const selected = await open({
-        directory: true,
-        title: "ルートフォルダーを選択",
-      });
-      if (selected) {
-        setSetupPath(selected as string);
-      }
-    } catch {
-      const path = window.prompt("ルートフォルダーのパスを入力:");
-      if (path) setSetupPath(path);
-    }
+  const handleSelectFolder = useCallback(() => {
+    const path = window.prompt("ルートフォルダーのパスを入力:");
+    if (path) setSetupPath(path);
   }, []);
 
   const handleSetupComplete = useCallback(
@@ -96,22 +85,11 @@ function App() {
   );
 
   const handleChangeFolder = useCallback(async () => {
-    try {
-      const { open } = await import("@tauri-apps/plugin-dialog");
-      const selected = await open({
-        directory: true,
-        title: "ルートフォルダーを選択",
-      });
-      if (selected) {
-        await lib.changeRootFolder(selected as string);
-      }
-    } catch {
-      const path = window.prompt(
-        "ルートフォルダーのパスを入力:",
-        lib.rootFolder || ""
-      );
-      if (path) await lib.changeRootFolder(path);
-    }
+    const path = window.prompt(
+      "ルートフォルダーのパスを入力:",
+      lib.rootFolder || ""
+    );
+    if (path) await lib.changeRootFolder(path);
   }, [lib]);
 
   const handlePlay = useCallback(

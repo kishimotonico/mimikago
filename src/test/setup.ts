@@ -1,6 +1,4 @@
 import '@testing-library/jest-dom';
 
-// Mock Tauri invoke
-vi.mock('@tauri-apps/api/core', () => ({
-  invoke: vi.fn(),
-}));
+// global.fetch のモック（各テストで vi.mocked(fetch) を使う）
+global.fetch = vi.fn();

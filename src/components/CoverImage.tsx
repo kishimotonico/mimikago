@@ -19,15 +19,10 @@ function hashHue(workId: string): number {
   return hash;
 }
 
-function buildAssetUrl(physicalPath: string, coverImage: string): string {
-  const fullPath = `${physicalPath}/${coverImage}`;
-  return `asset://localhost/${fullPath.split("/").map(encodeURIComponent).join("/")}`;
-}
-
 const CoverImage: React.FC<CoverImageProps> = ({
   workId,
   coverImage,
-  physicalPath,
+  physicalPath: _physicalPath,
   size,
   hasError,
   isMissing,
@@ -56,8 +51,8 @@ const CoverImage: React.FC<CoverImageProps> = ({
     justifyContent: "center",
   };
 
-  const showImage = coverImage && physicalPath && !imgError && window.__TAURI__;
-  const imgSrc = showImage ? buildAssetUrl(physicalPath, coverImage) : "";
+  const showImage = coverImage && !imgError;
+  const imgSrc = showImage ? `/api/works/${encodeURIComponent(workId)}/cover` : "";
 
   return (
     <div style={containerStyle}>

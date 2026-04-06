@@ -1,77 +1,114 @@
-import { invoke } from "@tauri-apps/api/core";
 import type { Work, WorkSummary, ScanResult, SearchPreset, FileEntry, DlsiteWorkInfo } from "./types";
 
+const API_BASE = "/api";
+
+async function get<T>(path: string): Promise<T> {
+  const res = await fetch(API_BASE + path);
+  if (!res.ok) throw new Error(`API error ${res.status}: GET ${path}`);
+  return res.json();
+}
+
+async function post<T = void>(path: string, body?: unknown): Promise<T> {
+  const res = await fetch(API_BASE + path, {
+    method: "POST",
+    headers: body !== undefined ? { "Content-Type": "application/json" } : {},
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}: POST ${path}`);
+  if (res.status === 204) return undefined as T;
+  return res.json();
+}
+
+async function put(path: string, body: unknown): Promise<void> {
+  const res = await fetch(API_BASE + path, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}: PUT ${path}`);
+}
+
+async function del(path: string): Promise<void> {
+  const res = await fetch(API_BASE + path, { method: "DELETE" });
+  if (!res.ok) throw new Error(`API error ${res.status}: DELETE ${path}`);
+}
+
 export async function getRootFolder(): Promise<string | null> {
-  return invoke<string | null>("get_root_folder");
+  const s = await get<{ rootFolder: string | null }>("/settings");
+  return s.rootFolder;
 }
 
 export async function setRootFolder(path: string): Promise<void> {
-  return invoke("set_root_folder", { path });
+  await post("/settings", { rootFolder: path });
 }
 
 export async function scanLibrary(): Promise<ScanResult> {
-  return invoke<ScanResult>("scan_library");
+  return post<ScanResult>("/scan");
 }
 
 export async function getAllWorks(): Promise<WorkSummary[]> {
-  return invoke<WorkSummary[]>("get_all_works");
+  return get<WorkSummary[]>("/works");
 }
 
 export async function getWork(id: string): Promise<Work | null> {
-  return invoke<Work | null>("get_work", { id });
+  return get<Work | null>(`/works/${encodeURIComponent(id)}`);
 }
 
 export async function searchWorks(
   query: string,
   tagFilters: string[]
 ): Promise<WorkSummary[]> {
-  return invoke<WorkSummary[]>("search_works", { query, tagFilters });
+  const params = new URLSearchParams({ query });
+  tagFilters.forEach((t) => params.append("tag", t));
+  return get<WorkSummary[]>(`/works?${params}`);
 }
 
 export async function updateWorkTags(
   workId: string,
   tags: string[]
 ): Promise<void> {
-  return invoke("update_work_tags", { workId, tags });
+  await put(`/works/${encodeURIComponent(workId)}/tags`, { tags });
 }
 
 export async function updateWorkTitle(
   workId: string,
   title: string
 ): Promise<void> {
-  return invoke("update_work_title", { workId, title });
+  await put(`/works/${encodeURIComponent(workId)}/title`, { title });
 }
 
 export async function getAllTags(): Promise<string[]> {
-  return invoke<string[]>("get_all_tags");
+  return get<string[]>("/tags");
 }
 
-export async function getCoverImagePath(
-  workId: string
-): Promise<string | null> {
-  return invoke<string | null>("get_cover_image_path", { workId });
+/** カバー画像のURLを返す（<img src> で直接使用可） */
+export function getCoverImageUrl(workId: string): string {
+  return `${API_BASE}/works/${encodeURIComponent(workId)}/cover`;
 }
 
-export async function getAudioFilePath(
-  workId: string,
-  relativePath: string
-): Promise<string | null> {
-  return invoke<string | null>("get_audio_file_path", {
-    workId,
-    relativePath,
-  });
+/** 音声ファイルのURLを返す（<audio src> で直接使用可） */
+export function getAudioUrl(workId: string, relativePath: string): string {
+  const encoded = relativePath
+    .split("/")
+    .map(encodeURIComponent)
+    .join("/");
+  return `${API_BASE}/audio/${encodeURIComponent(workId)}/${encoded}`;
 }
 
 export async function getLastScanTime(): Promise<string | null> {
-  return invoke<string | null>("get_last_scan_time");
+  const s = await get<{ rootFolder: string | null; lastScanTime: string | null }>("/settings");
+  return s.lastScanTime;
 }
 
 export async function toggleBookmark(workId: string): Promise<boolean> {
-  return invoke<boolean>("toggle_bookmark", { workId });
+  const r = await post<{ bookmarked: boolean }>(
+    `/works/${encodeURIComponent(workId)}/bookmark`
+  );
+  return r.bookmarked;
 }
 
 export async function updateLastPlayed(workId: string): Promise<void> {
-  return invoke("update_last_played", { workId });
+  await post(`/works/${encodeURIComponent(workId)}/last-played`);
 }
 
 export async function saveResumePosition(
@@ -79,7 +116,10 @@ export async function saveResumePosition(
   position: number,
   trackIndex: number
 ): Promise<void> {
-  return invoke("save_resume_position", { workId, position, trackIndex });
+  await post(`/works/${encodeURIComponent(workId)}/resume`, {
+    position,
+    trackIndex,
+  });
 }
 
 export async function saveSearchPreset(
@@ -88,27 +128,34 @@ export async function saveSearchPreset(
   tagFilters: string[],
   sortId: string
 ): Promise<number> {
-  return invoke<number>("save_search_preset", { name, query, tagFilters, sortId });
+  const r = await post<{ id: number }>("/presets", {
+    name,
+    query,
+    tagFilters,
+    sortId,
+  });
+  return r.id;
 }
 
 export async function getSearchPresets(): Promise<SearchPreset[]> {
-  return invoke<SearchPreset[]>("get_search_presets");
+  return get<SearchPreset[]>("/presets");
 }
 
 export async function deleteSearchPreset(id: number): Promise<void> {
-  return invoke("delete_search_preset", { id });
+  await del(`/presets/${id}`);
 }
 
 export async function listWorkFiles(workId: string): Promise<FileEntry | null> {
-  return invoke<FileEntry | null>("list_work_files", { workId });
+  return get<FileEntry | null>(`/works/${encodeURIComponent(workId)}/files`);
 }
 
 export async function exportLibrary(): Promise<string> {
-  return invoke<string>("export_library");
+  const r = await post<{ data: string }>("/export");
+  return r.data;
 }
 
 export async function fetchDlsiteInfo(workId: string): Promise<DlsiteWorkInfo> {
-  return invoke<DlsiteWorkInfo>("fetch_dlsite_info", { workId });
+  return post<DlsiteWorkInfo>(`/dlsite/${encodeURIComponent(workId)}/fetch`);
 }
 
 export async function applyDlsiteInfo(
@@ -118,5 +165,10 @@ export async function applyDlsiteInfo(
   applyTags: boolean,
   applyCover: boolean
 ): Promise<void> {
-  return invoke("apply_dlsite_info", { workId, info, applyTitle, applyTags, applyCover });
+  await post(`/dlsite/${encodeURIComponent(workId)}/apply`, {
+    info,
+    applyTitle,
+    applyTags,
+    applyCover,
+  });
 }

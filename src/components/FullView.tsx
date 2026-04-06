@@ -139,20 +139,16 @@ const FullView: React.FC<FullViewProps> = ({
   };
 
   const handleFileClick = useCallback((entry: FileEntry) => {
+    const encoded = entry.path.split("/").map(encodeURIComponent).join("/");
     if (entry.fileType === "audio") {
-      // Play this audio file directly
-      const assetUrl = window.__TAURI__
-        ? `asset://localhost/${(work.physicalPath + "/" + entry.path).split("/").map(encodeURIComponent).join("/")}`
-        : entry.path;
+      const assetUrl = `/api/audio/${encodeURIComponent(work.id)}/${encoded}`;
       const audio = new Audio(assetUrl);
       audio.play().catch(() => {});
     } else if (entry.fileType === "image") {
-      const assetUrl = window.__TAURI__
-        ? `asset://localhost/${(work.physicalPath + "/" + entry.path).split("/").map(encodeURIComponent).join("/")}`
-        : entry.path;
+      const assetUrl = `/api/files/${encodeURIComponent(work.id)}/${encoded}`;
       setImagePreview(assetUrl);
     }
-  }, [work.physicalPath]);
+  }, [work.id]);
 
   const containerStyle: React.CSSProperties = {
     position: "fixed",

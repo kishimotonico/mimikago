@@ -58,8 +58,8 @@ export async function searchWorks(
   query: string,
   tagFilters: string[]
 ): Promise<WorkSummary[]> {
-  const params = new URLSearchParams({ query });
-  tagFilters.forEach((t) => params.append("tag", t));
+  const params = new URLSearchParams({ q: query });
+  if (tagFilters.length > 0) params.set("tags", tagFilters.join(","));
   return get<WorkSummary[]>(`/works?${params}`);
 }
 

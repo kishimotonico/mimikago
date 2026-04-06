@@ -194,10 +194,14 @@ async function readBody(req: IncomingMessage): Promise<Record<string, unknown>> 
 // Vite 設定
 // ---------------------------------------------------------------------------
 
+// BACKEND_URL が設定されていれば本物のサーバーにプロキシ、なければモックを使う
+// 例: BACKEND_URL=http://localhost:8080 pnpm dev
+const backendUrl = process.env.BACKEND_URL;
+
 export default defineConfig({
   plugins: [
     react(),
-    {
+    !backendUrl && {
       name: "mock-api",
       configureServer(server) {
         server.middlewares.use(
@@ -415,7 +419,7 @@ export default defineConfig({
         );
       },
     },
-  ],
+  ].filter(Boolean),
 
   test: {
     environment: "jsdom",
@@ -425,5 +429,8 @@ export default defineConfig({
 
   server: {
     port: 1420,
+    proxy: backendUrl
+      ? { "/api": { target: backendUrl, changeOrigin: true } }
+      : undefined,
   },
 });

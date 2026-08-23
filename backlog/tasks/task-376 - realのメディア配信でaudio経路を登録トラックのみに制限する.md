@@ -1,9 +1,10 @@
 ---
 id: TASK-376
 title: realのメディア配信でaudio経路を登録トラックのみに制限する
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-21 14:47'
+updated_date: '2026-08-23 01:06'
 labels: []
 dependencies: []
 priority: high
@@ -18,8 +19,20 @@ ordinal: 376000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 realのaudio経路は、catalogのtracks関係に登録されたファイルのみ解決し、未登録の相対パスは404になる
-- [ ] #2 登録済みトラックは引き続きRange(206)配信できる
-- [ ] #3 file経路の挙動は従来どおり(作品ディレクトリ配下の任意ファイル)
-- [ ] #4 real/fixture双方でkindごとの境界差(登録済み音声・未登録音声・パストラバーサル)を検証するテストがある
+- [x] #1 realのaudio経路は、catalogのtracks関係に登録されたファイルのみ解決し、未登録の相対パスは404になる
+- [x] #2 登録済みトラックは引き続きRange(206)配信できる
+- [x] #3 file経路の挙動は従来どおり(作品ディレクトリ配下の任意ファイル)
+- [x] #4 real/fixture双方でkindごとの境界差(登録済み音声・未登録音声・パストラバーサル)を検証するテストがある
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. WorkQueryRepositoryにトラック照合を追加 2. real locateMediaでkind=audioを制限 3. real/fixtureの境界テスト追加 4. pnpm check && pnpm test
+<!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+realのlocateMediaでkind=audio時にcatalog tracks照合を追加。WorkQueryRepository.hasTrackFileを新設。real/fixture境界テストをmediaKindBoundary.test.tsに追加。
+<!-- SECTION:FINAL_SUMMARY:END -->

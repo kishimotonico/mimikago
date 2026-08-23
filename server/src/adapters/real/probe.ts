@@ -6,8 +6,9 @@ import { parseFile } from "music-metadata";
 import type { ProbeDurationResult } from "@mimimilli/shared";
 import { probeResultFromCache } from "@mimimilli/shared";
 import { audioProbeCache } from "./catalogSchema.ts";
-import type { CatalogDb } from "./db.ts";
+import type { CatalogDb, Db } from "./db.ts";
 import { getCategoryLogger } from "../../lib/logger.ts";
+import { inClausePlaceholders, SQLITE_IN_CHUNK_SIZE } from "./workQuerySql.ts";
 
 const scanLogger = getCategoryLogger("scan");
 
@@ -15,6 +16,30 @@ export interface ProbeCacheEntry {
   size: number;
   mtimeMs: number;
   durationSec: number | null;
+}
+
+export function fetchProbeCache(db: Db, paths: string[]): Map<string, ProbeCacheEntry> {
+  const map = new Map<string, ProbeCacheEntry>();
+  const uniquePaths = [...new Set(paths)];
+  if (uniquePaths.length === 0) return map;
+
+  for (let i = 0; i < uniquePaths.length; i += SQLITE_IN_CHUNK_SIZE) {
+    const pathChunk = uniquePaths.slice(i, i + SQLITE_IN_CHUNK_SIZE);
+    const rows = db.sqlite
+      .query(
+        `SELECT path, size, mtime_ms AS mtimeMs, duration_sec AS durationSec FROM main.audio_probe_cache WHERE path IN (${inClausePlaceholders(pathChunk.length)})`,
+      )
+      .all(...pathChunk) as Array<{
+      path: string;
+      size: number;
+      mtimeMs: number;
+      durationSec: number | null;
+    }>;
+    for (const row of rows) {
+      map.set(row.path, row);
+    }
+  }
+  return map;
 }
 
 /**

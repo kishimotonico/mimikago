@@ -1,5 +1,5 @@
 import { sep } from "node:path";
-import { asc, and, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import {
   createRandomSeed,
   evaluateParseErrorAlert,
@@ -24,13 +24,20 @@ import type {
 import type { AxisFacetsQuery } from "@mimimilli/shared";
 import { japaneseSortKey } from "../../core/japaneseSortKey.ts";
 import type { Db } from "./db.ts";
-import { tags, tracks, workDlsite, workTags, works } from "./catalogSchema.ts";
+import { tags, workDlsite, workTags, works } from "./catalogSchema.ts";
 import {
   likeDescendantsPrefix,
   likeStrictDescendantPrefixSql,
   SQL_LIKE_ESCAPE_CLAUSE,
 } from "./paths.ts";
 import type { ProbeCacheEntry } from "./probe.ts";
+import { fetchProbeCache as fetchProbeCacheFromDb } from "./probe.ts";
+import { getScanWorkMap as getScanWorkMapFromDb } from "./scanWorkQueries.ts";
+import {
+  getCoverLocation as getCoverLocationFromDb,
+  getMediaRoot as getMediaRootFromDb,
+  hasTrackFile as hasTrackFileFromDb,
+} from "./workMediaQueries.ts";
 import {
   axisFacetSql,
   chunk,
@@ -48,16 +55,13 @@ import {
 } from "./workQuerySql.ts";
 import {
   type AxisFacetRow,
-  type CoverLocationRow,
   type ListSummariesResult,
-  type MediaRootRow,
   mapRawWorkRows,
   parseDlsiteStateJson,
   type RawPlaylistRow,
   type RawSummaryListRow,
   type RawWorkListRow,
   type RawWorkRow,
-  type ScanWorkState,
   type SummaryRow,
   rowToSummary,
   type WorkDetailParts,
@@ -474,102 +478,12 @@ export class WorkQueryRepository {
     return { items: rows, total: count.total };
   }
 
-  getScanWorkMap(): Map<string, ScanWorkState> {
-    const rows = this.db.sqlite
-      .query(
-        `
-          SELECT
-            works.id AS id,
-            works.source_revision AS sourceRevision,
-            works.projection_revision AS projectionRevision,
-            works.media_revision AS mediaRevision,
-            works.status AS status,
-            works.physical_path AS physicalPath,
-            works.cover_image AS coverImage,
-            works.cover_width AS coverWidth,
-            works.cover_height AS coverHeight,
-            work_states.added_at AS addedAt,
-            work_states.bookmarked AS bookmarked,
-            work_states.last_played_at AS lastPlayedAt,
-            work_states.resume_playlist_id AS resumePlaylistId,
-            work_states.resume_track_id AS resumeTrackId,
-            work_states.resume_offset_sec AS resumeOffsetSec
-          FROM main.works AS works
-          INNER JOIN user.work_states AS work_states ON work_states.work_id = works.id
-        `,
-      )
-      .all() as Array<{
-      id: string;
-      sourceRevision: string | null;
-      projectionRevision: string | null;
-      mediaRevision: string | null;
-      status: Work["status"];
-      physicalPath: string;
-      coverImage: string | null;
-      coverWidth: number | null;
-      coverHeight: number | null;
-      addedAt: string;
-      bookmarked: number;
-      lastPlayedAt: string | null;
-      resumePlaylistId: string | null;
-      resumeTrackId: string | null;
-      resumeOffsetSec: number | null;
-    }>;
-    const map = new Map<string, ScanWorkState>();
-    for (const row of rows) {
-      map.set(row.id, {
-        sourceRevision: row.sourceRevision,
-        projectionRevision: row.projectionRevision,
-        mediaRevision: row.mediaRevision,
-        status: row.status,
-        physicalPath: row.physicalPath,
-        addedAt: row.addedAt,
-        bookmarked: row.bookmarked !== 0,
-        lastPlayedAt: row.lastPlayedAt,
-        cover: {
-          image: row.coverImage,
-          dimensions:
-            row.coverWidth !== null && row.coverHeight !== null
-              ? { width: row.coverWidth, height: row.coverHeight }
-              : null,
-        },
-        resume:
-          row.resumePlaylistId !== null &&
-          row.resumeTrackId !== null &&
-          row.resumeOffsetSec !== null
-            ? {
-                playlistId: row.resumePlaylistId,
-                trackId: row.resumeTrackId,
-                offsetSec: row.resumeOffsetSec,
-              }
-            : null,
-      });
-    }
-    return map;
+  getScanWorkMap() {
+    return getScanWorkMapFromDb(this.db);
   }
 
   fetchProbeCache(paths: string[]): Map<string, ProbeCacheEntry> {
-    const map = new Map<string, ProbeCacheEntry>();
-    const uniquePaths = [...new Set(paths)];
-    if (uniquePaths.length === 0) return map;
-
-    for (let i = 0; i < uniquePaths.length; i += SQLITE_IN_CHUNK_SIZE) {
-      const pathChunk = uniquePaths.slice(i, i + SQLITE_IN_CHUNK_SIZE);
-      const rows = this.db.sqlite
-        .query(
-          `SELECT path, size, mtime_ms AS mtimeMs, duration_sec AS durationSec FROM main.audio_probe_cache WHERE path IN (${inClausePlaceholders(pathChunk.length)})`,
-        )
-        .all(...pathChunk) as Array<{
-        path: string;
-        size: number;
-        mtimeMs: number;
-        durationSec: number | null;
-      }>;
-      for (const row of rows) {
-        map.set(row.path, row);
-      }
-    }
-    return map;
+    return fetchProbeCacheFromDb(this.db, paths);
   }
 
   getAxisFacets(axis: string, filter: Partial<AxisFacetsQuery> = {}): AxisFacetItem[] {
@@ -686,37 +600,16 @@ export class WorkQueryRepository {
     return versions;
   }
 
-  getCoverLocation(id: string): CoverLocationRow | null {
-    return (
-      (this.db.sqlite
-        .query(
-          `SELECT id, physical_path AS physicalPath, cover_image AS coverImage
-           FROM main.works WHERE id = ?`,
-        )
-        .get(id) as CoverLocationRow | undefined) ?? null
-    );
+  getCoverLocation(id: string) {
+    return getCoverLocationFromDb(this.db, id);
   }
 
-  getMediaRoot(id: string): MediaRootRow | null {
-    return (
-      (this.db.sqlite
-        .query(
-          `SELECT physical_path AS physicalPath
-           FROM main.works WHERE id = ?`,
-        )
-        .get(id) as MediaRootRow | undefined) ?? null
-    );
+  getMediaRoot(id: string) {
+    return getMediaRootFromDb(this.db, id);
   }
 
   hasTrackFile(workId: string, file: string): boolean {
-    return (
-      this.db.catalog
-        .select({ id: tracks.id })
-        .from(tracks)
-        .where(and(eq(tracks.workId, workId), eq(tracks.file, file)))
-        .limit(1)
-        .get() !== undefined
-    );
+    return hasTrackFileFromDb(this.db, workId, file);
   }
 
   getWorkByPhysicalPathSync(physicalPath: string): { id: string } | null {

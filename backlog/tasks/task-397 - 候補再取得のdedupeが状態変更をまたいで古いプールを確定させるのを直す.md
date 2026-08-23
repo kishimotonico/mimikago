@@ -1,10 +1,10 @@
 ---
 id: TASK-397
 title: 候補再取得のdedupeが状態変更をまたいで古いプールを確定させるのを直す
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-23 10:14'
-updated_date: '2026-08-23 10:14'
+updated_date: '2026-08-23 10:34'
 labels: []
 dependencies: []
 priority: medium
@@ -25,7 +25,19 @@ Codexレビュー(2026-08-23、7e9dae2..c775489)の指摘。TASK-387で refreshS
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 スキャン完了・候補の登録/除外・除外の復元のあとに呼ぶ再取得が、先行する実行中リクエストの結果で確定しない
-- [ ] #2 先行リクエストが実行中の状態で状態変更後の再取得を行うと新しいサーバー状態が反映されることを観測するテストがあり、修正を戻すと落ちる
-- [ ] #3 scanCandidatesCache.tsのコメントが修正後の挙動と一致している
+- [x] #1 スキャン完了・候補の登録/除外・除外の復元のあとに呼ぶ再取得が、先行する実行中リクエストの結果で確定しない
+- [x] #2 先行リクエストが実行中の状態で状態変更後の再取得を行うと新しいサーバー状態が反映されることを観測するテストがあり、修正を戻すと落ちる
+- [x] #3 scanCandidatesCache.tsのコメントが修正後の挙動と一致している
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. refreshScanCandidatesのdedupe問題を修正 2. 並行再取得テスト追加 3. 負の検証 4. pnpm check/test
+<!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+refreshScanCandidatesはqueryCache.buildで実行中フェッチを検出しquery.cancel後にfetchQuery。打ち切られた呼び出しはgetQueryDataで即返却（手製subscribeなし）。モジュールスコープの世代カウンタは廃止。並行再取得テストはcallCount=2とキャッシュ最終値candidateBを観測、旧fetchQueryのみ実装ではcallCount=1で失敗。pnpm check/test緑。
+<!-- SECTION:FINAL_SUMMARY:END -->

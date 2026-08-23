@@ -1,10 +1,10 @@
 ---
 id: TASK-398
 title: smokeのworker起動が途中で失敗したときにサーバーを確実に停止する
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-23 10:14'
-updated_date: '2026-08-23 10:15'
+updated_date: '2026-08-23 10:23'
 labels: []
 dependencies: []
 priority: high
@@ -23,7 +23,19 @@ Codexレビュー(2026-08-23、7e9dae2..c775489)の指摘。client/tests/smoke/f
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 起動処理(waitForPortFree・spawn・waitForLog・warmUp)のいずれかが失敗しても、起動済みのBun/Viteプロセスが停止される
-- [ ] #2 起動失敗を意図的に起こした状態でsmokeを実行し、実行後にポートとプロセスが残らないことを確認している
-- [ ] #3 pnpm test:smokeが3回連続で緑
+- [x] #1 起動処理(waitForPortFree・spawn・waitForLog・warmUp)のいずれかが失敗しても、起動済みのBun/Viteプロセスが停止される
+- [x] #2 起動失敗を意図的に起こした状態でsmokeを実行し、実行後にポートとプロセスが残らないことを確認している
+- [x] #3 pnpm test:smokeが3回連続で緑
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. fixtures.ts に try/finally で起動失敗時も shutdown 2. 負の検証（意図的失敗→ポート/プロセス確認）3. test:smoke 3回・check/test
+<!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+worker-scoped fixture を try/finally で囲み、起動途中の失敗時も spawn 済みの Bun/Vite を shutdown するよう修正。負の検証で waitForLog パターン不一致時にポート・プロセスが残らないことを確認。test:smoke 3回連続・pnpm check・pnpm test 緑。
+<!-- SECTION:FINAL_SUMMARY:END -->

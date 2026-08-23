@@ -1,17 +1,13 @@
-import type { ScanCandidate, ScanResult } from "@mimimilli/shared";
 import type { ScanOptions } from "../../adapter/index.ts";
 import { formatError, getCategoryLogger } from "../../lib/logger.ts";
 import type { DbLocation } from "./db.ts";
 import type { DlsiteCacheConfig } from "./dlsiteCache.ts";
+import type { ScanExecutionResult } from "./scanTypes.ts";
 import type { ScanWorkerOutboundMessage } from "./scanWorkerMessages.ts";
 
 const scanLogger = getCategoryLogger("scan");
 
-/** worker 完了時に親プロセスへ渡す内部結果。HTTP/SSE 契約の ScanResult とは分離する。 */
-export type FileScanWorkerResult = {
-  result: ScanResult;
-  candidatePool: ScanCandidate[];
-};
+export type FileScanWorkerResult = ScanExecutionResult;
 
 function reconstructWorkerError(
   message: Extract<ScanWorkerOutboundMessage, { type: "error" }>,

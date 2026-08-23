@@ -402,7 +402,7 @@ test("増分スキャン: mimimilli.json bytesが変われば未知キーだけ�
     )(sql, ...params);
   }) as unknown as Db["sqlite"]["query"];
   try {
-    const second = await scanner.scan(root);
+    const { result: second } = await scanner.scan(root);
     assert.equal(second.skipped, 0);
     assert.equal(second.registered, 1);
     assert.equal(second.errors, 0);
@@ -608,14 +608,14 @@ test("error作品の再評価時はprobe cacheをバイパスし誤durationか�
     })
     .run();
 
-  const first = await scanner.scan(root);
+  const { result: first } = await scanner.scan(root);
   assert.equal(first.registered, 1);
   const work = await getTestWork(db, workId);
   assert.ok(work);
   assert.equal(work!.status, "error");
   assert.match(work!.errorMessage ?? "", /開始位置がファイル長を超えています/);
 
-  const second = await scanner.scan(root);
+  const { result: second } = await scanner.scan(root);
   assert.equal(second.registered, 1);
   const recovered = await getTestWork(db, workId);
   assert.equal(recovered!.status, "ok");

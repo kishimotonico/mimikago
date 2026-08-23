@@ -14,8 +14,9 @@ import { formatError, getCategoryLogger } from "../../lib/logger.ts";
 import { type DbLocation } from "./db.ts";
 import type { DlsiteCacheConfig } from "./dlsiteCache.ts";
 import { Scanner } from "./scanner.ts";
+import { ScanCandidateSession } from "./scanCandidateSession.ts";
 import { finalizeScan, LAST_SCAN_TIME_KEY } from "./scanFinalize.ts";
-import type { FileScanWorkerResult } from "./scanRunner.ts";
+import type { ScanExecutionResult } from "./scanTypes.ts";
 import type { CatalogWorkRepository } from "./catalogWorkRepository.ts";
 import type { UserWorkStateRepository } from "./userWorkStateRepository.ts";
 import type { WorkQueryRepository } from "./workQueryRepository.ts";
@@ -44,7 +45,7 @@ export function createSettingsScanMethods(deps: {
     thumbnailCacheDir: string,
     dlsiteCache: DlsiteCacheConfig,
     options: ScanOptions,
-  ) => Promise<FileScanWorkerResult>;
+  ) => Promise<ScanExecutionResult>;
 }) {
   const {
     database,
@@ -56,6 +57,7 @@ export function createSettingsScanMethods(deps: {
     dlsiteCache,
     runFileScanInWorker,
   } = deps;
+  let candidateSession = ScanCandidateSession.empty();
   const requireRoot = (): string => {
     const root = user.getUserSetting(KEY_ROOT_FOLDER);
     if (!root)
@@ -106,7 +108,7 @@ export function createSettingsScanMethods(deps: {
       const root = requireRoot();
       const normalized = scanOptions ?? {};
       if (database.kind === "files") {
-        const { result, candidatePool } = await runFileScanInWorker(
+        const execution = await runFileScanInWorker(
           {
             ...database,
             catalogPath: resolve(database.catalogPath),
@@ -117,10 +119,11 @@ export function createSettingsScanMethods(deps: {
           dlsiteCache,
           normalized,
         );
-        scanner.seedCandidatePool(candidatePool);
-        return result;
+        candidateSession = ScanCandidateSession.fromPool(execution.candidatePool);
+        return execution.result;
       }
-      const result = await scanner.scan(root, normalized);
+      const execution = await scanner.scan(root, normalized);
+      candidateSession = ScanCandidateSession.fromPool(execution.candidatePool);
       const checkAbort = () => {
         if (normalized.signal?.aborted) {
           throw new DOMException("スキャンはキャンセルされました", "AbortError");
@@ -134,29 +137,29 @@ export function createSettingsScanMethods(deps: {
         integrityLogContext: "scan-thumbnail-gc",
       });
 
-      return result;
+      return execution.result;
     },
 
     async listScanDiagnostics() {
       return catalog.listIdentityConflicts();
     },
     async listScanCandidates(): Promise<ScanCandidate[]> {
-      return scanner.listCandidates(requireRoot());
+      return candidateSession.listCandidates(user);
     },
     async registerScanCandidates(
       items: ScanCandidateRegisterItem[],
       onRegistered?: (workId: string) => void,
     ): Promise<ScanCandidatesRegisterResponse> {
-      return scanner.registerCandidates(requireRoot(), items, onRegistered);
+      return candidateSession.registerCandidates(requireRoot(), items, scanner, user, onRegistered);
     },
     async excludeScanCandidates(paths: string[]): Promise<void> {
-      await scanner.excludeCandidates(requireRoot(), paths);
+      await candidateSession.excludeCandidates(paths, user);
     },
     async listScanCandidateExclusions(): Promise<string[]> {
-      return scanner.listExcludedCandidates();
+      return candidateSession.listExcludedCandidates(user);
     },
     async restoreScanCandidateExclusions(paths: string[]): Promise<void> {
-      scanner.restoreExcludedCandidates(paths);
+      candidateSession.restoreExcludedCandidates(paths, user);
     },
     requireRoot,
   };

@@ -77,6 +77,7 @@ oxlint の `overrides[].files` は `**/…` 形式で書く（複数セグメン
 - 開発時（fixture）: server（Bun、`MIMIMILLI_ADAPTER=fixture`）と client（Vite）を別々の portless サービスとして起動する。client は Vite proxy で同じ worktree の `api.mimi` へ接続する
 - 開発時（real）: server と client を別々の portless サービスとして起動する。client は Vite proxy で同じ worktree の `api.mimi` へ接続する
 - スキャン: `POST /api/scan` はジョブを開始して 202 とスナップショットを即返す（`Location: /api/scan/:id`）。同時実行は1件のみで、実行中の二重POSTは409。進捗は `GET /api/scan/:id/events` の SSE で配信し、`Last-Event-ID` で欠損イベントをリプレイする（履歴切れ時は `reset` で現スナップショットを送る）。進捗無音区間は15秒間隔の `ping` で接続を維持。`GET /api/scan/active` で実行中ジョブを取得、`GET /api/scan/last` で直近完了結果（メモリ保持）を取得する
+- ファイルDB経路のフルスキャンは `scanWorker.ts` の Worker スレッドで実行し、メインスレッドのイベントループを塞がない。完了時の `ScanExecutionResult`（`ScanResult` + 候補プール）を `ScanCandidateSession` へ丸ごと置き換えて、候補の参照・登録・除外はメインスレッド常駐のセッションが担う
 - メディア配信: client がメディア URL を組み立て（`entities/work/api.ts`）、`/api/media/*` ルートが `DataAdapter.locateMedia()` 経由でアダプタ（実ファイル or fixture の合成メディア）から実体を取得して配信する
 
 ## ファイルシステムと配信の安全性

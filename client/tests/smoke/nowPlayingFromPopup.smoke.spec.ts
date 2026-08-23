@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { assertNoErrors, openApp, trackErrors } from "./support";
 
 test("ポップアップの展開ボタンから再生中タブへ遷移し、旧全画面dialog・ポップアップが残らず表示モードが維持される", async ({

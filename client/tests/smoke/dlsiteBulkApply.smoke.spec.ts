@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { assertNoErrors, openApp, trackErrors } from "./support";
 
 test("設定モーダルから未設定項目の一括適用ができる", async ({ page }) => {

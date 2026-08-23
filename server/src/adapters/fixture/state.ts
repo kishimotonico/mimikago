@@ -94,3 +94,8 @@ export function createInitialState(options: FixtureAdapterOptions): FixtureState
 export function coverColumnsOf(state: FixtureState, workId: string): FixtureCoverColumns {
   return state.coverColumns.get(workId) ?? { image: null, dimensions: null };
 }
+
+/** state を options で作り直した初期状態へ書き戻す（同一オブジェクト参照を保つ）。 */
+export function resetState(state: FixtureState, options: FixtureAdapterOptions): void {
+  Object.assign(state, createInitialState(options));
+}

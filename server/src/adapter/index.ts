@@ -30,4 +30,6 @@ export type DataAdapter = SettingsAdapter &
   MediaAdapter &
   DlsiteAdapter & {
     close?: () => void | Promise<void>;
+    /** fixture アダプタのみ実装。可変状態を初期シナリオへ戻す（smokeのテスト間分離用）。 */
+    resetFixtureState?: () => void;
   };

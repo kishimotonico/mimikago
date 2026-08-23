@@ -45,7 +45,10 @@ import {
   prepareMetaEntries,
   prepareSingleMeta,
   registerMetaFile,
+  type RegisterMetaFileOptions,
 } from "./scanRegister.ts";
+import type { PreparedMeta } from "./scanTypes.ts";
+import type { ProbeCacheEntry } from "./probe.ts";
 import { ScanUpsertBatch } from "./scanUpsertBatch.ts";
 import {
   findWorkRoot,
@@ -270,20 +273,16 @@ export class Scanner {
           seenIds.work.add(entry.id);
           result.skipped += 1;
         } else {
-          const outcome = await registerMetaFile(
-            this.db,
-            entry,
+          const outcome = await this.invokeRegisterMetaFile({
+            prepared: entry,
             seenIds,
             probeCache,
             batch,
             existingWorks,
             result,
-            full,
-            false,
-            this.measureCover,
+            options: { full, idsAlreadyRegistered: false },
             checkAbort,
-            this.dlsiteCache,
-          );
+          });
           if (outcome === "skipped") {
             result.skipped += 1;
           } else {
@@ -498,6 +497,56 @@ export class Scanner {
     return result;
   }
 
+  private async invokeRegisterMetaFile(params: {
+    prepared: PreparedMeta;
+    seenIds: SeenMetaIds;
+    probeCache: Map<string, ProbeCacheEntry>;
+    batch: ScanUpsertBatch;
+    existingWorks: Map<string, ScanWorkState>;
+    result: Pick<ScanResult, "coverErrors" | "insertedWorkIds" | "updatedWorkIds">;
+    options: RegisterMetaFileOptions;
+    checkAbort?: () => void;
+  }): Promise<"skipped" | string> {
+    return registerMetaFile(
+      this.db,
+      params.prepared,
+      params.seenIds,
+      params.probeCache,
+      params.batch,
+      params.existingWorks,
+      params.result,
+      params.options,
+      this.measureCover,
+      params.checkAbort,
+      this.dlsiteCache,
+    );
+  }
+
+  private async registerSingleWorkFromPrepared(
+    prepared: PreparedMeta,
+    workId: string,
+    notFoundMessage: string,
+  ): Promise<Work> {
+    const existingWorks = this.query.getScanWorkMap();
+    const batch = new ScanUpsertBatch(this.db, this.catalog, this.user, () => {});
+    const scanResult = emptyRegisterTracking();
+    const seenIds: SeenMetaIds = { work: new Set() };
+    await this.invokeRegisterMetaFile({
+      prepared,
+      seenIds,
+      probeCache: new Map(),
+      batch,
+      existingWorks,
+      result: scanResult,
+      options: { full: true, idsAlreadyRegistered: false },
+    });
+    batch.publishWork();
+
+    const work = await getWorkWithLiveProbe(this.db, this.query, this.catalog, workId);
+    if (!work) throw new Error(notFoundMessage);
+    return work;
+  }
+
   async registerFolderWork(
     workDir: string,
     options: {
@@ -537,56 +586,21 @@ export class Scanner {
     writeMetaFile(metaPath, meta);
 
     const prepared = prepareSingleMeta(metaPath);
-    const existingWorks = this.query.getScanWorkMap();
-    const batch = new ScanUpsertBatch(this.db, this.catalog, this.user, () => {});
-    const scanResult = emptyRegisterTracking();
-    const seenIds: SeenMetaIds = { work: new Set() };
-    await registerMetaFile(
-      this.db,
+    return this.registerSingleWorkFromPrepared(
       prepared,
-      seenIds,
-      new Map(),
-      batch,
-      existingWorks,
-      scanResult,
-      true,
-      false,
-      this.measureCover,
-      undefined,
-      this.dlsiteCache,
+      meta.id,
+      "登録した作品の取得に失敗しました",
     );
-    batch.publishWork();
-
-    const work = await getWorkWithLiveProbe(this.db, this.query, this.catalog, meta.id);
-    if (!work) throw new Error("登録した作品の取得に失敗しました");
-    return work;
   }
 
   /** 確定済みmimimilli.jsonを入力に、対象作品だけをcatalogへ投影する。 */
   async projectMetaFile(metaPath: string, meta: MetaFile): Promise<Work> {
     const prepared = prepareSingleMeta(metaPath, meta);
-    const existingWorks = this.query.getScanWorkMap();
-    const batch = new ScanUpsertBatch(this.db, this.catalog, this.user, () => {});
-    const scanResult = emptyRegisterTracking();
-    const seenIds: SeenMetaIds = { work: new Set() };
-    await registerMetaFile(
-      this.db,
+    return this.registerSingleWorkFromPrepared(
       prepared,
-      seenIds,
-      new Map(),
-      batch,
-      existingWorks,
-      scanResult,
-      true,
-      false,
-      this.measureCover,
-      undefined,
-      this.dlsiteCache,
+      meta.id,
+      "再投影した作品の取得に失敗しました",
     );
-    batch.publishWork();
-    const work = await getWorkWithLiveProbe(this.db, this.query, this.catalog, meta.id);
-    if (!work) throw new Error("再投影した作品の取得に失敗しました");
-    return work;
   }
 
   async restoreFolderWork(
@@ -620,28 +634,10 @@ export class Scanner {
       return existing !== undefined && existing.physicalPath !== workDir;
     });
     const prepared = prepareSingleMeta(metaPath);
-    const existingWorks = this.query.getScanWorkMap();
-    const batch = new ScanUpsertBatch(this.db, this.catalog, this.user, () => {});
-    const scanResult = emptyRegisterTracking();
-    const seenIds: SeenMetaIds = { work: new Set() };
-    await registerMetaFile(
-      this.db,
+    return this.registerSingleWorkFromPrepared(
       prepared,
-      seenIds,
-      new Map(),
-      batch,
-      existingWorks,
-      scanResult,
-      true,
-      false,
-      this.measureCover,
-      undefined,
-      this.dlsiteCache,
+      workId,
+      "復元した作品の取得に失敗しました",
     );
-    batch.publishWork();
-
-    const work = await getWorkWithLiveProbe(this.db, this.query, this.catalog, workId);
-    if (!work) throw new Error("復元した作品の取得に失敗しました");
-    return work;
   }
 }

@@ -310,6 +310,11 @@ export function handleMetaParseError(
   result.errors += 1;
 }
 
+export type RegisterMetaFileOptions = {
+  full: boolean;
+  idsAlreadyRegistered: boolean;
+};
+
 export async function registerMetaFile(
   db: Db,
   prepared: PreparedMeta,
@@ -318,12 +323,12 @@ export async function registerMetaFile(
   batch: ScanUpsertBatch,
   existingWorks: Map<string, ScanWorkState>,
   result: ScanUpsertTracking,
-  full: boolean,
-  idsAlreadyRegistered: boolean,
+  options: RegisterMetaFileOptions,
   measureCover: (sourceAbsolutePath: string) => Promise<CoverDimensions | null>,
   checkAbort: () => void = () => {},
   dlsiteCache?: DlsiteCache | null,
 ): Promise<"skipped" | string> {
+  const { full, idsAlreadyRegistered } = options;
   const { metaPath, meta, revisions, cachedRevisions, cachedStatus, coverSatisfied } = prepared;
   const workDir = dirname(metaPath);
   const id = meta.id;

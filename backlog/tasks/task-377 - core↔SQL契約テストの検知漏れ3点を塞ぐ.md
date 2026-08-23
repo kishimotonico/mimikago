@@ -1,10 +1,10 @@
 ---
 id: TASK-377
 title: core↔SQL契約テストの検知漏れ3点を塞ぐ
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-21 14:48'
-updated_date: '2026-08-23 00:45'
+updated_date: '2026-08-23 01:37'
 labels: []
 dependencies: []
 priority: high
@@ -21,9 +21,21 @@ ordinal: 377000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 契約テストのdatasetにcoverあり・addedAt同値の作品が含まれ、facet同値性テストがcovers配列の中身と順序まで比較している
-- [ ] #2 coreのcovers選定にwork_id ASCのタイブレークが入り、SQL側と同順になる(検証は契約テストで行う)
-- [ ] #3 契約テストのviews列挙がviewIdSchema.optionsから生成されている
-- [ ] #4 filterByViewとviewConditionsのswitchが網羅チェック(assertNever相当)を持ち、ViewId追加時に型エラーになる
-- [ ] #5 長さルールの検証関数がcore単一実装になり、workQuerySql.tsはそれをimportして使う
+- [x] #1 契約テストのdatasetにcoverあり・addedAt同値の作品が含まれ、facet同値性テストがcovers配列の中身と順序まで比較している
+- [x] #2 coreのcovers選定にwork_id ASCのタイブレークが入り、SQL側と同順になる(検証は契約テストで行う)
+- [x] #3 契約テストのviews列挙がviewIdSchema.optionsから生成されている
+- [x] #4 filterByViewとviewConditionsのswitchが網羅チェック(assertNever相当)を持ち、ViewId追加時に型エラーになる
+- [x] #5 長さルールの検証関数がcore単一実装になり、workQuerySql.tsはそれをimportして使う
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. datasetにcover・addedAt同値を追加し契約テストを強化 2. axisFacetsにwork_id ASCタイブレーク 3. view列挙・switch網羅チェック 4. 長さルール検証をcore単一実装へ 5. テスト・check
+<!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+éx軸の固定期待値アサーションをdataset由来のcovers期待値で復活。expectedFacetCoversでaddedAt DESC・work_id ASCの4件を検証。axisFacetsタイブレーク・view網羅・parseSmartFolderMinLengthSec単一実装は維持。
+<!-- SECTION:FINAL_SUMMARY:END -->

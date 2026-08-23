@@ -59,7 +59,7 @@ export function buildAxisFacets(
       count: members.length,
       durationSec: members.reduce((sum, work) => sum + (work.totalDurationSec ?? 0), 0),
       covers: [...members]
-        .sort((a, b) => compareUtf8Bytes(b.addedAt, a.addedAt))
+        .sort((a, b) => compareUtf8Bytes(b.addedAt, a.addedAt) || compareUtf8Bytes(a.id, b.id))
         .flatMap((work) => (work.cover ? [{ ...work.cover, workId: work.id }] : []))
         .slice(0, MAX_COVERS),
     }))

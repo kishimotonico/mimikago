@@ -1,25 +1,48 @@
 import assert from "node:assert/strict";
+import { existsSync, mkdirSync, mkdtempSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 import {
   emptyDlsiteState,
   normalizeTags,
   sortIdSchema,
+  viewIdSchema,
   toWorkListItem,
   coverFieldsFromCover,
   type SmartFolderRule,
   type Work,
   type WorksQuery,
   type WorkSummary,
+  type AxisFacetItem,
 } from "@mimimilli/shared";
+import { deriveCoverVersion } from "../../src/adapter/media.ts";
 import { WorkQueryRepository } from "../../src/adapters/real/workQueryRepository.ts";
 import { querySmartFolderWorks } from "../../src/adapters/real/smartFolderWorks.ts";
 import { nts, tf, EMPTY_TAG_FILTERS } from "../helpers/tag.ts";
 import { upsertTestWork, resolvedDuration, createWorkRepos } from "../helpers/workTestUtils.ts";
 import { openDb } from "../../src/adapters/real/db.ts";
-import { makeTestScope } from "../helpers/sampleLibrary.ts";
+import { makeTestScope, writeSampleCover } from "../helpers/sampleLibrary.ts";
 import { buildAxisFacets } from "../../src/core/axisFacets.ts";
 import { evalSmartFolder } from "../../src/core/smartFolder.ts";
 import { applyWorksQuery } from "../../src/core/worksQuery.ts";
+
+const contractLibraryRoot = mkdtempSync(join(tmpdir(), "works-query-contract-"));
+
+const FACET_MAX_COVERS = 4;
+
+function compareIsoDescThenIdAsc(a: WorkSummary, b: WorkSummary): number {
+  if (a.addedAt !== b.addedAt) return a.addedAt < b.addedAt ? 1 : -1;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/** dataset から代表カバー期待値を組み立てる（axisFacets の実装に依存しない） */
+function expectedFacetCovers(works: WorkSummary[]): AxisFacetItem["covers"] {
+  return [...works]
+    .sort(compareIsoDescThenIdAsc)
+    .flatMap((work) => (work.cover ? [{ ...work.cover, workId: work.id }] : []))
+    .slice(0, FACET_MAX_COVERS);
+}
 
 const recent = new Date(Date.now() - 5 * 86400000).toISOString();
 const old = new Date(Date.now() - 100 * 86400000).toISOString();
@@ -51,6 +74,20 @@ function dlsiteStateFor(index: number): WorkSummary["dlsite"] {
   return emptyDlsiteState();
 }
 
+function coverFor(index: number, id: string): WorkSummary["cover"] {
+  if (index % 3 !== 0) return null;
+  const dir = join(contractLibraryRoot, id);
+  mkdirSync(dir, { recursive: true });
+  const coverPath = join(dir, "cover.jpg");
+  if (!existsSync(coverPath)) writeSampleCover(coverPath);
+  const stat = statSync(coverPath);
+  return {
+    image: "cover.jpg",
+    dimensions: { width: 6, height: 4 },
+    version: deriveCoverVersion(id, undefined, { size: stat.size, mtimeMs: stat.mtimeMs }),
+  };
+}
+
 function summary(index: number): WorkSummary {
   const id = `work-${String(index).padStart(3, "0")}`;
   const tagSets = [
@@ -63,9 +100,9 @@ function summary(index: number): WorkSummary {
   return {
     id,
     title: titles[index % titles.length]!,
-    cover: null,
+    cover: coverFor(index, id),
     status: index % 7 === 0 ? "missing" : index % 11 === 0 ? "error" : "ok",
-    physicalPath: `/library/${id}`,
+    physicalPath: join(contractLibraryRoot, id),
     totalDurationSec: (index % 4) * 600,
     addedAt: index % 3 === 0 ? recent : old,
     errorMessage: index % 11 === 0 ? "probe error" : null,
@@ -213,7 +250,7 @@ test("core参照実装とreal SQLは固定例・生成クエリで同値", (t) =
     "rj9999999",
   ];
   const tagFilters = [[], ["ASMR"], ["cv/水瀬なずな"], ["催眠", "添い寝"]];
-  const views = [undefined, "all", "recent", "added", "fav", "error"] as const;
+  const views = [undefined, ...viewIdSchema.options] as const;
   // year擬似タグ（@year/...）は実タグと混在してtagsへ渡る（ADR-0012 §2）。生成テストでも
   // 単独・実タグとの組み合わせの両方を織り交ぜる
   const yearPool = [recent.slice(0, 4), old.slice(0, 4), "1999"];
@@ -331,14 +368,15 @@ test("core参照実装とreal SQLのファセット値・件数・順序が同�
   const db = scope.own(openDb({ kind: "memory" }));
   const { query: queryRepo, catalog, user } = createWorkRepos(db);
   for (const item of dataset) upsertTestWork(catalog, user, fullWork(item));
+  const exDurationSec = dataset.reduce((sum, work) => sum + (work.totalDurationSec ?? 0), 0);
+  const exCovers = expectedFacetCovers(dataset);
+  assert.deepEqual(queryRepo.getAxisFacets("e\u0301x"), [
+    { value: "Ａlpha", count: dataset.length, durationSec: exDurationSec, covers: exCovers },
+    { value: "Ｂeta", count: dataset.length, durationSec: exDurationSec, covers: exCovers },
+  ]);
   for (const axis of ["tag", "year", "cv", "気分", "シリーズ", "e\u0301x", "unknown"]) {
     assert.deepEqual(queryRepo.getAxisFacets(axis), buildAxisFacets(axis, dataset), axis);
   }
-  const exDurationSec = dataset.reduce((sum, work) => sum + (work.totalDurationSec ?? 0), 0);
-  assert.deepEqual(queryRepo.getAxisFacets("e\u0301x"), [
-    { value: "Ａlpha", count: dataset.length, durationSec: exDurationSec, covers: [] },
-    { value: "Ｂeta", count: dataset.length, durationSec: exDurationSec, covers: [] },
-  ]);
 });
 
 test("軸ファセットの絞り込み（自軸除外カウント用フィルタ）もreal SQLとcoreが同値（TASK-187）", (t) => {

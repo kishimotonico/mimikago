@@ -1,6 +1,7 @@
 import type { NormalizedTag } from "@mimimilli/shared";
 import type { DlsiteNotificationKind, SmartFolderRule, WorksQuery } from "@mimimilli/shared";
 import { RECENT_VIEW_WINDOW_DAYS } from "@mimimilli/shared";
+import { parseSmartFolderMinLengthSec } from "../../core/smartFolder.ts";
 import { normalizeRjCode } from "../../core/worksQuery.ts";
 
 /** SQLite の IN 句パラメータ上限を避けるため、配列を一定件数ごとに分割する */
@@ -197,6 +198,13 @@ export function viewConditions(view: WorksQuery["view"]): {
     case "error":
       conditions.push("works.status != 'ok'");
       break;
+    case "all":
+    case undefined:
+      break;
+    default: {
+      const unreachable: never = view;
+      throw new Error(`未対応のviewです: ${unreachable}`);
+    }
   }
   return { conditions, bindings };
 }
@@ -256,10 +264,7 @@ export function smartFolderRulePredicates(rules: SmartFolderRule[]): {
         break;
       }
       case "長さ": {
-        const minSec = Number(rule.values[0]);
-        if (!Number.isFinite(minSec)) {
-          throw new Error(`スマートフォルダーの長さ条件が不正です: ${rule.values[0]}`);
-        }
+        const minSec = parseSmartFolderMinLengthSec(rule.values[0]);
         predicates.push("works.total_duration_sec >= ?");
         bindings.push(minSec);
         break;

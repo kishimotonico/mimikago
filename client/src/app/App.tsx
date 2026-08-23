@@ -21,7 +21,7 @@ import PlayerDock from "../features/player/ui/PlayerDock";
 import { resolveAppStartupState } from "./model/resolveAppStartupState";
 import SetupScreen from "../features/setup/ui/SetupScreen";
 import StartupErrorScreen from "./ui/StartupErrorScreen";
-import DlsiteNotificationModals from "../features/library/ui/DlsiteNotificationModals";
+import DlsiteNotificationModals from "../features/dlsite/ui/DlsiteNotificationModals";
 import { LibraryNavigationProvider } from "../features/library/ui/LibraryNavigationProvider";
 import GlobalToast from "./ui/GlobalToast";
 import { errorToastAtom } from "../shared/model/errorToastAtom";

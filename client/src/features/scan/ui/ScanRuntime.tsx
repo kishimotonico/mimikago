@@ -10,6 +10,7 @@ import { SCAN_QUERY_KEYS } from "../api";
 import { refreshScanCandidates } from "../../../entities/scan/scanCandidatesCache";
 import {
   scanActionsAtom,
+  scanCandidateHiddenPathsAtom,
   scanErrorAtom,
   scanJobAtom,
   type ScanActions,
@@ -23,12 +24,15 @@ export default function ScanRuntime() {
   const setJob = useSetAtom(scanJobAtom);
   const setError = useSetAtom(scanErrorAtom);
   const setActions = useSetAtom(scanActionsAtom);
+  const setHiddenPaths = useSetAtom(scanCandidateHiddenPathsAtom);
 
   const handleScanTerminal = useCallback(
     (job: ScanJobSnapshot) => {
       if (job.status !== "completed" || !job.result || !job.finishedAt) return;
       const result = job.result;
       queryClient.setQueryData(SCAN_QUERY_KEYS.last(), { result, finishedAt: job.finishedAt });
+      // 新しいスキャン結果がサーバー側の真実になるため、それ以前のローカル非表示は破棄する。
+      setHiddenPaths(new Set());
       void refreshScanCandidates(queryClient);
       queryClient.invalidateQueries({ queryKey: WORK_QUERY_KEYS.all() });
       queryClient.invalidateQueries({ queryKey: WORK_QUERY_KEYS.dlsiteNotifications() });
@@ -37,7 +41,7 @@ export default function ScanRuntime() {
       queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEYS.all() });
       if (result.insertedWorkIds.length > 0) dlsiteBulk.attach();
     },
-    [dlsiteBulk, queryClient],
+    [dlsiteBulk, queryClient, setHiddenPaths],
   );
 
   const scanJob = useScanJob({ onTerminal: handleScanTerminal });

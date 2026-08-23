@@ -15,6 +15,7 @@ import {
   dlsiteBulkStartingAtom,
   dlsiteBulkResultAtom,
 } from "../../src/entities/dlsite/model/bulkAtoms";
+import { scanCandidateHiddenPathsAtom } from "../../src/entities/scan/model/atoms";
 
 class FakeEventSource extends EventTarget {
   static readonly CONNECTING = 0;
@@ -190,15 +191,38 @@ describe("ScanRuntime EventSource ownership", () => {
     // 候補の再取得は queryClient.fetchQuery 経由（TASK-387）のため、setQueryData のスパイではなく
     // 反映後のキャッシュ内容そのものを見る。
     await waitFor(() =>
-      expect(queryClient.getQueryData(SCAN_QUERY_KEYS.candidates())).toEqual(
-        scanResult.candidates,
-      ),
+      expect(queryClient.getQueryData(SCAN_QUERY_KEYS.candidates())).toEqual(scanResult.candidates),
     );
     expect(
       setQueryData.mock.calls.filter(
         ([queryKey]) => JSON.stringify(queryKey) === JSON.stringify(SCAN_QUERY_KEYS.last()),
       ),
     ).toHaveLength(1);
+  });
+
+  it("新しいスキャン完了で、それ以前のローカル非表示（hiddenPaths）を破棄する", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/scan/active")) return response(running);
+        if (url.endsWith("/scan/job-1")) return response(completedJob);
+        if (url.endsWith("/scan/candidates")) {
+          return response({ candidates: scanResult.candidates });
+        }
+        return response(null, 204);
+      }),
+    );
+
+    const { store } = renderRuntime(createElement(ScanRuntime));
+    // 前回のスキャンで承認/除外したフォルダーがローカルに残っている想定。
+    store.set(scanCandidateHiddenPathsAtom, new Set(["前回登録したフォルダー"]));
+
+    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
+    const source = FakeEventSource.instances[0]!;
+    dispatchScan(source, { type: "completed", seq: 1, result: scanResult });
+
+    await waitFor(() => expect(store.get(scanCandidateHiddenPathsAtom).size).toBe(0));
   });
 
   it("アンマウント時に EventSource を close する", async () => {

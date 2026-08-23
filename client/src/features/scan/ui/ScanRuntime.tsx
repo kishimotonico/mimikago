@@ -31,8 +31,6 @@ export default function ScanRuntime() {
       if (job.status !== "completed" || !job.result || !job.finishedAt) return;
       const result = job.result;
       queryClient.setQueryData(SCAN_QUERY_KEYS.last(), { result, finishedAt: job.finishedAt });
-      // 新しいスキャン結果がサーバー側の真実になるため、それ以前のローカル非表示は破棄する。
-      setHiddenPaths(new Set());
       void refreshScanCandidates(queryClient);
       queryClient.invalidateQueries({ queryKey: WORK_QUERY_KEYS.all() });
       queryClient.invalidateQueries({ queryKey: WORK_QUERY_KEYS.dlsiteNotifications() });
@@ -41,10 +39,17 @@ export default function ScanRuntime() {
       queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEYS.all() });
       if (result.insertedWorkIds.length > 0) dlsiteBulk.attach();
     },
-    [dlsiteBulk, queryClient, setHiddenPaths],
+    [dlsiteBulk, queryClient],
   );
 
-  const scanJob = useScanJob({ onTerminal: handleScanTerminal });
+  // 新しいスキャンの開始がサーバー側の真実の境界になるため、開始時点でそれ以前のローカル非表示を破棄する。
+  // 完了時ではなく開始時に行うことで、完了通知の非同期到達（SSE再接続・再取得）と
+  // 登録/除外操作の競合を避ける。
+  const handleScanStart = useCallback(() => {
+    setHiddenPaths(new Set());
+  }, [setHiddenPaths]);
+
+  const scanJob = useScanJob({ onTerminal: handleScanTerminal, onStart: handleScanStart });
   const scanJobRef = useRef(scanJob);
   useLayoutEffect(() => {
     scanJobRef.current = scanJob;

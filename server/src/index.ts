@@ -29,20 +29,20 @@ import {
   registerProcessErrorHandlers,
 } from "./lib/processErrorHandlers.ts";
 import { performGracefulShutdown, runCleanupAndExit } from "./serverLifecycle.ts";
+import { resolveServerConfig, type ServerConfig } from "./serverConfig.ts";
 import { serveMimimilli } from "./serve.ts";
-import { resolveStaticDir } from "./staticServe.ts";
 import { buildStartupLogProperties } from "./lib/startupLog.ts";
 
-const adapterKind = process.env.MIMIMILLI_ADAPTER ?? "real";
-const dataPaths = adapterKind === "real" ? resolveDataPaths() : undefined;
+const config = resolveServerConfig();
+const dataPaths = config.adapterKind === "real" ? resolveDataPaths() : undefined;
 const { logFilePath } = await initLogger(dataPaths ? { logDir: dataPaths.logDir } : {});
 
 const serverLogger = getCategoryLogger("server");
 
-function createAdapter(): DataAdapter {
-  switch (adapterKind) {
+function createAdapter(config: ServerConfig): DataAdapter {
+  switch (config.adapterKind) {
     case "fixture":
-      return createFixtureAdapter({ scenario: process.env.MIMIMILLI_MOCK_SCENARIO });
+      return createFixtureAdapter({ scenario: config.mockScenario });
     case "real": {
       if (!dataPaths) {
         throw new Error("real adapter requires dataPaths");
@@ -58,13 +58,15 @@ function createAdapter(): DataAdapter {
         dlsiteCache: resolveDlsiteCacheConfig(dataPaths.dlsiteCacheDb),
         dlsiteRequestConfig: resolveDlsiteRequestConfig(),
         dlsiteSchedulerDependencies: { logger: createDlsiteEventLogger() },
-        thumbnailCacheDir: process.env.MIMIMILLI_THUMBNAIL_CACHE_DIR
-          ? resolve(process.env.MIMIMILLI_THUMBNAIL_CACHE_DIR)
+        thumbnailCacheDir: config.thumbnailCacheDirOverride
+          ? resolve(config.thumbnailCacheDirOverride)
           : dataPaths.thumbnailCache,
       });
     }
-    default:
-      throw new Error(`不明な MIMIMILLI_ADAPTER です: ${adapterKind}`);
+    default: {
+      const unreachable: never = config.adapterKind;
+      throw new Error(`不明な MIMIMILLI_ADAPTER です: ${unreachable}`);
+    }
   }
 }
 
@@ -107,20 +109,21 @@ registerProcessErrorHandlers({
   },
 });
 
-const port = Number(process.env.PORT ?? 8080);
-const staticDir = resolveStaticDir(process.env.MIMIMILLI_STATIC_DIR);
-
-adapter = createAdapter();
-const served = serveMimimilli({ adapter, port, appOptions: { staticDir } });
+adapter = createAdapter(config);
+const served = serveMimimilli({
+  adapter,
+  port: config.port,
+  appOptions: { staticDir: config.staticDir },
+});
 app = served.app;
 server = served.server;
 
 serverLogger.info(
-  `サーバーを起動しました: http://localhost:${server.port} (adapter: ${adapterKind})`,
+  `サーバーを起動しました: http://localhost:${server.port} (adapter: ${config.adapterKind})`,
   buildStartupLogProperties({
-    adapterKind,
+    adapterKind: config.adapterKind,
     dataPaths,
     logFilePath,
-    scenario: process.env.MIMIMILLI_MOCK_SCENARIO,
+    scenario: config.mockScenario,
   }),
 );

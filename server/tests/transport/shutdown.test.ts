@@ -233,5 +233,5 @@ test("index.ts: 起動途中の失敗で exit code 1 に到達する", async () 
   ]);
 
   assert.equal(exitCode, 1);
-  assert.match(stderr, /未捕捉例外で終了します/);
+  assert.match(stderr, /不明な MIMIMILLI_ADAPTER です: invalid-adapter-for-test/);
 });

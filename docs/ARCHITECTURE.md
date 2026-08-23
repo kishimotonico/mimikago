@@ -65,6 +65,7 @@ oxlint の `overrides[].files` は `**/…` 形式で書く（複数セグメン
 
 - `mimimilli.json` が Source of Truth。タイトル・タグ・分類軸情報などの作品メタデータはここに保持する
 - SQLiteは `bun:sqlite` + Drizzleを使い、`catalog.sqlite` と `user.sqlite` に分ける。catalogには作品メタ・走査状態・派生キャッシュ、userには設定・プリセット・スマートフォルダー・ブックマーク・レジューム・最終再生を置く
+- DLsite取得キャッシュだけは独立ファイル `dlsite-cache.sqlite`（`DlsiteCache`）に分ける。外部サイトのHTML・カバー画像が中身で、catalogからは計算し直せず寿命も無関係なため。自前DDLで作りmigration executorの対象外なので、スキーマを変えたらファイルごと作り直す（[ADR-0008](adr/0008-persistence-topology-query-ownership-playback-ids.md)、運用は [dlsite.md](dlsite.md)）
 - catalog接続をmainとしてuser DBを `user` でATTACHし、作品とuser状態をJOINして読む。DB間外部キーとcascade deleteは使わない
 - 作品詳細のトラック尺は、音声ファイルの size/mtime と `audio_probe_cache` を照合し、不一致なら再プローブする（`workProbe.ts`）。`GET /works/:id` は読み取り後に `catalog.total_duration_sec` をライブ合計へ同期する（`workRefresh.ts` 経由）。一覧の `totalDurationSec` ソート・表示はこの保存列を読むため、詳細取得を経ると一覧にも反映される。再スキャンは不要
 - UI からの編集は `mimimilli.json` へ即時書き戻す

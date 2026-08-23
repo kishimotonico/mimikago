@@ -1,9 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
+import { SMOKE_WORKERS } from "./tests/smoke/workerCount.ts";
 
 // fixture アダプタの可変状態はworkerごとに起動するBun+Viteサーバーペア（tests/smoke/fixtures.ts）
 // に分離され、各テスト開始前にリセットされる。ポート導出もfixtures.ts側でworkerIndexを含めて行う。
-// 並列度は12スレッド機材での実測に基づく（TASK-383）。
-const SMOKE_WORKERS = 4;
 
 export default defineConfig({
   testDir: "./tests/smoke",

@@ -4,17 +4,24 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { test as base } from "@playwright/test";
+import { SMOKE_WORKERS } from "./workerCount.ts";
 
 const VITE_PORT_RANGE_START = 4200;
 const VITE_PORT_RANGE_SIZE = 500;
 const BUN_PORT_RANGE_START = 4700;
 const BUN_PORT_RANGE_SIZE = 500;
 
-// worktreeの絶対パスから決定的にオフセットを導出し、そこへworkerIndexを足してworkerごとの
-// ポートへ分散する（同一worktreeなら常に同じポート集合、worktree間の衝突も避ける）。
+// fixture状態リセットのHTTP待ちがADR-0020のWSL blackhole（未使用ポートへの接続が
+// 約2分ハングする既知障害）を踏まないよう、明示的に短いタイムアウトで打ち切る。
+const RESET_FETCH_TIMEOUT_MS = 5_000;
+
+// worktreeの絶対パスから決定的にブロックを選び、そこへworkerIndexを足してworkerごとの
+// ポートへ分散する。SMOKE_WORKERS個ぶんを1ブロックとして割り当てるため、
+// 異なるworktree同士でもブロック境界がずれない限りworker間のポートが重ならない。
 function derivePort(rangeStart: number, rangeSize: number, workerIndex: number): number {
-  const base = createHash("sha256").update(process.cwd()).digest().readUInt32BE(0) % rangeSize;
-  return rangeStart + ((base + workerIndex) % rangeSize);
+  const blockCount = Math.floor(rangeSize / SMOKE_WORKERS);
+  const block = createHash("sha256").update(process.cwd()).digest().readUInt32BE(0) % blockCount;
+  return rangeStart + block * SMOKE_WORKERS + workerIndex;
 }
 
 function waitForLog(proc: ChildProcess, pattern: RegExp, timeoutMs: number): Promise<void> {
@@ -125,6 +132,7 @@ export const test = base.extend<{ resetFixtureState: void }, { workerServers: Wo
     async ({ workerServers }, use) => {
       const res = await fetch(`${workerServers.bunBaseURL}/api/__test__/reset`, {
         method: "POST",
+        signal: AbortSignal.timeout(RESET_FETCH_TIMEOUT_MS),
       });
       if (!res.ok) throw new Error(`fixture状態のリセットに失敗しました: ${res.status}`);
       await use();

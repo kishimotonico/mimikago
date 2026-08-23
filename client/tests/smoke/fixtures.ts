@@ -26,9 +26,15 @@ function derivePort(rangeStart: number, rangeSize: number, workerIndex: number):
 
 function waitForLog(proc: ChildProcess, pattern: RegExp, timeoutMs: number): Promise<void> {
   return new Promise((resolvePromise, reject) => {
+    let stderrOutput = "";
+    const onStderr = (chunk: Buffer) => {
+      stderrOutput += chunk.toString();
+    };
+    proc.stderr?.on("data", onStderr);
+
     const timer = setTimeout(() => {
       cleanup();
-      reject(new Error(`起動ログ待ちがタイムアウトしました: ${pattern}`));
+      reject(new Error(`起動ログ待ちがタイムアウトしました: ${pattern}\n${stderrOutput}`));
     }, timeoutMs);
     const onData = (chunk: Buffer) => {
       if (pattern.test(chunk.toString())) {
@@ -38,11 +44,12 @@ function waitForLog(proc: ChildProcess, pattern: RegExp, timeoutMs: number): Pro
     };
     const onExit = (code: number | null) => {
       cleanup();
-      reject(new Error(`起動ログを待つ前にプロセスが終了しました (code ${code})`));
+      reject(new Error(`起動ログを待つ前にプロセスが終了しました (code ${code})\n${stderrOutput}`));
     };
     function cleanup() {
       clearTimeout(timer);
       proc.stdout?.off("data", onData);
+      proc.stderr?.off("data", onStderr);
       proc.off("exit", onExit);
     }
     proc.stdout?.on("data", onData);
@@ -65,12 +72,24 @@ async function warmUp(baseURL: string, timeoutMs: number): Promise<void> {
   }
 }
 
+// spawnしたコマンド（pnpm exec cross-env ... vite ... 等）はラッパー越しの子プロセスを持つため、
+// ラッパーのPIDだけをkillしても実体（vite・bun本体）が残り、次回起動時のポート衝突を招く。
+// detached: true でspawnし、プロセスグループごと（-pid）シグナルを送って確実に止める。
+function killGroup(proc: ChildProcess, signal: NodeJS.Signals): void {
+  if (proc.pid === undefined) return;
+  try {
+    process.kill(-proc.pid, signal);
+  } catch {
+    // グループが既に消えている場合は何もしない
+  }
+}
+
 async function shutdown(proc: ChildProcess, timeoutMs: number): Promise<void> {
   if (proc.exitCode !== null) return;
-  proc.kill("SIGTERM");
+  killGroup(proc, "SIGTERM");
   await new Promise<void>((resolvePromise) => {
     const timer = setTimeout(() => {
-      proc.kill("SIGKILL");
+      killGroup(proc, "SIGKILL");
       resolvePromise();
     }, timeoutMs);
     proc.once("exit", () => {
@@ -107,6 +126,7 @@ export const test = base.extend<{ resetFixtureState: void }, { workerServers: Wo
           PORT: String(bunPort),
         },
         stdio: ["ignore", "pipe", "pipe"],
+        detached: true,
       });
       await waitForLog(bunProc, /サーバーを起動しました/, 120_000);
 
@@ -124,7 +144,7 @@ export const test = base.extend<{ resetFixtureState: void }, { workerServers: Wo
           String(vitePort),
           "--strictPort",
         ],
-        { stdio: ["ignore", "pipe", "pipe"] },
+        { stdio: ["ignore", "pipe", "pipe"], detached: true },
       );
       await waitForLog(viteProc, /ready in/, 120_000);
       await warmUp(`http://127.0.0.1:${vitePort}`, 60_000);

@@ -1,10 +1,10 @@
 ---
 id: TASK-395
 title: fixtureのFilesツリーをタグ由来でなくphysicalPath由来で組み立てる
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-23 02:37'
-updated_date: '2026-08-23 02:37'
+updated_date: '2026-08-23 02:49'
 labels: []
 dependencies: []
 priority: high
@@ -27,9 +27,27 @@ TASK-378のworkQueryRepository側の変更(SQL独自実装の廃止)は正しい
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 buildFsRootの階層名がwork.physicalPathから導出され、tagsを参照しなくなっている
-- [ ] #2 サークルprefixのハードコードが復活していない
-- [ ] #3 dlsiteBulkApply.smoke.spec.ts と library.smoke.spec.ts をこの順で実行して緑になる
-- [ ] #4 pnpm test:smoke のフル実行が緑になる
-- [ ] #5 TASK-378のworkQueryRepository側の変更が戻っていない
+- [x] #1 buildFsRootの階層名がwork.physicalPathから導出され、tagsを参照しなくなっている
+- [x] #2 サークルprefixのハードコードが復活していない
+- [x] #3 dlsiteBulkApply.smoke.spec.ts と library.smoke.spec.ts をこの順で実行して緑になる
+- [x] #4 pnpm test:smoke のフル実行が緑になる
+- [x] #5 TASK-378のworkQueryRepository側の変更が戻っていない
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. physicalPath由来でbuildFsRootを修正 2. smokeテストで検証 3. check/test実行
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+スキャンで新規登録された作品（physicalPathが/library/dlsite/配下でないもの）は引き続き_その他へ寄り、ツリー位置とphysicalPathが一致しない。これは本タスク前からの挙動で、旧実装でもサークルタグが無ければ_その他だったため退行ではない。fixture内部の見た目の問題でテストもユーザーも依存していないため、対応しない判断とした。
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+buildFsRootのサークル階層をphysicalPath(library/dlsite/<サークル>/<作品>)から導出。想定外パスは_その他へ。smoke2件・test:smoke・check・test緑。
+<!-- SECTION:FINAL_SUMMARY:END -->

@@ -146,47 +146,52 @@ export const test = base.extend<{ resetFixtureState: void }, { workerServers: Wo
         workerInfo.workerIndex,
       );
 
-      await waitForPortFree(bunPort, 10_000);
-      const bunProc = spawn("bun", ["src/index.ts"], {
-        cwd: "../server",
-        env: {
-          ...process.env,
-          MIMIMILLI_ADAPTER: "fixture",
-          MIMIMILLI_MOCK_SCENARIO: "new-work",
-          PORT: String(bunPort),
-        },
-        stdio: ["ignore", "pipe", "pipe"],
-        detached: true,
-      });
-      await waitForLog(bunProc, /サーバーを起動しました/, 120_000);
+      let bunProc: ChildProcess | undefined;
+      let viteProc: ChildProcess | undefined;
 
-      await waitForPortFree(vitePort, 10_000);
-      const viteProc = spawn(
-        "pnpm",
-        [
-          "exec",
-          "cross-env",
-          "VITE_DISABLE_QUERY_DEVTOOLS=1",
-          `MIMIMILLI_BACKEND_URL=http://127.0.0.1:${bunPort}`,
-          "vite",
-          "--host",
-          "127.0.0.1",
-          "--port",
-          String(vitePort),
-          "--strictPort",
-        ],
-        { stdio: ["ignore", "pipe", "pipe"], detached: true },
-      );
-      await waitForLog(viteProc, /ready in/, 120_000);
-      await warmUp(`http://127.0.0.1:${vitePort}`, 60_000);
+      try {
+        await waitForPortFree(bunPort, 10_000);
+        bunProc = spawn("bun", ["src/index.ts"], {
+          cwd: "../server",
+          env: {
+            ...process.env,
+            MIMIMILLI_ADAPTER: "fixture",
+            MIMIMILLI_MOCK_SCENARIO: "new-work",
+            PORT: String(bunPort),
+          },
+          stdio: ["ignore", "pipe", "pipe"],
+          detached: true,
+        });
+        await waitForLog(bunProc, /サーバーを起動しました/, 120_000);
 
-      await use({
-        baseURL: `http://127.0.0.1:${vitePort}`,
-        bunBaseURL: `http://127.0.0.1:${bunPort}`,
-      });
+        await waitForPortFree(vitePort, 10_000);
+        viteProc = spawn(
+          "pnpm",
+          [
+            "exec",
+            "cross-env",
+            "VITE_DISABLE_QUERY_DEVTOOLS=1",
+            `MIMIMILLI_BACKEND_URL=http://127.0.0.1:${bunPort}`,
+            "vite",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            String(vitePort),
+            "--strictPort",
+          ],
+          { stdio: ["ignore", "pipe", "pipe"], detached: true },
+        );
+        await waitForLog(viteProc, /ready in/, 120_000);
+        await warmUp(`http://127.0.0.1:${vitePort}`, 60_000);
 
-      await shutdown(viteProc, 500);
-      await shutdown(bunProc, 5_000);
+        await use({
+          baseURL: `http://127.0.0.1:${vitePort}`,
+          bunBaseURL: `http://127.0.0.1:${bunPort}`,
+        });
+      } finally {
+        if (viteProc) await shutdown(viteProc, 500);
+        if (bunProc) await shutdown(bunProc, 5_000);
+      }
     },
     { scope: "worker" },
   ],

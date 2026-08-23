@@ -30,21 +30,6 @@ function jsonResponse(body: unknown): Response {
   });
 }
 
-function createDeferredFetch(candidates: ScanCandidate[]) {
-  let release!: () => void;
-  const gate = new Promise<void>((resolveGate) => {
-    release = resolveGate;
-  });
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-    if (String(input).endsWith("/scan/candidates")) {
-      await gate;
-      return jsonResponse({ candidates });
-    }
-    throw new Error(`unexpected fetch: ${String(input)}`);
-  });
-  return { fetchMock, release };
-}
-
 function readCache(queryClient: QueryClient): ScanCandidate[] | undefined {
   return queryClient.getQueryData(SCAN_CANDIDATES_QUERY_KEY);
 }
@@ -100,20 +85,39 @@ describe("refreshScanCandidates", () => {
     expect(readCache(queryClient)).toEqual([candidateA, candidateB]);
   });
 
-  it("並行呼び出しは1回のリクエストにdedupeされ、同じ結果を返す", async () => {
-    const { fetchMock, release } = createDeferredFetch([candidateA, candidateB]);
-    vi.stubGlobal("fetch", fetchMock);
+  it("先行リクエスト実行中に状態変更後の再取得を呼ぶと、新しいサーバー状態が反映される", async () => {
+    let firstRelease!: () => void;
+    const firstGate = new Promise<void>((resolve) => {
+      firstRelease = resolve;
+    });
+
+    let callCount = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).endsWith("/scan/candidates")) {
+          callCount += 1;
+          if (callCount === 1) {
+            await firstGate;
+            return jsonResponse({ candidates: [candidateA] });
+          }
+          return jsonResponse({ candidates: [candidateB] });
+        }
+        throw new Error(`unexpected fetch: ${String(input)}`);
+      }),
+    );
 
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
     const first = refreshScanCandidates(queryClient);
     const second = refreshScanCandidates(queryClient);
-    release();
+    firstRelease();
 
-    const [firstResult, secondResult] = await Promise.all([first, second]);
+    const secondResult = await second;
+    await first;
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(firstResult).toEqual([candidateA, candidateB]);
-    expect(secondResult).toEqual([candidateA, candidateB]);
+    expect(callCount).toBe(2);
+    expect(secondResult).toEqual([candidateB]);
+    expect(readCache(queryClient)).toEqual([candidateB]);
   });
 });

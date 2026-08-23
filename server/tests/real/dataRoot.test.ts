@@ -27,3 +27,21 @@ test("Linux既定はXDG_DATA_HOME、Windows既定はLOCALAPPDATAを使う", () =
     "C:\\Users\\test\\AppData\\Local\\mimimilli",
   );
 });
+
+test("Linux既定はXDG_DATA_HOME未設定時にuserHome/.local/shareを使う", () => {
+  assert.equal(
+    resolveDataPaths({}, "linux", "/home/test").root,
+    "/home/test/.local/share/mimimilli",
+  );
+});
+
+test("MIMIMILLI_DATA_DIRはOS既定より優先される", () => {
+  assert.equal(
+    resolveDataPaths(
+      { MIMIMILLI_DATA_DIR: "/override", XDG_DATA_HOME: "/xdg" },
+      "linux",
+      "/home/test",
+    ).root,
+    "/override",
+  );
+});

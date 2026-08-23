@@ -41,8 +41,6 @@ https://www.dlsite.com/pro/work/=/product_id/VJ000000.html
 
 両モードの違いは、取得したジャンル・サークル・CVタグをどこまで適用するか。`new` は取得した全タグをそのまま追加する。`existing` は `work.dlsite.appliedTags`（前回までにこの作品へ適用したタグ）と比較した差分だけを追加する。再取得のたびに同じタグが積み上がるのを防ぐための仕組みで、適用したタグは `appliedTags` として作品ごとに記録し続ける。
 
-タイトルの上書きは `isDefaultTitle`（`server/src/core/dlsiteTitle.ts`）で保護する。現在のタイトルがフォルダー名またはRJコードそのものと一致する場合だけ「ユーザー未編集」とみなし、`existing` でもDLsiteのタイトルで上書きする。それ以外はユーザーが手動編集したとみなし上書きしない。`new` は新規作品なので常に上書きする。
-
 ## 作品ごとの状態
 
 `work.dlsite.status`（`shared/src/dlsite.ts` の `dlsiteStatusSchema`）は次の5値を取る。

@@ -3,7 +3,7 @@
 // 独立したBun+Viteのペアを立て、各テスト開始前にサーバー側の状態をリセットして分離する。
 import { type ChildProcess, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { test as base } from "@playwright/test";
+import { chromium, test as base } from "@playwright/test";
 import { SMOKE_WORKERS } from "./workerCount.ts";
 
 const VITE_PORT_RANGE_START = 4200;
@@ -48,6 +48,21 @@ function waitForLog(proc: ChildProcess, pattern: RegExp, timeoutMs: number): Pro
     proc.stdout?.on("data", onData);
     proc.once("exit", onExit);
   });
+}
+
+// Viteの"ready in"ログはサーバー起動時点のもので、依存の事前バンドル（optimizeDeps）は
+// 実際にブラウザがモジュールグラフを辿って初回リクエストしたときに走る。workerが4並列で
+// 同時にコールドスタートすると、この事前バンドルが各テストのbootTimeout（20s）を圧迫し
+// 落ちうるため、worker起動時に一度だけ実ブラウザでページを開いて済ませておく。
+async function warmUp(baseURL: string, timeoutMs: number): Promise<void> {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.goto(baseURL, { waitUntil: "domcontentloaded", timeout: timeoutMs });
+    await page.locator(".mle-col.is-axis").waitFor({ state: "visible", timeout: timeoutMs });
+  } finally {
+    await browser.close();
+  }
 }
 
 async function shutdown(proc: ChildProcess, timeoutMs: number): Promise<void> {
@@ -112,6 +127,7 @@ export const test = base.extend<{ resetFixtureState: void }, { workerServers: Wo
         { stdio: ["ignore", "pipe", "pipe"] },
       );
       await waitForLog(viteProc, /ready in/, 120_000);
+      await warmUp(`http://127.0.0.1:${vitePort}`, 60_000);
 
       await use({
         baseURL: `http://127.0.0.1:${vitePort}`,

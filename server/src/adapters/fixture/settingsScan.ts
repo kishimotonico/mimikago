@@ -91,7 +91,7 @@ export function createSettingsScanMethods(state: FixtureState): SettingsAdapter 
       );
       const rootAbs = normalizeFsPath(state.rootFolder ?? "/library");
       const now = new Date().toISOString();
-      // real adapter の registerCandidates（scanner.ts）と同じ意味論: 登録した候補は
+      // real adapter の registerCandidates（scanCandidateSession.ts）と同じ意味論: 登録した候補は
       // 実際にcatalog（ここではstate.works）へ行が増える。作品一覧・スキャン結果一覧の
       // 両方から見えて初めて「登録した」と言える。
       const registered = items.flatMap((item) => {

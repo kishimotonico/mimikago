@@ -4,9 +4,10 @@ title: レイヤ境界検査を動的importにも適用する
 status: To Do
 assignee: []
 created_date: '2026-08-09 20:44'
+updated_date: '2026-08-23 00:45'
 labels: []
 dependencies: []
-priority: low
+priority: medium
 ordinal: 300000
 ---
 
@@ -18,6 +19,8 @@ TASK-282で導入したレイヤ境界の機械的検証に、動的importのす
 scripts/check-layer-boundaries.mjs の collectImports は正規表現ベースで import("...") 形式（ImportExpression）を収集せず、oxlint の no-restricted-imports も静的import宣言のみが対象。そのため禁止依存（features間sibling、shared→features等）を動的importへ書き換えるだけで両方の検査を通過できる。現状のコードベースに違反はゼロで実害はないが、境界固定の趣旨からすると塞ぐ価値がある。
 
 対応案: collectImports の正規表現に import( 形式を追加するか、境界スクリプトをAST解析（oxc-parser等）へ置き換えてImportExpressionも対象にする。
+
+アーキテクチャ監査(2026-08-21)の追記: 違反を実際に仕込んだ実測で、oxlint側も動的importを検出しないことを確認した(両検査とも同じ盲点)。lazy動的importが既に3箇所で実運用されているため優先度をMEDIUMへ変更。現状が文字列リテラルの動的importのみの間は、AST化より正規表現へのimport("...")収集追加+陽性/陰性テストで足りる。対応時は境界スクリプト側を検査の単一の正とする。
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

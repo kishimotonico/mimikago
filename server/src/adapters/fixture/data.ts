@@ -3,6 +3,7 @@
 import {
   dedupeTags,
   emptyDlsiteState,
+  extractCircleName,
   normalizeTags,
   TEXT_PREVIEW_LIMIT_BYTES,
 } from "@mimimilli/shared";
@@ -484,8 +485,7 @@ export function buildFsRoot(
 ): FsNode {
   const byCircle = new Map<string, WorkSummary[]>();
   for (const work of works) {
-    const circleTag = work.tags.find((t) => t.startsWith("サークル/"));
-    const circle = circleTag ? circleTag.slice("サークル/".length) : "_その他";
+    const circle = extractCircleName(work.tags) ?? "_その他";
     const list = byCircle.get(circle) ?? [];
     list.push(work);
     byCircle.set(circle, list);

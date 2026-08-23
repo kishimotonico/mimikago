@@ -3,6 +3,7 @@ import { asc, and, eq } from "drizzle-orm";
 import {
   createRandomSeed,
   evaluateParseErrorAlert,
+  extractCircleName,
   isCoverUnmeasured,
   projectCoverKind,
   relativeToRoot,
@@ -95,30 +96,6 @@ export class WorkQueryRepository {
       const list = map.get(r.workId);
       if (list) list.push(r.name);
       else map.set(r.workId, [r.name]);
-    }
-    return map;
-  }
-
-  private circleNameMap(workIds: string[]): Map<string, string> {
-    if (workIds.length === 0) return new Map();
-    const rows = chunk(workIds, SQLITE_IN_CHUNK_SIZE).flatMap(
-      (idsChunk) =>
-        this.db.sqlite
-          .query(
-            `
-            SELECT work_tags.work_id AS workId, tags.name AS name
-            FROM main.work_tags AS work_tags
-            INNER JOIN main.tags AS tags ON tags.id = work_tags.tag_id
-            WHERE work_tags.work_id IN (${inClausePlaceholders(idsChunk.length)})
-              AND (tags.name LIKE 'サークル/%' OR tags.name LIKE 'circle/%')
-            ORDER BY work_tags.work_id, tags.name COLLATE BINARY ASC
-          `,
-          )
-          .all(...idsChunk) as Array<{ workId: string; name: string }>,
-    );
-    const map = new Map<string, string>();
-    for (const row of rows) {
-      if (!map.has(row.workId)) map.set(row.workId, row.name.slice(row.name.indexOf("/") + 1));
     }
     return map;
   }
@@ -414,7 +391,7 @@ export class WorkQueryRepository {
       `)
         .all(...bindings, ...orderBindings, ...paginationBindings) as RawWorkListRow[];
       const workIds = rows.map((row) => row.id);
-      const circleNames = this.circleNameMap(workIds);
+      const tagsByWork = this.tagMap(workIds);
       const items = rows.map((row) => ({
         id: row.id,
         title: row.title,
@@ -430,7 +407,7 @@ export class WorkQueryRepository {
         trackCount: row.trackCount,
         bookmarked: row.bookmarked !== 0,
         lastPlayedAt: row.lastPlayedAt,
-        circleName: circleNames.get(row.id) ?? null,
+        circleName: extractCircleName(tagsByWork.get(row.id) ?? []),
         relativePath: relativeToRoot(row.physicalPath, root),
         dlsite: toWorkListItemDlsite(parseDlsiteStateJson(row.id, row.dlsiteStateJson)),
       }));

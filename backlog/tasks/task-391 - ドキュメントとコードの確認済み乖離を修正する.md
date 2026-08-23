@@ -1,9 +1,10 @@
 ---
 id: TASK-391
 title: ドキュメントとコードの確認済み乖離を修正する
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-21 14:50'
+updated_date: '2026-08-23 01:51'
 labels: []
 dependencies: []
 priority: low
@@ -18,7 +19,19 @@ ordinal: 391000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 README.mdのプロジェクト構成からtests/visual/の記載が消え、実態と一致する
-- [ ] #2 client/package.jsonの機能しないpreviewスクリプトが削除されている
-- [ ] #3 ADR-0008のリンク切れと旧名表記が修正されている
+- [x] #1 README.mdのプロジェクト構成からtests/visual/の記載が消え、実態と一致する
+- [x] #2 client/package.jsonの機能しないpreviewスクリプトが削除されている
+- [x] #3 ADR-0008のリンク切れと旧名表記が修正されている
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. README.mdのtests構成をhelpers/smoke/unitに更新 2. client/package.jsonのpreview削除 3. ADR-0008のリンク切れ・旧名修正 4. pnpm check/test実行
+<!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+READMEのtests構成をhelpers/smoke/unitに更新。client/package.jsonの機能しないpreviewスクリプトを削除。ADR-0008のリンク切れをGit履歴参照へ修正し、データルート表記をmimimilliへ統一。pnpm check/test通過。
+<!-- SECTION:FINAL_SUMMARY:END -->

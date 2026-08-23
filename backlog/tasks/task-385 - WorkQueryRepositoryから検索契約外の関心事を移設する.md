@@ -1,9 +1,10 @@
 ---
 id: TASK-385
 title: WorkQueryRepositoryから検索契約外の関心事を移設する
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-21 14:49'
+updated_date: '2026-08-23 01:55'
 labels: []
 dependencies: []
 priority: low
@@ -18,7 +19,19 @@ ordinal: 385000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 スキャン状態・probeキャッシュ・メディア/カバー位置の取得がworkQueryRepository.tsから用途別モジュールへ移っている
-- [ ] #2 queryWorks/getAxisFacets/DLsite通知集計は現行のまま(契約テスト緑)
-- [ ] #3 pnpm test:serverが緑
+- [x] #1 スキャン状態・probeキャッシュ・メディア/カバー位置の取得がworkQueryRepository.tsから用途別モジュールへ移っている
+- [x] #2 queryWorks/getAxisFacets/DLsite通知集計は現行のまま(契約テスト緑)
+- [x] #3 pnpm test:serverが緑
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. 用途別モジュール作成(scan/probe/media) 2. WorkQueryRepositoryをfacade化 3. テスト・負の検証 4. pnpm check/test
+<!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+getScanWorkMap→scanWorkQueries.ts、fetchProbeCache→probe.ts、getCoverLocation/getMediaRoot/hasTrackFile→workMediaQueries.tsへ移設。WorkQueryRepositoryはfacade委譲のみ。hasTrackFileはメディア配信照合の関心事のためworkMediaQueriesへ同梱。pnpm check/test緑。
+<!-- SECTION:FINAL_SUMMARY:END -->

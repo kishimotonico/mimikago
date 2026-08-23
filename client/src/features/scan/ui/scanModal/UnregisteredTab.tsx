@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSetAtom } from "jotai";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { hasRjCode, rjCodeFormatSchema, type ScanCandidate } from "@mimimilli/shared";
 import Button from "../../../../shared/ui/Button";
@@ -11,10 +12,8 @@ import { apiErrorMessage } from "../../../../shared/lib/apiError";
 import { parentDirOf } from "../../../../shared/lib/workspacePath";
 import { excludeScanCandidates, registerScanCandidates, SCAN_QUERY_KEYS } from "../../api";
 import { restoreScanCandidateExclusions } from "../../../../entities/scan/api";
-import {
-  refreshScanCandidates,
-  updateScanCandidatesCache,
-} from "../../../../entities/scan/scanCandidatesCache";
+import { refreshScanCandidates } from "../../../../entities/scan/scanCandidatesCache";
+import { scanCandidateHiddenPathsAtom } from "../../../../entities/scan/model/atoms";
 import type { CandidatesRegisteredResult } from "./types";
 
 export interface UnregisteredTabProps {
@@ -29,6 +28,7 @@ interface ExcludeToast {
 
 export default function UnregisteredTab({ candidates, onRegistered }: UnregisteredTabProps) {
   const queryClient = useQueryClient();
+  const setHiddenPaths = useSetAtom(scanCandidateHiddenPathsAtom);
   const [deselectedPaths, setDeselectedPaths] = useState<Set<string>>(() => new Set());
   const [rjCodeOverrides, setRjCodeOverrides] = useState<Map<string, string>>(() => new Map());
   const [rjCodeErrors, setRjCodeErrors] = useState<Map<string, string>>(() => new Map());
@@ -58,9 +58,7 @@ export default function UnregisteredTab({ candidates, onRegistered }: Unregister
     mutationFn: registerScanCandidates,
     onSuccess: ({ registered, failures }) => {
       const registeredPaths = new Set(registered.map((entry) => entry.path));
-      updateScanCandidatesCache(queryClient, (previous) =>
-        previous.filter((candidate) => !registeredPaths.has(candidate.path)),
-      );
+      setHiddenPaths((previous) => new Set([...previous, ...registeredPaths]));
       setErrorMessage(
         failures.length > 0 ? `${failures.length}件はライブラリに追加できませんでした。` : null,
       );
@@ -83,9 +81,7 @@ export default function UnregisteredTab({ candidates, onRegistered }: Unregister
   const excludeMutation = useMutation({
     mutationFn: (candidate: ScanCandidate) => excludeScanCandidates([candidate.path]),
     onSuccess: async (_void, candidate) => {
-      updateScanCandidatesCache(queryClient, (previous) =>
-        previous.filter((entry) => entry.path !== candidate.path),
-      );
+      setHiddenPaths((previous) => new Set(previous).add(candidate.path));
       setExcludeToast({ path: candidate.path, title: candidate.inferredTitle });
       await queryClient.invalidateQueries({ queryKey: SCAN_QUERY_KEYS.candidateExclusions() });
     },
@@ -94,8 +90,14 @@ export default function UnregisteredTab({ candidates, onRegistered }: Unregister
 
   const restoreMutation = useMutation({
     mutationFn: (path: string) => restoreScanCandidateExclusions([path]),
-    onSuccess: async () => {
+    onSuccess: async (_void, path) => {
       setExcludeToast(null);
+      setHiddenPaths((previous) => {
+        if (!previous.has(path)) return previous;
+        const next = new Set(previous);
+        next.delete(path);
+        return next;
+      });
       await refreshScanCandidates(queryClient);
     },
     onError: (error) => setErrorMessage(apiErrorMessage(error, "取り消しに失敗しました")),

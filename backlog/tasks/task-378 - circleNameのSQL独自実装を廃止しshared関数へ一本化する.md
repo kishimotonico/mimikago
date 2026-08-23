@@ -1,9 +1,10 @@
 ---
 id: TASK-378
 title: circleNameのSQL独自実装を廃止しshared関数へ一本化する
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-21 14:48'
+updated_date: '2026-08-23 01:46'
 labels: []
 dependencies: []
 priority: medium
@@ -18,8 +19,20 @@ ordinal: 378000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 workQueryRepositoryのcircleNameMap(SQL LIKE実装)が削除され、一覧のcircleNameはtagMap+extractCircleNameで算出される
-- [ ] #2 fixtureのbuildFsRootのサークルprefixハードコードがshared関数利用に置き換わる
-- [ ] #3 契約テストのcircleName検証(worksQueryContract.test.ts:264-276)が引き続き緑
-- [ ] #4 ADR-0008のSQL例外は3件のまま増えていない
+- [x] #1 workQueryRepositoryのcircleNameMap(SQL LIKE実装)が削除され、一覧のcircleNameはtagMap+extractCircleNameで算出される
+- [x] #2 fixtureのbuildFsRootのサークルprefixハードコードがshared関数利用に置き換わる
+- [x] #3 契約テストのcircleName検証(worksQueryContract.test.ts:264-276)が引き続き緑
+- [x] #4 ADR-0008のSQL例外は3件のまま増えていない
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. workQueryRepositoryのcircleNameMap削除・tagMap+extractCircleNameへ置換 2. fixture buildFsRootをshared関数利用へ 3. 契約テスト・pnpm check/testで検証
+<!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+workQueryRepositoryのcircleNameMap(SQL LIKE)を削除しtagMap+extractCircleNameへ一本化。fixture buildFsRootもextractCircleName利用へ。契約テスト・pnpm check/test緑。
+<!-- SECTION:FINAL_SUMMARY:END -->

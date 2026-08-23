@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { assertNoErrors, openApp, trackErrors } from "./support";
 
 test("再生中タブ: 通常モードのトラックリストが多数トラックでも内部スクロールで最後まで到達できる", async ({

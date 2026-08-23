@@ -30,6 +30,8 @@ function statusRank(status: ScanJobSnapshot["status"]): number {
 
 export interface UseScanJobOptions {
   onTerminal?: (job: ScanJobSnapshot) => void;
+  /** start() が新規ジョブの起動に成功したときのみ呼ばれる（既存ジョブへの再接続では呼ばれない）。 */
+  onStart?: (job: ScanJobSnapshot) => void;
 }
 
 /** サーバーのjob snapshotを唯一の状態源とする。リロード後もactive discoveryから同じjobへ再接続する。 */
@@ -43,6 +45,8 @@ export function useScanJob(options: UseScanJobOptions = {}) {
   const terminalHandled = useRef(new Set<string>());
   const onTerminalRef = useRef(options.onTerminal);
   onTerminalRef.current = options.onTerminal;
+  const onStartRef = useRef(options.onStart);
+  onStartRef.current = options.onStart;
 
   const owns = useCallback(
     (generation: number, jobId: string): boolean =>
@@ -207,6 +211,7 @@ export function useScanJob(options: UseScanJobOptions = {}) {
       setError(null);
       try {
         const next = await startScan(options);
+        onStartRef.current?.(next);
         attach(next);
         return { ok: true, job: next };
       } catch (cause) {

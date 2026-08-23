@@ -3,6 +3,7 @@ import { asc, eq } from "drizzle-orm";
 import {
   createRandomSeed,
   evaluateParseErrorAlert,
+  extractCircleName,
   isCoverUnmeasured,
   projectCoverKind,
   relativeToRoot,
@@ -30,6 +31,13 @@ import {
   SQL_LIKE_ESCAPE_CLAUSE,
 } from "./paths.ts";
 import type { ProbeCacheEntry } from "./probe.ts";
+import { fetchProbeCache as fetchProbeCacheFromDb } from "./probe.ts";
+import { getScanWorkMap as getScanWorkMapFromDb } from "./scanWorkQueries.ts";
+import {
+  getCoverLocation as getCoverLocationFromDb,
+  getMediaRoot as getMediaRootFromDb,
+  hasTrackFile as hasTrackFileFromDb,
+} from "./workMediaQueries.ts";
 import {
   axisFacetSql,
   chunk,
@@ -47,16 +55,13 @@ import {
 } from "./workQuerySql.ts";
 import {
   type AxisFacetRow,
-  type CoverLocationRow,
   type ListSummariesResult,
-  type MediaRootRow,
   mapRawWorkRows,
   parseDlsiteStateJson,
   type RawPlaylistRow,
   type RawSummaryListRow,
   type RawWorkListRow,
   type RawWorkRow,
-  type ScanWorkState,
   type SummaryRow,
   rowToSummary,
   type WorkDetailParts,
@@ -95,30 +100,6 @@ export class WorkQueryRepository {
       const list = map.get(r.workId);
       if (list) list.push(r.name);
       else map.set(r.workId, [r.name]);
-    }
-    return map;
-  }
-
-  private circleNameMap(workIds: string[]): Map<string, string> {
-    if (workIds.length === 0) return new Map();
-    const rows = chunk(workIds, SQLITE_IN_CHUNK_SIZE).flatMap(
-      (idsChunk) =>
-        this.db.sqlite
-          .query(
-            `
-            SELECT work_tags.work_id AS workId, tags.name AS name
-            FROM main.work_tags AS work_tags
-            INNER JOIN main.tags AS tags ON tags.id = work_tags.tag_id
-            WHERE work_tags.work_id IN (${inClausePlaceholders(idsChunk.length)})
-              AND (tags.name LIKE 'サークル/%' OR tags.name LIKE 'circle/%')
-            ORDER BY work_tags.work_id, tags.name COLLATE BINARY ASC
-          `,
-          )
-          .all(...idsChunk) as Array<{ workId: string; name: string }>,
-    );
-    const map = new Map<string, string>();
-    for (const row of rows) {
-      if (!map.has(row.workId)) map.set(row.workId, row.name.slice(row.name.indexOf("/") + 1));
     }
     return map;
   }
@@ -414,7 +395,7 @@ export class WorkQueryRepository {
       `)
         .all(...bindings, ...orderBindings, ...paginationBindings) as RawWorkListRow[];
       const workIds = rows.map((row) => row.id);
-      const circleNames = this.circleNameMap(workIds);
+      const tagsByWork = this.tagMap(workIds);
       const items = rows.map((row) => ({
         id: row.id,
         title: row.title,
@@ -430,7 +411,7 @@ export class WorkQueryRepository {
         trackCount: row.trackCount,
         bookmarked: row.bookmarked !== 0,
         lastPlayedAt: row.lastPlayedAt,
-        circleName: circleNames.get(row.id) ?? null,
+        circleName: extractCircleName(tagsByWork.get(row.id) ?? []),
         relativePath: relativeToRoot(row.physicalPath, root),
         dlsite: toWorkListItemDlsite(parseDlsiteStateJson(row.id, row.dlsiteStateJson)),
       }));
@@ -497,102 +478,12 @@ export class WorkQueryRepository {
     return { items: rows, total: count.total };
   }
 
-  getScanWorkMap(): Map<string, ScanWorkState> {
-    const rows = this.db.sqlite
-      .query(
-        `
-          SELECT
-            works.id AS id,
-            works.source_revision AS sourceRevision,
-            works.projection_revision AS projectionRevision,
-            works.media_revision AS mediaRevision,
-            works.status AS status,
-            works.physical_path AS physicalPath,
-            works.cover_image AS coverImage,
-            works.cover_width AS coverWidth,
-            works.cover_height AS coverHeight,
-            work_states.added_at AS addedAt,
-            work_states.bookmarked AS bookmarked,
-            work_states.last_played_at AS lastPlayedAt,
-            work_states.resume_playlist_id AS resumePlaylistId,
-            work_states.resume_track_id AS resumeTrackId,
-            work_states.resume_offset_sec AS resumeOffsetSec
-          FROM main.works AS works
-          INNER JOIN user.work_states AS work_states ON work_states.work_id = works.id
-        `,
-      )
-      .all() as Array<{
-      id: string;
-      sourceRevision: string | null;
-      projectionRevision: string | null;
-      mediaRevision: string | null;
-      status: Work["status"];
-      physicalPath: string;
-      coverImage: string | null;
-      coverWidth: number | null;
-      coverHeight: number | null;
-      addedAt: string;
-      bookmarked: number;
-      lastPlayedAt: string | null;
-      resumePlaylistId: string | null;
-      resumeTrackId: string | null;
-      resumeOffsetSec: number | null;
-    }>;
-    const map = new Map<string, ScanWorkState>();
-    for (const row of rows) {
-      map.set(row.id, {
-        sourceRevision: row.sourceRevision,
-        projectionRevision: row.projectionRevision,
-        mediaRevision: row.mediaRevision,
-        status: row.status,
-        physicalPath: row.physicalPath,
-        addedAt: row.addedAt,
-        bookmarked: row.bookmarked !== 0,
-        lastPlayedAt: row.lastPlayedAt,
-        cover: {
-          image: row.coverImage,
-          dimensions:
-            row.coverWidth !== null && row.coverHeight !== null
-              ? { width: row.coverWidth, height: row.coverHeight }
-              : null,
-        },
-        resume:
-          row.resumePlaylistId !== null &&
-          row.resumeTrackId !== null &&
-          row.resumeOffsetSec !== null
-            ? {
-                playlistId: row.resumePlaylistId,
-                trackId: row.resumeTrackId,
-                offsetSec: row.resumeOffsetSec,
-              }
-            : null,
-      });
-    }
-    return map;
+  getScanWorkMap() {
+    return getScanWorkMapFromDb(this.db);
   }
 
   fetchProbeCache(paths: string[]): Map<string, ProbeCacheEntry> {
-    const map = new Map<string, ProbeCacheEntry>();
-    const uniquePaths = [...new Set(paths)];
-    if (uniquePaths.length === 0) return map;
-
-    for (let i = 0; i < uniquePaths.length; i += SQLITE_IN_CHUNK_SIZE) {
-      const pathChunk = uniquePaths.slice(i, i + SQLITE_IN_CHUNK_SIZE);
-      const rows = this.db.sqlite
-        .query(
-          `SELECT path, size, mtime_ms AS mtimeMs, duration_sec AS durationSec FROM main.audio_probe_cache WHERE path IN (${inClausePlaceholders(pathChunk.length)})`,
-        )
-        .all(...pathChunk) as Array<{
-        path: string;
-        size: number;
-        mtimeMs: number;
-        durationSec: number | null;
-      }>;
-      for (const row of rows) {
-        map.set(row.path, row);
-      }
-    }
-    return map;
+    return fetchProbeCacheFromDb(this.db, paths);
   }
 
   getAxisFacets(axis: string, filter: Partial<AxisFacetsQuery> = {}): AxisFacetItem[] {
@@ -709,26 +600,16 @@ export class WorkQueryRepository {
     return versions;
   }
 
-  getCoverLocation(id: string): CoverLocationRow | null {
-    return (
-      (this.db.sqlite
-        .query(
-          `SELECT id, physical_path AS physicalPath, cover_image AS coverImage
-           FROM main.works WHERE id = ?`,
-        )
-        .get(id) as CoverLocationRow | undefined) ?? null
-    );
+  getCoverLocation(id: string) {
+    return getCoverLocationFromDb(this.db, id);
   }
 
-  getMediaRoot(id: string): MediaRootRow | null {
-    return (
-      (this.db.sqlite
-        .query(
-          `SELECT physical_path AS physicalPath
-           FROM main.works WHERE id = ?`,
-        )
-        .get(id) as MediaRootRow | undefined) ?? null
-    );
+  getMediaRoot(id: string) {
+    return getMediaRootFromDb(this.db, id);
+  }
+
+  hasTrackFile(workId: string, file: string): boolean {
+    return hasTrackFileFromDb(this.db, workId, file);
   }
 
   getWorkByPhysicalPathSync(physicalPath: string): { id: string } | null {

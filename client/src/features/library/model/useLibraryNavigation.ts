@@ -23,6 +23,7 @@ import {
   toggleLibraryTagAtom,
 } from "../../../entities/library/model/navigationActions";
 import { LibraryNavigationContext } from "./libraryNavigationContext";
+import { LibraryTransitionContext, type StartLibraryTransition } from "./libraryTransitionContext";
 
 export interface LibraryViewState {
   activeAxis: AxisId;
@@ -46,7 +47,10 @@ export interface LibraryViewActions {
   isPending: boolean;
 }
 
-export function useLibraryView(): LibraryViewState & LibraryViewActions {
+export function useLibraryView(): LibraryViewState &
+  LibraryViewActions & {
+    startTransition: StartLibraryTransition;
+  } {
   const activeAxis = useAtomValue(activeAxisAtom);
   const selectedTags = useAtomValue(selectedTagsAtom);
   const selectedWorkId = useAtomValue(selectedWorkIdAtom);
@@ -87,6 +91,7 @@ export function useLibraryView(): LibraryViewState & LibraryViewActions {
     setSort: transition(setSort),
     goToSegment: transition(goToSegment),
     isPending,
+    startTransition,
   };
 }
 
@@ -94,4 +99,11 @@ export function useLibraryNavigation(): LibraryViewState & LibraryViewActions {
   const navigation = useContext(LibraryNavigationContext);
   if (navigation === null) throw new Error("LibraryNavigationProvider が必要です");
   return navigation;
+}
+
+/** アクションのみ必要な消費者用。useLibraryNavigation() の state 購読を避ける。 */
+export function useLibraryTransition(): StartLibraryTransition {
+  const startTransition = useContext(LibraryTransitionContext);
+  if (startTransition === null) throw new Error("LibraryNavigationProvider が必要です");
+  return startTransition;
 }

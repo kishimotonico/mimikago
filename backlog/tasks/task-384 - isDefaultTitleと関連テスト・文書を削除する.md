@@ -1,9 +1,10 @@
 ---
 id: TASK-384
 title: isDefaultTitleと関連テスト・文書を削除する
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-21 14:49'
+updated_date: '2026-08-23 02:01'
 labels: []
 dependencies: []
 priority: low
@@ -18,7 +19,19 @@ ordinal: 384000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 server/src/core/dlsiteTitle.tsとserver/tests/dlsiteTitle.test.tsが削除されている
-- [ ] #2 rg isDefaultTitle がリポジトリ全体で0件
-- [ ] #3 docs/dlsite.mdからタイトル自動適用の記述が消え、現行の承認制の説明と矛盾しない
+- [x] #1 server/src/core/dlsiteTitle.tsとserver/tests/dlsiteTitle.test.tsが削除されている
+- [x] #2 rg isDefaultTitle がリポジトリ全体で0件
+- [x] #3 docs/dlsite.mdからタイトル自動適用の記述が消え、現行の承認制の説明と矛盾しない
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. 参照調査 2. ファイル削除 3. docs更新 4. テスト・check
+<!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+isDefaultTitle と dlsiteTitle.ts / dlsiteTitle.test.ts を削除。docs/dlsite.md のタイトル自動適用記述を削除。rg isDefaultTitle は backlog タスク本文以外 0 件。pnpm check / pnpm test 通過。
+<!-- SECTION:FINAL_SUMMARY:END -->

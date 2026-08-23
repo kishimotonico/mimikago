@@ -11,6 +11,13 @@ export class SourceChangedError extends Error {
   }
 }
 
+export class CandidatePoolChangedError extends Error {
+  constructor() {
+    super("候補が更新されています。再スキャンして選び直してください");
+    this.name = "CandidatePoolChangedError";
+  }
+}
+
 export class WorkRegisterError extends Error {
   readonly code:
     | "already_registered"

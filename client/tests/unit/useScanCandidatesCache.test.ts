@@ -1,9 +1,10 @@
 import { createElement } from "react";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Provider as JotaiProvider, createStore } from "jotai";
 import { describe, expect, it } from "vitest";
 import { SCAN_QUERY_KEYS } from "../../src/features/scan/api";
-import { updateScanCandidatesCache } from "../../src/entities/scan/scanCandidatesCache";
+import { scanCandidateHiddenPathsAtom } from "../../src/entities/scan/model/atoms";
 import {
   syncScanCandidatesFromLast,
   useUnregisteredCandidateCount,
@@ -49,14 +50,19 @@ function CountProbe() {
   return createElement("span", { "data-testid": "count" }, String(count));
 }
 
-function renderCount(queryClient: QueryClient) {
-  render(createElement(QueryClientProvider, { client: queryClient }, createElement(CountProbe)));
+function renderCount(queryClient: QueryClient, store = createStore()) {
+  render(
+    createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      createElement(JotaiProvider, { store }, createElement(CountProbe)),
+    ),
+  );
+  return store;
 }
 
-function registerCandidates(queryClient: QueryClient, registeredPaths: Set<string>) {
-  updateScanCandidatesCache(queryClient, (previous) =>
-    previous.filter((candidate) => !registeredPaths.has(candidate.path)),
-  );
+async function expectCount(text: string) {
+  await waitFor(() => expect(screen.getByTestId("count")).toHaveTextContent(text));
 }
 
 describe("syncScanCandidatesFromLast", () => {
@@ -66,7 +72,7 @@ describe("syncScanCandidatesFromLast", () => {
 });
 
 describe("useUnregisteredCandidateCount", () => {
-  it("候補キャッシュの件数を返す", () => {
+  it("候補キャッシュの件数を返す", async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -74,55 +80,98 @@ describe("useUnregisteredCandidateCount", () => {
 
     renderCount(queryClient);
 
-    expect(screen.getByTestId("count")).toHaveTextContent("2");
+    await expectCount("2");
   });
 
-  it("setQueryData で件数が追従する", () => {
+  it("setQueryData で件数が追従する", async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
     queryClient.setQueryData(SCAN_QUERY_KEYS.candidates(), [candidateA]);
 
     renderCount(queryClient);
+    await expectCount("1");
 
     act(() => {
       queryClient.setQueryData(SCAN_QUERY_KEYS.candidates(), []);
     });
 
-    expect(screen.getByTestId("count")).toHaveTextContent("0");
+    await expectCount("0");
+  });
+
+  it("キャッシュが undefined のときだけ last.result.candidates にフォールバックする", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    queryClient.setQueryData(SCAN_QUERY_KEYS.last(), lastScanResult);
+
+    renderCount(queryClient);
+    await expectCount("2");
+
+    act(() => {
+      queryClient.setQueryData(SCAN_QUERY_KEYS.candidates(), []);
+    });
+    await expectCount("0");
   });
 });
 
-describe("候補登録後の件数更新（TASK-351）", () => {
-  it("候補B: キャッシュが undefined のときだけ last.result.candidates にフォールバックする", () => {
+describe("承認・除外のローカル編集（hiddenPaths atom）", () => {
+  it("承認済みpathはhiddenPathsで隠れ、キャッシュ件数自体は変わらない", async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
-    queryClient.setQueryData(SCAN_QUERY_KEYS.last(), lastScanResult);
-
-    renderCount(queryClient);
-    expect(screen.getByTestId("count")).toHaveTextContent("2");
-
-    act(() => {
-      queryClient.setQueryData(SCAN_QUERY_KEYS.candidates(), []);
-    });
-    expect(screen.getByTestId("count")).toHaveTextContent("0");
+    queryClient.setQueryData(SCAN_QUERY_KEYS.candidates(), scanCandidates);
+    const store = renderCount(queryClient);
+    await expectCount("2");
 
     act(() => {
-      queryClient.removeQueries({ queryKey: SCAN_QUERY_KEYS.candidates() });
+      store.set(scanCandidateHiddenPathsAtom, new Set([candidateA.path, candidateB.path]));
     });
-    expect(screen.getByTestId("count")).toHaveTextContent("2");
+
+    await expectCount("0");
+    expect(queryClient.getQueryData(SCAN_QUERY_KEYS.candidates())).toEqual(scanCandidates);
   });
 
-  it("候補B: 登録で空配列キャッシュが残る限りフォールバックは件数を戻さない", () => {
+  it("承認後に遅延した再取得が完了しても、hiddenPathsにより表示は巻き戻らない", async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
-    queryClient.setQueryData(SCAN_QUERY_KEYS.last(), lastScanResult);
     queryClient.setQueryData(SCAN_QUERY_KEYS.candidates(), scanCandidates);
-    registerCandidates(queryClient, new Set(scanCandidates.map((candidate) => candidate.path)));
+    const store = renderCount(queryClient);
+    await expectCount("2");
 
-    renderCount(queryClient);
-    expect(screen.getByTestId("count")).toHaveTextContent("0");
+    // ユーザーが候補Aを承認（ローカルで即時非表示）。
+    act(() => {
+      store.set(scanCandidateHiddenPathsAtom, new Set([candidateA.path]));
+    });
+    await expectCount("1");
+
+    // 承認前から飛んでいた遅延中の再取得が、後から解決してキャッシュへ反映される
+    // （サーバー時点ではまだ承認前の状態を返している想定）。
+    act(() => {
+      queryClient.setQueryData(SCAN_QUERY_KEYS.candidates(), scanCandidates);
+    });
+
+    // hiddenPathsはクエリキャッシュと独立しているため、遅延応答で巻き戻らない。
+    await expectCount("1");
+  });
+
+  it("取り消し（hiddenPathsから除去）で再表示される", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    queryClient.setQueryData(SCAN_QUERY_KEYS.candidates(), scanCandidates);
+    const store = renderCount(queryClient);
+    await expectCount("2");
+
+    act(() => {
+      store.set(scanCandidateHiddenPathsAtom, new Set([candidateA.path]));
+    });
+    await expectCount("1");
+
+    act(() => {
+      store.set(scanCandidateHiddenPathsAtom, new Set());
+    });
+    await expectCount("2");
   });
 });

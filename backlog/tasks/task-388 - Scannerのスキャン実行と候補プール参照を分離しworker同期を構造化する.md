@@ -1,9 +1,10 @@
 ---
 id: TASK-388
 title: Scannerのスキャン実行と候補プール参照を分離しworker同期を構造化する
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-21 14:50'
+updated_date: '2026-08-23 01:52'
 labels: []
 dependencies: []
 priority: low
@@ -18,7 +19,19 @@ ordinal: 388000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 メインスレッド常駐の候補参照が、フィールド単位の手動コピーでなくworker実行結果オブジェクトの置き換えで更新される
-- [ ] #2 seedCandidatePoolパターン(単一フィールド手動同期)が廃止されている
-- [ ] #3 scanner系の結合テストが緑
+- [x] #1 メインスレッド常駐の候補参照が、フィールド単位の手動コピーでなくworker実行結果オブジェクトの置き換えで更新される
+- [x] #2 seedCandidatePoolパターン(単一フィールド手動同期)が廃止されている
+- [x] #3 scanner系の結合テストが緑
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. 現状の同期経路とメインスレッド側状態を洗い出す 2. スキャン実行と候補参照を分離する設計 3. seedCandidatePool廃止・結果オブジェクト置換で同期 4. テスト・ARCHITECTURE更新 5. pnpm check/test
+<!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+スキャン実行(Scanner.scan→ScanExecutionResult)と候補参照(ScanCandidateSession)を分離。worker完了時はScanExecutionResultを丸ごと受け取りcandidateSessionをインスタンス置換。seedCandidatePool/getCandidatePool/lastCandidatePoolを廃止。ARCHITECTURE.mdにworker分離の意図を追記。pnpm check・pnpm test(713+843)緑。
+<!-- SECTION:FINAL_SUMMARY:END -->

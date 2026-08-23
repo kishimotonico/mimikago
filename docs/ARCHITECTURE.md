@@ -65,6 +65,7 @@ oxlint の `overrides[].files` は `**/…` 形式で書く（複数セグメン
 
 - `mimimilli.json` が Source of Truth。タイトル・タグ・分類軸情報などの作品メタデータはここに保持する
 - SQLiteは `bun:sqlite` + Drizzleを使い、`catalog.sqlite` と `user.sqlite` に分ける。catalogには作品メタ・走査状態・派生キャッシュ、userには設定・プリセット・スマートフォルダー・ブックマーク・レジューム・最終再生を置く
+- DLsite取得キャッシュだけは独立ファイル `dlsite-cache.sqlite`（`DlsiteCache`）に分ける。外部サイトのHTML・カバー画像が中身で、catalogからは計算し直せず寿命も無関係なため。自前DDLで作りmigration executorの対象外なので、スキーマを変えたらファイルごと作り直す（[ADR-0008](adr/0008-persistence-topology-query-ownership-playback-ids.md)、運用は [dlsite.md](dlsite.md)）
 - catalog接続をmainとしてuser DBを `user` でATTACHし、作品とuser状態をJOINして読む。DB間外部キーとcascade deleteは使わない
 - 作品詳細のトラック尺は、音声ファイルの size/mtime と `audio_probe_cache` を照合し、不一致なら再プローブする（`workProbe.ts`）。`GET /works/:id` は読み取り後に `catalog.total_duration_sec` をライブ合計へ同期する（`workRefresh.ts` 経由）。一覧の `totalDurationSec` ソート・表示はこの保存列を読むため、詳細取得を経ると一覧にも反映される。再スキャンは不要
 - UI からの編集は `mimimilli.json` へ即時書き戻す
@@ -76,6 +77,7 @@ oxlint の `overrides[].files` は `**/…` 形式で書く（複数セグメン
 - 開発時（fixture）: server（Bun、`MIMIMILLI_ADAPTER=fixture`）と client（Vite）を別々の portless サービスとして起動する。client は Vite proxy で同じ worktree の `api.mimi` へ接続する
 - 開発時（real）: server と client を別々の portless サービスとして起動する。client は Vite proxy で同じ worktree の `api.mimi` へ接続する
 - スキャン: `POST /api/scan` はジョブを開始して 202 とスナップショットを即返す（`Location: /api/scan/:id`）。同時実行は1件のみで、実行中の二重POSTは409。進捗は `GET /api/scan/:id/events` の SSE で配信し、`Last-Event-ID` で欠損イベントをリプレイする（履歴切れ時は `reset` で現スナップショットを送る）。進捗無音区間は15秒間隔の `ping` で接続を維持。`GET /api/scan/active` で実行中ジョブを取得、`GET /api/scan/last` で直近完了結果（メモリ保持）を取得する
+- ファイルDB経路のフルスキャンは `scanWorker.ts` の Worker スレッドで実行し、メインスレッドのイベントループを塞がない。完了時の `ScanExecutionResult`（`ScanResult` + 候補プール）を `ScanCandidateSession` へ丸ごと置き換えて、候補の参照・登録・除外はメインスレッド常駐のセッションが担う
 - メディア配信: client がメディア URL を組み立て（`entities/work/api.ts`）、`/api/media/*` ルートが `DataAdapter.locateMedia()` 経由でアダプタ（実ファイル or fixture の合成メディア）から実体を取得して配信する
 
 ## ファイルシステムと配信の安全性

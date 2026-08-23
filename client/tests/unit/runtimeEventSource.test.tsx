@@ -15,6 +15,7 @@ import {
   dlsiteBulkStartingAtom,
   dlsiteBulkResultAtom,
 } from "../../src/entities/dlsite/model/bulkAtoms";
+import { scanActionsAtom, scanCandidateHiddenPathsAtom } from "../../src/entities/scan/model/atoms";
 
 class FakeEventSource extends EventTarget {
   static readonly CONNECTING = 0;
@@ -187,17 +188,76 @@ describe("ScanRuntime EventSource ownership", () => {
         expect.objectContaining({ result: scanResult }),
       ),
     );
+    // 候補の再取得は queryClient.fetchQuery 経由（TASK-387）のため、setQueryData のスパイではなく
+    // 反映後のキャッシュ内容そのものを見る。
     await waitFor(() =>
-      expect(setQueryData).toHaveBeenCalledWith(
-        SCAN_QUERY_KEYS.candidates(),
-        scanResult.candidates,
-      ),
+      expect(queryClient.getQueryData(SCAN_QUERY_KEYS.candidates())).toEqual(scanResult.candidates),
     );
     expect(
       setQueryData.mock.calls.filter(
         ([queryKey]) => JSON.stringify(queryKey) === JSON.stringify(SCAN_QUERY_KEYS.last()),
       ),
     ).toHaveLength(1);
+  });
+
+  it("新しいスキャンの開始で、それ以前のローカル非表示（hiddenPaths）を破棄する", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.endsWith("/scan/active")) return response(null, 204);
+        if (url.endsWith("/scan") && init?.method === "POST") {
+          return response({ job: running });
+        }
+        return response(null, 204);
+      }),
+    );
+
+    const { store } = renderRuntime(createElement(ScanRuntime));
+    // 前回のスキャンで承認/除外したフォルダーがローカルに残っている想定。
+    store.set(scanCandidateHiddenPathsAtom, new Set(["前回登録したフォルダー"]));
+
+    await waitFor(() => expect(store.get(scanActionsAtom)).not.toBeNull());
+    await act(async () => {
+      await store.get(scanActionsAtom)!.start();
+    });
+
+    expect(store.get(scanCandidateHiddenPathsAtom).size).toBe(0);
+  });
+
+  it("完了イベントが遅れて複数回届いても、開始後に登録/除外した非表示（hiddenPaths）を巻き戻さない", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/scan/active")) return response(running);
+        if (url.endsWith("/scan/job-1")) return response(completedJob);
+        if (url.endsWith("/scan/candidates")) {
+          return response({ candidates: scanResult.candidates });
+        }
+        return response(null, 204);
+      }),
+    );
+
+    const { store } = renderRuntime(createElement(ScanRuntime));
+
+    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
+    const source = FakeEventSource.instances[0]!;
+    const completed = { type: "completed" as const, seq: 1, result: scanResult };
+    dispatchScan(source, completed);
+
+    // 完了処理が確定する前に、ユーザーが候補を登録して非表示化したと想定する。
+    act(() => {
+      store.set(scanCandidateHiddenPathsAtom, new Set(["登録済みフォルダー"]));
+    });
+
+    // 同じ完了イベントの重複到達（再接続・リプレイ等）を模す。
+    dispatchScan(source, completed);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(store.get(scanCandidateHiddenPathsAtom)).toEqual(new Set(["登録済みフォルダー"]));
   });
 
   it("アンマウント時に EventSource を close する", async () => {

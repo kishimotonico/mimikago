@@ -16,6 +16,14 @@ import {
   sortWorkSummaries,
 } from "./worksQuery.ts";
 
+export function parseSmartFolderMinLengthSec(raw: string | undefined): number {
+  const minSec = Number(raw);
+  if (!Number.isFinite(minSec)) {
+    throw new Error(`スマートフォルダーの長さ条件が不正です: ${raw}`);
+  }
+  return minSec;
+}
+
 /** rules を順に適用し、works をフィルタリングして返す */
 export function evalSmartFolderRules(
   rules: SmartFolderRule[],
@@ -38,10 +46,7 @@ export function evalSmartFolderRules(
         break;
       }
       case "長さ": {
-        const minSec = Number(rule.values[0]);
-        if (!Number.isFinite(minSec)) {
-          throw new Error(`スマートフォルダーの長さ条件が不正です: ${rule.values[0]}`);
-        }
+        const minSec = parseSmartFolderMinLengthSec(rule.values[0]);
         // totalDurationSec が未知（null）の作品は「長さ条件を満たす」側に丸めず除外する。
         matchingIds = new Set(
           works

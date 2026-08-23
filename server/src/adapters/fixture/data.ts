@@ -477,6 +477,16 @@ function fsWorkFolder(work: WorkSummary, coverImage: string | null): FsNode {
   };
 }
 
+/** physicalPath が library/dlsite/<サークル>/<作品> ならサークル名を返す。それ以外は _その他 */
+function circleFromPhysicalPath(physicalPath: string): string {
+  const segments = physicalPath.split("/").filter(Boolean);
+  const circle = segments[2];
+  if (segments[0] === "library" && segments[1] === "dlsite" && segments.length >= 4 && circle) {
+    return circle;
+  }
+  return "_その他";
+}
+
 /** /fs のルートツリーを構築する。works はその時点の最新状態を渡す */
 export function buildFsRoot(
   works: WorkSummary[],
@@ -484,8 +494,7 @@ export function buildFsRoot(
 ): FsNode {
   const byCircle = new Map<string, WorkSummary[]>();
   for (const work of works) {
-    const circleTag = work.tags.find((t) => t.startsWith("サークル/"));
-    const circle = circleTag ? circleTag.slice("サークル/".length) : "_その他";
+    const circle = circleFromPhysicalPath(work.physicalPath);
     const list = byCircle.get(circle) ?? [];
     list.push(work);
     byCircle.set(circle, list);

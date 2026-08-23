@@ -100,7 +100,7 @@ test("サブツリー読取失敗: 配下の既存作品は missing 化されず
   const blockedMode = statSync(blockedRoot).mode & 0o777;
   t.after(() => chmodSync(blockedRoot, blockedMode));
   await withRestoredMode(blockedRoot, blockedMode, async () => {
-    const result = await scanner.scan(root);
+    const { result } = await scanner.scan(root);
     assert.ok(result.unreadablePaths?.includes(blockedRoot));
     assert.equal((await getTestWork(db, blockedId))?.status, "ok");
     assert.equal((await getTestWork(db, accessibleId))?.status, "ok");
@@ -138,7 +138,7 @@ test("サブツリー読取失敗: 読取可能な削除作品は引き続き mi
   const blockedMode = statSync(blockedDir).mode & 0o777;
   t.after(() => chmodSync(blockedDir, blockedMode));
   await withRestoredMode(blockedDir, blockedMode, async () => {
-    const result = await scanner.scan(root);
+    const { result } = await scanner.scan(root);
     assert.ok(result.unreadablePaths?.includes(blockedDir));
     assert.equal((await getTestWork(db, blockedId))?.status, "ok");
     assert.equal((await getTestWork(db, removedId))?.status, "missing");

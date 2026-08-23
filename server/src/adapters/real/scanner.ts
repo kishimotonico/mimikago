@@ -5,14 +5,12 @@ import type {
   MetaFile,
   NormalizedTag,
   ScanCandidate,
-  ScanCandidatesRegisterResponse,
   ScanDiagnostic,
   ScanResult,
   UrlEntry,
   Work,
 } from "@mimimilli/shared";
 import { emptyDlsiteState, isRjCodeMissing, workspacePath } from "@mimimilli/shared";
-import type { ScanCandidateRegisterItem } from "@mimimilli/shared";
 import type { Db } from "./db.ts";
 import type { ScanOptions } from "../../adapter/index.ts";
 import {
@@ -44,8 +42,12 @@ import {
   prepareMetaEntries,
   prepareSingleMeta,
   registerMetaFile,
+  type RegisterMetaFileOptions,
 } from "./scanRegister.ts";
+import type { PreparedMeta } from "./scanTypes.ts";
+import type { ProbeCacheEntry } from "./probe.ts";
 import { ScanUpsertBatch } from "./scanUpsertBatch.ts";
+import type { ScanExecutionResult } from "./scanTypes.ts";
 import {
   findWorkRoot,
   isCoveredByMeta,
@@ -111,7 +113,6 @@ export class Scanner {
   private readonly user: UserWorkStateRepository;
   private readonly measureCover: (sourceAbsolutePath: string) => Promise<CoverDimensions | null>;
   private readonly dlsiteCache: DlsiteCache | null;
-  private lastCandidatePool: ScanCandidate[] = [];
 
   constructor(db: Db, repos: WorkPersistence, options?: ScannerOptions) {
     this.db = db;
@@ -132,7 +133,7 @@ export class Scanner {
     root: string,
     options?: ScanOptions,
     abortHooks?: ScannerAbortHooks,
-  ): Promise<ScanResult> {
+  ): Promise<ScanExecutionResult> {
     root = resolve(root);
     const normalized = options ?? {};
     const full = normalized.full ?? false;
@@ -181,21 +182,24 @@ export class Scanner {
       checkAbort,
     );
 
-    this.lastCandidatePool = this.collectCandidates(root, tree, { filterExclusions: false });
+    const candidatePool = this.collectCandidates(root, tree, { filterExclusions: false });
     result.candidates = this.collectCandidates(root, tree);
 
     await this.generatePhase(root, result, emit, checkAbort);
 
-    return this.finalizePhase(
-      tree,
-      seenIds,
-      existingWorks,
-      batch,
-      result,
-      emit,
-      abortHooks,
-      checkAbort,
-    );
+    return {
+      result: this.finalizePhase(
+        tree,
+        seenIds,
+        existingWorks,
+        batch,
+        result,
+        emit,
+        abortHooks,
+        checkAbort,
+      ),
+      candidatePool,
+    };
   }
 
   private async walkPhase(
@@ -269,20 +273,16 @@ export class Scanner {
           seenIds.work.add(entry.id);
           result.skipped += 1;
         } else {
-          const outcome = await registerMetaFile(
-            this.db,
-            entry,
+          const outcome = await this.invokeRegisterMetaFile({
+            prepared: entry,
             seenIds,
             probeCache,
             batch,
             existingWorks,
             result,
-            full,
-            false,
-            this.measureCover,
+            options: { full, idsAlreadyRegistered: false },
             checkAbort,
-            this.dlsiteCache,
-          );
+          });
           if (outcome === "skipped") {
             result.skipped += 1;
           } else {
@@ -373,74 +373,6 @@ export class Scanner {
     return candidates.filter((candidate) => !excluded.has(candidate.path));
   }
 
-  async listCandidates(_root: string): Promise<ScanCandidate[]> {
-    const excluded = new Set(this.user.listScanCandidateExclusions());
-    return this.lastCandidatePool.filter((candidate) => !excluded.has(candidate.path));
-  }
-
-  seedCandidatePool(candidates: ScanCandidate[]): void {
-    this.lastCandidatePool = candidates;
-  }
-
-  getCandidatePool(): ScanCandidate[] {
-    return this.lastCandidatePool;
-  }
-
-  async registerCandidates(
-    root: string,
-    items: ScanCandidateRegisterItem[],
-    onRegistered: (workId: string) => void = () => {},
-  ): Promise<ScanCandidatesRegisterResponse> {
-    const candidates = await this.listCandidates(root);
-    const byPath = new Map<string, ScanCandidate>(
-      candidates.map((candidate) => [candidate.path, candidate]),
-    );
-    const selected = items.map((item) => ({ item, candidate: byPath.get(item.path) }));
-    if (selected.some((entry) => entry.candidate === undefined)) {
-      throw new Error("候補が更新されています。再スキャンして選び直してください");
-    }
-    const registered: ScanCandidatesRegisterResponse["registered"] = [];
-    const failures: ScanCandidatesRegisterResponse["failures"] = [];
-    for (const { item, candidate } of selected) {
-      const current = candidate!;
-      try {
-        const work = await this.registerFolderWork(resolve(root, current.path), {
-          title: current.inferredTitle,
-          rjCode: item.rjCode,
-        });
-        registered.push({ path: current.path, workId: work.id });
-        onRegistered(work.id);
-      } catch (error) {
-        failures.push({
-          path: current.path,
-          message: error instanceof Error ? error.message : "候補の登録に失敗しました",
-        });
-      }
-    }
-    const registeredPaths = new Set(registered.map((entry) => entry.path));
-    this.lastCandidatePool = this.lastCandidatePool.filter(
-      (candidate) => !registeredPaths.has(candidate.path),
-    );
-    return { registered, failures };
-  }
-
-  async excludeCandidates(root: string, paths: string[]): Promise<void> {
-    const candidates = await this.listCandidates(root);
-    const currentPaths = new Set(candidates.map((candidate) => candidate.path));
-    if (paths.some((path) => !currentPaths.has(path as ScanCandidate["path"]))) {
-      throw new Error("候補が更新されています。再スキャンして選び直してください");
-    }
-    this.user.excludeScanCandidates(paths);
-  }
-
-  listExcludedCandidates(): string[] {
-    return this.user.listScanCandidateExclusions();
-  }
-
-  restoreExcludedCandidates(paths: string[]): void {
-    this.user.restoreScanCandidateExclusions(paths);
-  }
-
   private finalizePhase(
     tree: WalkResult,
     seenIds: SeenMetaIds,
@@ -497,6 +429,56 @@ export class Scanner {
     return result;
   }
 
+  private async invokeRegisterMetaFile(params: {
+    prepared: PreparedMeta;
+    seenIds: SeenMetaIds;
+    probeCache: Map<string, ProbeCacheEntry>;
+    batch: ScanUpsertBatch;
+    existingWorks: Map<string, ScanWorkState>;
+    result: Pick<ScanResult, "coverErrors" | "insertedWorkIds" | "updatedWorkIds">;
+    options: RegisterMetaFileOptions;
+    checkAbort?: () => void;
+  }): Promise<"skipped" | string> {
+    return registerMetaFile(
+      this.db,
+      params.prepared,
+      params.seenIds,
+      params.probeCache,
+      params.batch,
+      params.existingWorks,
+      params.result,
+      params.options,
+      this.measureCover,
+      params.checkAbort,
+      this.dlsiteCache,
+    );
+  }
+
+  private async registerSingleWorkFromPrepared(
+    prepared: PreparedMeta,
+    workId: string,
+    notFoundMessage: string,
+  ): Promise<Work> {
+    const existingWorks = this.query.getScanWorkMap();
+    const batch = new ScanUpsertBatch(this.db, this.catalog, this.user, () => {});
+    const scanResult = emptyRegisterTracking();
+    const seenIds: SeenMetaIds = { work: new Set() };
+    await this.invokeRegisterMetaFile({
+      prepared,
+      seenIds,
+      probeCache: new Map(),
+      batch,
+      existingWorks,
+      result: scanResult,
+      options: { full: true, idsAlreadyRegistered: false },
+    });
+    batch.publishWork();
+
+    const work = await getWorkWithLiveProbe(this.db, this.query, this.catalog, workId);
+    if (!work) throw new Error(notFoundMessage);
+    return work;
+  }
+
   async registerFolderWork(
     workDir: string,
     options: {
@@ -536,56 +518,21 @@ export class Scanner {
     writeMetaFile(metaPath, meta);
 
     const prepared = prepareSingleMeta(metaPath);
-    const existingWorks = this.query.getScanWorkMap();
-    const batch = new ScanUpsertBatch(this.db, this.catalog, this.user, () => {});
-    const scanResult = emptyRegisterTracking();
-    const seenIds: SeenMetaIds = { work: new Set() };
-    await registerMetaFile(
-      this.db,
+    return this.registerSingleWorkFromPrepared(
       prepared,
-      seenIds,
-      new Map(),
-      batch,
-      existingWorks,
-      scanResult,
-      true,
-      false,
-      this.measureCover,
-      undefined,
-      this.dlsiteCache,
+      meta.id,
+      "登録した作品の取得に失敗しました",
     );
-    batch.publishWork();
-
-    const work = await getWorkWithLiveProbe(this.db, this.query, this.catalog, meta.id);
-    if (!work) throw new Error("登録した作品の取得に失敗しました");
-    return work;
   }
 
   /** 確定済みmimimilli.jsonを入力に、対象作品だけをcatalogへ投影する。 */
   async projectMetaFile(metaPath: string, meta: MetaFile): Promise<Work> {
     const prepared = prepareSingleMeta(metaPath, meta);
-    const existingWorks = this.query.getScanWorkMap();
-    const batch = new ScanUpsertBatch(this.db, this.catalog, this.user, () => {});
-    const scanResult = emptyRegisterTracking();
-    const seenIds: SeenMetaIds = { work: new Set() };
-    await registerMetaFile(
-      this.db,
+    return this.registerSingleWorkFromPrepared(
       prepared,
-      seenIds,
-      new Map(),
-      batch,
-      existingWorks,
-      scanResult,
-      true,
-      false,
-      this.measureCover,
-      undefined,
-      this.dlsiteCache,
+      meta.id,
+      "再投影した作品の取得に失敗しました",
     );
-    batch.publishWork();
-    const work = await getWorkWithLiveProbe(this.db, this.query, this.catalog, meta.id);
-    if (!work) throw new Error("再投影した作品の取得に失敗しました");
-    return work;
   }
 
   async restoreFolderWork(
@@ -619,28 +566,10 @@ export class Scanner {
       return existing !== undefined && existing.physicalPath !== workDir;
     });
     const prepared = prepareSingleMeta(metaPath);
-    const existingWorks = this.query.getScanWorkMap();
-    const batch = new ScanUpsertBatch(this.db, this.catalog, this.user, () => {});
-    const scanResult = emptyRegisterTracking();
-    const seenIds: SeenMetaIds = { work: new Set() };
-    await registerMetaFile(
-      this.db,
+    return this.registerSingleWorkFromPrepared(
       prepared,
-      seenIds,
-      new Map(),
-      batch,
-      existingWorks,
-      scanResult,
-      true,
-      false,
-      this.measureCover,
-      undefined,
-      this.dlsiteCache,
+      workId,
+      "復元した作品の取得に失敗しました",
     );
-    batch.publishWork();
-
-    const work = await getWorkWithLiveProbe(this.db, this.query, this.catalog, workId);
-    if (!work) throw new Error("復元した作品の取得に失敗しました");
-    return work;
   }
 }

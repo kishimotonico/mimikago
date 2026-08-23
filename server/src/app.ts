@@ -72,6 +72,14 @@ export function createApp(adapter: DataAdapter, options: CreateAppOptions = {}):
   api.route("/", mediaRoute(adapter, options.media));
   api.route("/", dlsiteRoute(adapter, dlsiteJobs));
 
+  if (adapter.resetFixtureState) {
+    const resetFixtureState = adapter.resetFixtureState;
+    api.post("/__test__/reset", (c) => {
+      resetFixtureState();
+      return c.json({ ok: true });
+    });
+  }
+
   app.route("/api", api);
 
   if (options.staticDir) {

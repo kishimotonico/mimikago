@@ -598,7 +598,7 @@ describe("ScanModal", () => {
       .spyOn(scanCandidatesCache, "refreshScanCandidates")
       .mockImplementation(async (queryClient) => {
         const candidates = [candidateDetected, candidateUndetected];
-        scanCandidatesCache.updateScanCandidatesCache(queryClient, () => candidates);
+        queryClient.setQueryData(SCAN_QUERY_KEYS.candidates(), candidates);
         return candidates;
       });
     renderModal({

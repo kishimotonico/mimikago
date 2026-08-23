@@ -1,7 +1,9 @@
-import { useSyncExternalStore } from "react";
-import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useAtomValue } from "jotai";
+import { useQuery } from "@tanstack/react-query";
 import type { ScanCandidate, ScanLastResultResponse } from "@mimimilli/shared";
 import { getLastScanResult, SCAN_QUERY_KEYS } from "../api";
+import { fetchScanCandidates } from "../../../entities/scan/scanCandidatesCache";
+import { scanCandidateHiddenPathsAtom } from "../../../entities/scan/model/atoms";
 
 const EMPTY_SCAN_CANDIDATES: ScanCandidate[] = [];
 
@@ -13,31 +15,7 @@ export function syncScanCandidatesFromLast(
   return last?.result.candidates;
 }
 
-function readScanCandidates(
-  queryClient: QueryClient,
-  last: ScanLastResultResponse | null | undefined,
-): ScanCandidate[] {
-  const cached = queryClient.getQueryData<ScanCandidate[]>(SCAN_QUERY_KEYS.candidates());
-  if (cached !== undefined) return cached;
-  const fromLast = syncScanCandidatesFromLast(last, undefined);
-  if (fromLast !== undefined) return fromLast;
-  return EMPTY_SCAN_CANDIDATES;
-}
-
-function subscribeToScanCandidates(
-  queryClient: QueryClient,
-  onStoreChange: () => void,
-): () => void {
-  const queryKey = SCAN_QUERY_KEYS.candidates();
-  return queryClient.getQueryCache().subscribe((event) => {
-    if (JSON.stringify(event.query.queryKey) !== JSON.stringify(queryKey)) return;
-    onStoreChange();
-  });
-}
-
 export function useScanCandidatesCache(): ScanCandidate[] {
-  const queryClient = useQueryClient();
-
   const lastQuery = useQuery({
     queryKey: SCAN_QUERY_KEYS.last(),
     queryFn: getLastScanResult,
@@ -45,11 +23,21 @@ export function useScanCandidatesCache(): ScanCandidate[] {
     refetchOnWindowFocus: false,
   });
 
-  return useSyncExternalStore(
-    (onStoreChange) => subscribeToScanCandidates(queryClient, onStoreChange),
-    () => readScanCandidates(queryClient, lastQuery.data),
-    () => readScanCandidates(queryClient, lastQuery.data),
-  );
+  // 明示的な refreshScanCandidates 呼び出し以外では取得しない（scanCandidatesCache 参照）。
+  const candidatesQuery = useQuery({
+    queryKey: SCAN_QUERY_KEYS.candidates(),
+    queryFn: fetchScanCandidates,
+    enabled: false,
+  });
+
+  const hiddenPaths = useAtomValue(scanCandidateHiddenPathsAtom);
+
+  const source =
+    syncScanCandidatesFromLast(lastQuery.data, candidatesQuery.data) ?? EMPTY_SCAN_CANDIDATES;
+
+  return hiddenPaths.size === 0
+    ? source
+    : source.filter((candidate) => !hiddenPaths.has(candidate.path));
 }
 
 export function useUnregisteredCandidateCount(): number {

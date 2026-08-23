@@ -142,8 +142,10 @@ function filterByView(works: WorkSummary[], view: WorksQuery["view"]): WorkSumma
     case "all":
     case undefined:
       return works;
-    default:
-      return works;
+    default: {
+      const unreachable: never = view;
+      throw new Error(`未対応のviewです: ${unreachable}`);
+    }
   }
 }
 

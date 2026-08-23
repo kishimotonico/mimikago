@@ -155,7 +155,7 @@ test("スキャン finalize は壊れた作品があっても ScanResult を返�
   const scanRoot = makeTestDirectory("scan-integrity");
   t.after(scanRoot.cleanup);
   const scanner = new Scanner(db, repos);
-  const result = await scanner.scan(scanRoot.path, { full: true });
+  const { result } = await scanner.scan(scanRoot.path, { full: true });
   assert.equal(result.dataIntegrityWarning?.skippedCount, 1);
   assert.deepEqual(result.dataIntegrityWarning?.skippedWorkIds, [badId]);
   assert.equal(typeof result.rjCodeMissingCount, "number");

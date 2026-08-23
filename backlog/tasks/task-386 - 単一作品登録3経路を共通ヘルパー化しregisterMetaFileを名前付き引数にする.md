@@ -1,9 +1,10 @@
 ---
 id: TASK-386
 title: 単一作品登録3経路を共通ヘルパー化しregisterMetaFileを名前付き引数にする
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-21 14:49'
+updated_date: '2026-08-23 01:18'
 labels: []
 dependencies: []
 priority: low
@@ -18,7 +19,19 @@ ordinal: 386000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 3メソッドが単一の共通ヘルパーを経由し、registerMetaFile直接呼び出しが1箇所になる
-- [ ] #2 full/idsAlreadyRegistered等のbooleanが名前付きオプションで渡され、呼び出し側から意味が読める
-- [ ] #3 scanner系の既存テストが緑
+- [x] #1 3メソッドが単一の共通ヘルパーを経由し、registerMetaFile直接呼び出しが1箇所になる
+- [x] #2 full/idsAlreadyRegistered等のbooleanが名前付きオプションで渡され、呼び出し側から意味が読める
+- [x] #3 scanner系の既存テストが緑
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. 3経路の差分洗い出し 2. registerMetaFileを名前付き引数化 3. 共通ヘルパー抽出 4. テスト・check
+<!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+registerMetaFileのbooleanをRegisterMetaFileOptionsに、3経路の重複をinvokeRegisterMetaFile/registerSingleWorkFromPreparedへ抽出。registerMetaFile直接呼び出しはscanner.ts:510の1箇所のみ。
+<!-- SECTION:FINAL_SUMMARY:END -->

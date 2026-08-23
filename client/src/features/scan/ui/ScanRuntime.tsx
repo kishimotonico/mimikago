@@ -10,6 +10,7 @@ import { SCAN_QUERY_KEYS } from "../api";
 import { refreshScanCandidates } from "../../../entities/scan/scanCandidatesCache";
 import {
   scanActionsAtom,
+  scanCandidateHiddenPathsAtom,
   scanErrorAtom,
   scanJobAtom,
   type ScanActions,
@@ -23,6 +24,7 @@ export default function ScanRuntime() {
   const setJob = useSetAtom(scanJobAtom);
   const setError = useSetAtom(scanErrorAtom);
   const setActions = useSetAtom(scanActionsAtom);
+  const setHiddenPaths = useSetAtom(scanCandidateHiddenPathsAtom);
 
   const handleScanTerminal = useCallback(
     (job: ScanJobSnapshot) => {
@@ -40,7 +42,14 @@ export default function ScanRuntime() {
     [dlsiteBulk, queryClient],
   );
 
-  const scanJob = useScanJob({ onTerminal: handleScanTerminal });
+  // 新しいスキャンの開始がサーバー側の真実の境界になるため、開始時点でそれ以前のローカル非表示を破棄する。
+  // 完了時ではなく開始時に行うことで、完了通知の非同期到達（SSE再接続・再取得）と
+  // 登録/除外操作の競合を避ける。
+  const handleScanStart = useCallback(() => {
+    setHiddenPaths(new Set());
+  }, [setHiddenPaths]);
+
+  const scanJob = useScanJob({ onTerminal: handleScanTerminal, onStart: handleScanStart });
   const scanJobRef = useRef(scanJob);
   useLayoutEffect(() => {
     scanJobRef.current = scanJob;

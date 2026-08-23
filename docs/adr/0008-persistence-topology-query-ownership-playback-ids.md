@@ -2,7 +2,7 @@
 
 - ステータス: 承認
 - 日付: 2026-07-19
-- 関連: [ADR-0003](0003-no-db-migrations.md)、[ADR-0004](0004-core-functions-over-sql.md)、[ADR-0007](0007-bun-distribution-runtime.md)、backlog TASK-71、DRAFT-25、DRAFT-26、DRAFT-27、[Bun配布スパイク](../../scripts/spike/bun-distribution/README.md)
+- 関連: [ADR-0003](0003-no-db-migrations.md)、[ADR-0004](0004-core-functions-over-sql.md)、[ADR-0007](0007-bun-distribution-runtime.md)、backlog TASK-71、DRAFT-25、DRAFT-26、DRAFT-27
 
 ## 文脈
 
@@ -14,7 +14,7 @@ DBを分ける主目的は、catalog再構築がuserデータに触れる経路�
 
 現在のresumeは作品IDに対する`{trackIndex, position}`である。`position`は音声ファイルの絶対秒で、トラックの並べ替えや区間変更に耐えない。PlaylistとTrackには安定IDがなく、既存`.meta.json`へIDを追加するには、ユーザーが管理するファイルを一括変更する移行が必要になる。
 
-[ADR-0007](0007-bun-distribution-runtime.md)のスパイクにより、配布ランタイムはBun、SQLiteは`bun:sqlite`、データルートはWindowsで`%LOCALAPPDATA%\Mimikago`となった。`bun:sqlite`による2DB同時接続と`ATTACH`も実測済みである。本ADRではこの制約を前提に、データの帰属、DB間の読み方、検索仕様の置き場、ID移行、バックアップをまとめて決める。
+[ADR-0007](0007-bun-distribution-runtime.md)のスパイクにより、配布ランタイムはBun、SQLiteは`bun:sqlite`、データルートはWindowsで`%LOCALAPPDATA%\mimimilli`となった。`bun:sqlite`による2DB同時接続と`ATTACH`も実測済みである。本ADRではこの制約を前提に、データの帰属、DB間の読み方、検索仕様の置き場、ID移行、バックアップをまとめて決める。
 
 ## 決定
 
@@ -59,6 +59,10 @@ DBを分ける主目的は、catalog再構築がuserデータに触れる経路�
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `catalog.sqlite` | Workのメタ・走査状態、Playlist・Track関係、TagとWork-Tag関係、DLsite状態、音声プローブ結果、スキャン状態、検索用の派生キー                                    |
 | `user.sqlite`    | Workごとの`addedAt`・`bookmarked`・`lastPlayedAt`、resume v2、設定、タグprefix、検索プリセット、スマートフォルダー、schema version、配布開始後のmigration履歴 |
+
+この2DBの外に、DLsite取得キャッシュだけを独立ファイル`db/dlsite-cache.sqlite`として置く（`MIMIMILLI_DLSITE_CACHE_DB`で差し替え可）。中身は外部サイトのHTMLスナップショット・取得失敗記録・カバー画像BLOBで、catalogからもローカルファイルからも計算し直せないため上の3分類のどれにも当てはまらない。失っても意味上のデータは失わず、実HTTPへ出れば埋め直せる、という一方向の性質だけを持つ。catalog DBへ同居させると、catalog再構築のたびにこのBLOBを巻き添えで捨て、再構築のたびにDLsiteへ再アクセスすることになる。寿命がcatalogと無関係なので物理的に分ける。この例外はDLsiteキャッシュに限る。「削除・再生成できる」ことを理由に、catalogから計算し直せる派生キャッシュを独立ファイルへ切り出してよいわけではない。
+
+このDBは`DlsiteCache`（`dlsiteCache.ts`）が自前の`CREATE TABLE IF NOT EXISTS`で作り、[ADR-0021](0021-custom-sqlite-migration-executor.md)のmigration executorの対象外でschema versionも持たない。したがってスキーマ不一致はfail-fastで検出されず、forward migrationも書かない。テーブル定義を変えたときは、ファイルごと削除して起動時に空で作り直すのが正しい対処になる。捨てる前に内容を残したい場合は`pnpm --filter @mimimilli/server dlsite-cache -- export --dir <path>`でHTMLスナップショットをアーカイブし、再作成後に`import --dir`で戻す（取得失敗記録とカバー画像はexport対象外で、再取得に任せる）。運用コマンドの詳細は[dlsite.md](../dlsite.md)を正とする。
 
 catalog接続を`main`として開き、user DBを`user`スキーマ名で`ATTACH`する。作品一覧は`main`の作品・タグと`user`の作品状態を同じSQL文でJOINする。`addedAt`を含むuser側の作品状態は、作品をcatalogへ登録する前に冪等なINSERTで作る。起動時の整合性検査で、catalogに存在するのにuser状態がないWorkを検出した場合は、一覧から黙って除外したり現在時刻を補ったりせず、診断可能な整合性エラーとして止める。
 

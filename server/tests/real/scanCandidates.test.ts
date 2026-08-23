@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { workspacePath } from "@mimimilli/shared";
+import { CandidatePoolChangedError } from "../../src/errors.ts";
 import { createTestRealAdapter } from "../helpers/realAdapter.ts";
 import { makeTestDirectory, writeWav } from "../helpers/sampleLibrary.ts";
 
@@ -89,7 +90,7 @@ test("選択した候補だけを登録し、除外した候補は以後返さ�
   assert.equal(existsSync(join(excluded, "mimimilli.json")), false);
   await assert.rejects(
     () => adapter.registerScanCandidates([{ path: workspacePath("選択作品") }]),
-    /候補が更新されています/,
+    CandidatePoolChangedError,
   );
 });
 
@@ -109,7 +110,7 @@ test("stale候補を含む一括登録は書込み前に全件拒否する", asy
         { path: workspacePath("現在の候補") },
         { path: workspacePath("古い候補") },
       ]),
-    /候補が更新されています/,
+    CandidatePoolChangedError,
   );
   assert.equal(existsSync(join(current, "mimimilli.json")), false);
 });

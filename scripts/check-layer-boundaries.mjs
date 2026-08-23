@@ -22,10 +22,14 @@ async function walk(dir) {
   return files;
 }
 
-function collectImports(source) {
+export function collectImports(source) {
   const imports = [];
-  const pattern = /(?:import|export)\s+(?:type\s+)?(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]/g;
-  for (const match of source.matchAll(pattern)) {
+  const staticPattern = /(?:import|export)\s+(?:type\s+)?(?:[^'";]*?\s+from\s+)?['"]([^'"]+)['"]/g;
+  for (const match of source.matchAll(staticPattern)) {
+    imports.push(match[1]);
+  }
+  const dynamicPattern = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+  for (const match of source.matchAll(dynamicPattern)) {
     imports.push(match[1]);
   }
   return imports;
@@ -225,4 +229,6 @@ async function main() {
   process.exitCode = 1;
 }
 
-await main();
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  await main();
+}

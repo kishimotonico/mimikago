@@ -93,7 +93,7 @@ export function createCoverMediaMethods(deps: {
     },
 
     async locateMedia(
-      _kind: CatalogMediaKind,
+      kind: CatalogMediaKind,
       workId: string,
       relPath?: string,
     ): Promise<MediaLocation | null> {
@@ -102,6 +102,8 @@ export function createCoverMediaMethods(deps: {
 
       const rel = relPath;
       if (!rel) return null;
+
+      if (kind === "audio" && !query.hasTrackFile(workId, rel)) return null;
 
       const resolved = resolveWithin(root.physicalPath, join(root.physicalPath, rel));
       if (!resolved) return null;

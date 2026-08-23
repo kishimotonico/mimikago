@@ -8,6 +8,7 @@ import {
 } from "@mimimilli/shared";
 import { createFixtureAdapter } from "../src/adapters/fixture/index.ts";
 import { createApp } from "../src/app.ts";
+import { CandidatePoolChangedError } from "../src/errors.ts";
 
 const candidate = scanCandidateSchema.parse({
   path: "候補作品",
@@ -35,7 +36,7 @@ test("候補APIは取得・一括登録・stale拒否を提供し、登録ごと
       });
     },
     excludeScanCandidates: async () => {
-      throw new Error("候補が更新されています。再スキャンして選び直してください");
+      throw new CandidatePoolChangedError();
     },
     runDlsiteBulk: async (_mode, workIds): Promise<DlsiteBulkResult> => {
       queued.push(workIds ?? []);
@@ -142,7 +143,7 @@ test("候補登録APIは全失敗を成功なしの結果として返し、stale
   const staleApp = createApp({
     ...fixture,
     registerScanCandidates: async () => {
-      throw new Error("候補が更新されています。再スキャンして選び直してください");
+      throw new CandidatePoolChangedError();
     },
   });
   try {

@@ -6,7 +6,7 @@ import { createCoverMediaMethods } from "./coverMedia.ts";
 import { createDlsiteMethods } from "./dlsiteMethods.ts";
 import { createFsMethods } from "./fsMethods.ts";
 import { createSettingsScanMethods } from "./settingsScan.ts";
-import { createInitialState, type FixtureAdapterOptions } from "./state.ts";
+import { createInitialState, resetState, type FixtureAdapterOptions } from "./state.ts";
 import { createWorkMethods } from "./works.ts";
 
 export type { FixtureAdapterOptions } from "./state.ts";
@@ -20,5 +20,6 @@ export function createFixtureAdapter(options: FixtureAdapterOptions = {}): DataA
     ...createFsMethods(state),
     ...createCoverMediaMethods(state),
     ...createDlsiteMethods(state),
+    resetFixtureState: () => resetState(state, options),
   };
 }

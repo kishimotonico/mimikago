@@ -1,7 +1,7 @@
 import { buildBuiltinAxisTag, splitSelectedTags, type NormalizedTag } from "@mimimilli/shared";
 import type { AppMode } from "../../../shared/model/appMode";
-import { isViewAxis } from "../axisDefinitions";
-import type { AxisId, SortId } from "../types";
+import { isViewAxis } from "../../../entities/library/axisDefinitions";
+import type { AxisId, SortId } from "../../../entities/library/types";
 
 export type { AppMode };
 

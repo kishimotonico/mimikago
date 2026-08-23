@@ -5,14 +5,14 @@
 import { useAtomValue } from "jotai";
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { DlsiteNotificationModalKind } from "../../features/library/model/dlsiteNotificationModal";
+import type { DlsiteNotificationModalKind } from "../../features/dlsite/model/dlsiteNotificationModal";
 import {
   dlsiteBulkActiveAtom,
   dlsiteBulkProgressAtom,
   dlsiteBulkStartingAtom,
 } from "../../entities/dlsite/model/bulkAtoms";
 import { useDlsiteBulkActions } from "../../entities/dlsite/useDlsiteBulkActions";
-import { useDlsiteNotificationSummary } from "../../features/library/model/useDlsiteNotificationSummary";
+import { useDlsiteNotificationSummary } from "../../features/dlsite/model/useDlsiteNotificationSummary";
 import { getLastScanResult, SCAN_QUERY_KEYS } from "../../features/scan/api";
 import Button from "../../shared/ui/Button";
 import { I } from "../../shared/ui/Icon";

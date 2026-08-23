@@ -57,7 +57,7 @@ async function run(input: WorkerInput): Promise<void> {
     const user = new UserWorkStateRepository(db);
     dlsiteCache = existsSync(input.dlsiteCache.path) ? new DlsiteCache(input.dlsiteCache) : null;
     const scanner = new Scanner(db, { query, catalog, user }, { dlsiteCache });
-    const result = await scanner.scan(
+    const execution = await scanner.scan(
       input.root,
       {
         full: input.full ?? false,
@@ -83,7 +83,7 @@ async function run(input: WorkerInput): Promise<void> {
       if (cancelled(token)) {
         terminal = { type: "cancelled" };
       } else {
-        terminal = { type: "completed", result, candidatePool: scanner.getCandidatePool() };
+        terminal = { type: "completed", ...execution };
       }
     }
   } catch (error) {

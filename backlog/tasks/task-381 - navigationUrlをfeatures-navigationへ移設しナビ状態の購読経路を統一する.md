@@ -1,9 +1,10 @@
 ---
 id: TASK-381
 title: navigationUrlをfeatures/navigationへ移設しナビ状態の購読経路を統一する
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-21 14:48'
+updated_date: '2026-08-23 01:45'
 labels: []
 dependencies: []
 priority: medium
@@ -18,7 +19,19 @@ ordinal: 381000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 navigationUrl.tsがfeatures/navigation配下にあり、entities/libraryにURL codecが残っていない
-- [ ] #2 アクションのみ必要な消費者(LibrarySortMenu・LibraryBreadcrumbs等)がuseLibraryNavigation()を購読せず、個別のaction atomを使う
-- [ ] #3 pnpm check(境界検査含む)とpnpm test:smokeが緑
+- [x] #1 navigationUrl.tsがfeatures/navigation配下にあり、entities/libraryにURL codecが残っていない
+- [x] #2 アクションのみ必要な消費者(LibrarySortMenu・LibraryBreadcrumbs等)がuseLibraryNavigation()を購読せず、個別のaction atomを使う
+- [x] #3 pnpm check(境界検査含む)とpnpm test:smokeが緑
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. navigationUrl.ts(+test)をentities/library/modelからfeatures/navigation/modelへ移動、import更新\n2. LibrarySortMenu.tsx/LibraryBreadcrumbs.tsxをuseLibraryNavigation()からuseSetAtomによる個別action atom購読へ変更（挙動維持のためstartTransitionは維持）\n3. pnpm check && pnpm test、pnpm test:smoke
+<!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+navigationUrl.ts(+単体テスト)をentities/library/modelからfeatures/navigation/modelへ移設し、URL codecの置き場所をアプリのルーティング契約に合わせた。LibrarySortMenu.tsx・LibraryBreadcrumbs.tsxはuseLibraryNavigation()（4atom分のContext購読）ではなく、setLibrarySortAtom・goToLibrarySegmentAtomの個別action atomをuseSetAtomで直接購読する形に変更。当初この変更でLibraryNavigationProviderが持つ単一のuseTransitionから両者が分離され、nav.isPending（WorkListPaneのis-pending暗転）にこれらの操作が反映されなくなる副作用が発生（レビューで発見）。LibraryTransitionContextを新設し、Providerが保持するstartTransition（参照が安定なので購読しても無関係な再レンダーを起こさない）だけを別Contextで配ることで、状態購読を増やさずに解消した。LibraryView.tsx・WorkDetailPage.tsxは状態とアクション双方を使うため引き続きuseLibraryNavigation()を使用。回帰防止としてlibrarySortMenu.test.tsx・LibraryBreadcrumbs.test.tsxにspy経由でstartTransitionが正しく呼ばれることを検証するテストを追加（ローカルuseTransitionへ戻すと失敗することを確認済み）。pnpm check・pnpm test（845件）・pnpm test:smoke（23件）すべて緑。
+<!-- SECTION:FINAL_SUMMARY:END -->

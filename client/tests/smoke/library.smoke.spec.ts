@@ -1,7 +1,7 @@
 // スクリーンショットを撮らない役割ベースの動作確認。ここが赤いときは常に実際の不具合を
 // 意味する（見た目のズレでは落ちない）。各テストはコンソールエラー・未捕捉例外・
 // 4xx/5xxレスポンス・ネットワークリクエスト失敗が出ていないことも併せて確認する。
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { assertNoErrors, expectNoHorizontalOverflow, openApp, trackErrors } from "./support";
 
 test("ライブラリシェル: 軸レール・結果面・チップ列が表示される", async ({ page }) => {
@@ -103,7 +103,6 @@ test("作品を選ぶとプレビューが開く（ファイル欠損の状態�
 test("詳細パネルの「その他」メニューから作品登録を解除できる（確認ダイアログ経由、パネルは閉じ一覧から消える）", async ({
   page,
 }) => {
-  // このテストは作品を実際に削除するため、他のテストが参照しない作品（添い寝カフェへようこそ）を使う。
   const tracker = trackErrors(page);
   await openApp(page);
 

@@ -1,9 +1,10 @@
-import type { ScanCandidate, ScanProgressEvent, ScanResult } from "@mimimilli/shared";
+import type { ScanProgressEvent } from "@mimimilli/shared";
+import type { ScanExecutionResult } from "./scanTypes.ts";
 
 /** worker → 親プロセスへ postMessage するメッセージ。 */
 export type ScanWorkerOutboundMessage =
   | { type: "progress"; progress: ScanProgressEvent }
-  | { type: "completed"; result: ScanResult; candidatePool: ScanCandidate[] }
+  | ({ type: "completed" } & ScanExecutionResult)
   | { type: "cancelled" }
   | { type: "error"; message: string; errorKind?: string; stack?: string }
   | { type: "test-gate-ready" };

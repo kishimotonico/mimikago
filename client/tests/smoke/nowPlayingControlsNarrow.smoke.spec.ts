@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import { assertNoErrors, expectNoHorizontalOverflow, openApp, trackErrors } from "./support";
 
 // 1024px（サポート下限）ではAB行がトランスポート下段へ退避する2段構成になる（TASK-366）。

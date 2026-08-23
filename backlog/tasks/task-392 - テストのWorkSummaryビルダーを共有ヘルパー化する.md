@@ -1,9 +1,10 @@
 ---
 id: TASK-392
 title: テストのWorkSummaryビルダーを共有ヘルパー化する
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-21 14:50'
+updated_date: '2026-08-23 01:37'
 labels: []
 dependencies: []
 priority: low
@@ -18,6 +19,20 @@ ordinal: 392000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 makeWorkSummary(overrides)がserver/tests/helpersに存在し、4ファイルがそれを使っている
-- [ ] #2 pnpm test:serverが緑
+- [x] #1 makeWorkSummary(overrides)がserver/tests/helpersに存在し、4ファイルがそれを使っている
+- [x] #2 pnpm test:serverが緑
 <!-- AC:END -->
+
+
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. workTestUtils.ts に makeWorkSummary を追加 2. 4ファイルを共有ヘルパーへ移行 3. テスト実行・負の検証 4. pnpm check && pnpm test
+<!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+makeWorkSummary(overrides) を共有化。4ファイルはデフォルトと同じ詰め物 override を削り、index や検証に意味のあるフィールドだけ overrides で指定。dlsiteNotifications は index>=201 のときだけ dlsite を条件付き spread。
+<!-- SECTION:FINAL_SUMMARY:END -->

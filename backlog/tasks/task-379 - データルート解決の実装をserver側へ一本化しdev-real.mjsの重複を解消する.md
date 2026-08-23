@@ -1,9 +1,10 @@
 ---
 id: TASK-379
 title: データルート解決の実装をserver側へ一本化しdev-real.mjsの重複を解消する
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-21 14:48'
+updated_date: '2026-08-23 01:35'
 labels: []
 dependencies: []
 priority: medium
@@ -18,7 +19,19 @@ ordinal: 379000
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 データルート解決の実装が1箇所になる(またはdev-real.mjsとdataRoot.tsの出力一致テストが同一入力ケース群で通る)
-- [ ] #2 Windows/Linux両方のパス規則、MIMIMILLI_DATA_DIR明示指定、linked worktree自動分離の各ケースが検証されている
-- [ ] #3 dev:realの起動挙動(本番/worktreeのデータルート選択)が従来と一致する
+- [x] #1 データルート解決の実装が1箇所になる(またはdev-real.mjsとdataRoot.tsの出力一致テストが同一入力ケース群で通る)
+- [x] #2 Windows/Linux両方のパス規則、MIMIMILLI_DATA_DIR明示指定、linked worktree自動分離の各ケースが検証されている
+- [x] #3 dev:realの起動挙動(本番/worktreeのデータルート選択)が従来と一致する
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. ADR-0007と現行実装を読む 2. Node 24 type-strippingでdev-real.mjsからdataRoot.tsをimportできるか実測 3. 一本化または一致テストを実装 4. 各ケースの検証と負の検証 5. pnpm check && pnpm test
+<!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+devRealEnvを.tsへ移行しdataRoot.tsをtype-strippingで直接import（.d.mts削除）。resolveExtraEnvのworktreeデフォルト引数をundefinedに変更しMIMIMILLI_DATA_DIR明示時のgit起動を防止。spyOnでdetectWorktree未呼び出しを検証するテストを追加。pnpm check/test通過。
+<!-- SECTION:FINAL_SUMMARY:END -->

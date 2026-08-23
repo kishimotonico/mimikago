@@ -1,10 +1,10 @@
 ---
 id: TASK-382
 title: DLsite通知系モーダル群をfeatures/libraryからfeatures/dlsiteへ移設する
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-21 14:49'
-updated_date: '2026-08-23 02:13'
+updated_date: '2026-08-23 03:26'
 labels: []
 dependencies: []
 priority: medium
@@ -21,7 +21,7 @@ ordinal: 382000
 <!-- AC:BEGIN -->
 - [x] #1 DLsite通知系のモーダル群がfeatures/dlsite配下へ移り、features/libraryから消えている
 - [x] #2 features間のsibling importが発生していない(pnpm checkの境界検査が緑)
-- [ ] #3 DLsite通知の開閉・一覧・遷移の挙動が従来どおり(pnpm test:smokeが緑)
+- [x] #3 DLsite通知の開閉・一覧・遷移の挙動が従来どおり(pnpm test:smokeが緑)
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -33,9 +33,5 @@ ordinal: 382000
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-features/library/ui の5モーダル（DlsiteNotificationModals/DlsiteFetchFailedModal/DlsiteParseFailedModal/RjCodeMissingModal/NotificationListModal）と、それらだけが依存していたfeatures/library/modelの6ファイル（dlsiteNotificationModal/dlsiteFetchFailed/dlsiteMissingRjCode/dlsiteParseFailed/useDlsiteNotificationList/useDlsiteNotificationSummary）をgit mvでfeatures/dlsiteへ移設。移設先の相対パス構造がlibraryと同一のため内部import文の変更は不要。app/App.tsx・app/model/activeModal.ts・app/ui/NotificationBell.tsxのimportパスをfeatures/dlsiteに更新。
-
-検証: pnpm check（境界検査含め全緑）、pnpm test（server 713 pass/client 845 pass、いずれも単体実行で緑）。
-
-pnpm test:smokeは1回目21 passed/2 failed、単体再実行では両方緑、3回目のフル実行は14 passed/9 failedで、うち1件はopenApp自体（support.ts:30の.mle-col.is-axisが20秒のbootTimeoutで見つからない）が落ちるという形。失敗したテストにDLsite通知モーダル関連は一件も含まれず、nowPlaying・ヨコスクロール・Filesビューワーなど無関係な領域に広く分散しており、並列負荷によるものと統括が判断し切り分け中。緑だったとは言えない状態のためAC#3は未チェックのまま統括の判断待ち。
+DLsite通知系のモーダル5ファイルと、それらの専用実装であるmodel配下6ファイルをfeatures/dlsiteへ移設した。モーダルだけ移すとdlsite→libraryのsibling importが新規発生するため一体で移した。app層(App.tsx・activeModal.ts・NotificationBell.tsx)はimportパスの更新のみ。features/dlsiteの外部依存はentitiesとsharedだけで、pnpm checkの境界検査も緑。pnpm test:smokeは当初落ちたが、原因はTASK-378由来の回帰(TASK-395)とTASK-387由来の競合(TASK-396)で本タスクとは無関係だった。両方の修正後に3回連続で23件緑を確認済み。
 <!-- SECTION:FINAL_SUMMARY:END -->

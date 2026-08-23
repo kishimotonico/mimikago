@@ -1,8 +1,13 @@
 import { createElement, type ReactNode } from "react";
 import { LibraryNavigationContext } from "../model/libraryNavigationContext";
+import { LibraryTransitionContext } from "../model/libraryTransitionContext";
 import { useLibraryView } from "../model/useLibraryNavigation";
 
 export function LibraryNavigationProvider({ children }: { children: ReactNode }) {
-  const navigation = useLibraryView();
-  return createElement(LibraryNavigationContext.Provider, { value: navigation }, children);
+  const { startTransition, ...navigation } = useLibraryView();
+  return createElement(
+    LibraryTransitionContext.Provider,
+    { value: startTransition },
+    createElement(LibraryNavigationContext.Provider, { value: navigation }, children),
+  );
 }

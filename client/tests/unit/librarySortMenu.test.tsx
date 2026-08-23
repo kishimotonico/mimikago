@@ -4,10 +4,11 @@ import { createElement } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { Provider as JotaiProvider, createStore } from "jotai";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SmartFolder } from "@mimimilli/shared";
 import LibrarySortMenu from "../../src/features/library/ui/LibrarySortMenu";
 import { LibraryNavigationProvider } from "../../src/features/library/ui/LibraryNavigationProvider";
+import { LibraryTransitionContext } from "../../src/features/library/model/libraryTransitionContext";
 import {
   activeAxisAtom,
   randomSeedAtom,
@@ -194,6 +195,38 @@ describe("LibrarySortMenu", () => {
       smartFolders: [{ ...SMART_FOLDER, sort: "random" }],
     });
     expect(screen.queryByRole("button", { name: "再シャッフル" })).not.toBeInTheDocument();
+  });
+
+  it("並び替えはLibraryNavigationProviderが持つ単一のstartTransitionを経由する（TASK-381）", () => {
+    // ソートメニューだけの独立した遷移を持つと、他コンポーネントの遷移中表示
+    // （WorkListPaneのis-pending暗転）にこの操作が反映されなくなる。
+    const store = createStore();
+    store.set(activeAxisAtom, "all");
+    store.set(sortAtom, "added-desc");
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const startTransition = vi.fn((action: () => void) => action());
+
+    render(
+      createElement(
+        QueryClientProvider,
+        { client: queryClient },
+        createElement(
+          JotaiProvider,
+          { store },
+          createElement(
+            LibraryTransitionContext.Provider,
+            { value: startTransition },
+            createElement(LibrarySortMenu),
+          ),
+        ),
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "並び替え" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /タイトル（A→Z）/ }));
+
+    expect(startTransition).toHaveBeenCalledTimes(1);
+    expect(store.get(sortAtom)).toBe("title-asc");
   });
 
   it("スマートフォルダー一覧に該当フォルダーがないときも無効化を維持する", () => {

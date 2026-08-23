@@ -2,9 +2,9 @@ import { QueryClient } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ScanCandidate } from "@mimimilli/shared";
 import {
+  fetchScanCandidates,
   refreshScanCandidates,
   SCAN_CANDIDATES_QUERY_KEY,
-  updateScanCandidatesCache,
 } from "../../src/entities/scan/scanCandidatesCache";
 
 const candidateA: ScanCandidate = {
@@ -45,48 +45,11 @@ function createDeferredFetch(candidates: ScanCandidate[]) {
   return { fetchMock, release };
 }
 
-function createSequentialDeferredFetch(responses: ScanCandidate[][]) {
-  const gates = responses.map(() => {
-    let release!: () => void;
-    const gate = new Promise<void>((resolveGate) => {
-      release = resolveGate;
-    });
-    return { gate, release };
-  });
-  let callIndex = 0;
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-    if (!String(input).endsWith("/scan/candidates")) {
-      throw new Error(`unexpected fetch: ${String(input)}`);
-    }
-    const index = callIndex;
-    callIndex += 1;
-    await gates[index].gate;
-    return jsonResponse({ candidates: responses[index] });
-  });
-  return { fetchMock, gates };
-}
-
 function readCache(queryClient: QueryClient): ScanCandidate[] | undefined {
   return queryClient.getQueryData(SCAN_CANDIDATES_QUERY_KEY);
 }
 
-function seedEstablishedCache(queryClient: QueryClient, candidates: ScanCandidate[]) {
-  queryClient.setQueryData(SCAN_CANDIDATES_QUERY_KEY, candidates);
-  queryClient.setQueryData(["scan", "candidatesIssuedSequence"], 1);
-  queryClient.setQueryData(["scan", "candidatesAppliedSequence"], 1);
-}
-
-function registerAll(queryClient: QueryClient) {
-  updateScanCandidatesCache(queryClient, (previous) => previous.filter(() => false));
-}
-
-function registerCandidateA(queryClient: QueryClient) {
-  updateScanCandidatesCache(queryClient, (previous) =>
-    previous.filter((candidate) => candidate.path !== candidateA.path),
-  );
-}
-
-describe("refreshScanCandidates", () => {
+describe("fetchScanCandidates", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -95,24 +58,7 @@ describe("refreshScanCandidates", () => {
     vi.unstubAllGlobals();
   });
 
-  it("登録後に遅延した再取得がキャッシュを巻き戻さない", async () => {
-    const { fetchMock, release } = createDeferredFetch([candidateA, candidateB]);
-    vi.stubGlobal("fetch", fetchMock);
-
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    seedEstablishedCache(queryClient, [candidateA, candidateB]);
-    const refreshPromise = refreshScanCandidates(queryClient);
-    registerAll(queryClient);
-
-    release();
-    await refreshPromise;
-
-    expect(readCache(queryClient)).toEqual([]);
-  });
-
-  it("新しいスキャン完了時はサーバー応答で候補を更新する", async () => {
+  it("サーバーから候補一覧を取得する", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL) => {
@@ -123,99 +69,51 @@ describe("refreshScanCandidates", () => {
       }),
     );
 
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    seedEstablishedCache(queryClient, [candidateA]);
+    await expect(fetchScanCandidates()).resolves.toEqual([candidateA, candidateB]);
+  });
+});
 
-    await refreshScanCandidates(queryClient);
+describe("refreshScanCandidates", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("取得結果をクエリキャッシュへ反映する", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).endsWith("/scan/candidates")) {
+          return jsonResponse({ candidates: [candidateA, candidateB] });
+        }
+        throw new Error(`unexpected fetch: ${String(input)}`);
+      }),
+    );
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const result = await refreshScanCandidates(queryClient);
+
+    expect(result).toEqual([candidateA, candidateB]);
     expect(readCache(queryClient)).toEqual([candidateA, candidateB]);
   });
 
-  it("キャッシュ未確定中の登録で bootstrap 遅延応答が登録結果を上書きしない", async () => {
-    const { fetchMock, gates } = createSequentialDeferredFetch([
-      [candidateA, candidateB],
-      [candidateB],
-    ]);
-    vi.stubGlobal("fetch", fetchMock);
-
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    const bootstrapPromise = refreshScanCandidates(queryClient);
-    registerCandidateA(queryClient);
-
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    gates[0].release();
-    await bootstrapPromise;
-    gates[1].release();
-    await vi.waitFor(() => expect(readCache(queryClient)).toEqual([candidateB]));
-
-    expect(readCache(queryClient)).not.toEqual([]);
-    expect(readCache(queryClient)).not.toEqual([candidateA, candidateB]);
-  });
-
-  it("refresh 応答が先着しても bootstrap 遅延応答が登録結果を上書きしない", async () => {
-    const { fetchMock, gates } = createSequentialDeferredFetch([
-      [candidateA, candidateB],
-      [candidateB],
-    ]);
-    vi.stubGlobal("fetch", fetchMock);
-
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    const bootstrapPromise = refreshScanCandidates(queryClient);
-    registerCandidateA(queryClient);
-
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    gates[1].release();
-    await vi.waitFor(() => expect(readCache(queryClient)).toEqual([candidateB]));
-    gates[0].release();
-    await bootstrapPromise;
-    await vi.waitFor(() => expect(readCache(queryClient)).toEqual([candidateB]));
-
-    expect(readCache(queryClient)).not.toEqual([candidateA, candidateB]);
-  });
-
-  it("発行後にローカル更新が無ければサーバー応答を適用する", async () => {
+  it("並行呼び出しは1回のリクエストにdedupeされ、同じ結果を返す", async () => {
     const { fetchMock, release } = createDeferredFetch([candidateA, candidateB]);
     vi.stubGlobal("fetch", fetchMock);
 
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    seedEstablishedCache(queryClient, [candidateA]);
-    registerAll(queryClient);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
-    const refreshPromise = refreshScanCandidates(queryClient);
+    const first = refreshScanCandidates(queryClient);
+    const second = refreshScanCandidates(queryClient);
     release();
-    await refreshPromise;
 
-    expect(readCache(queryClient)).toEqual([candidateA, candidateB]);
-  });
+    const [firstResult, secondResult] = await Promise.all([first, second]);
 
-  it("並行再取得は発行順で後発が優先される", async () => {
-    const { fetchMock, gates } = createSequentialDeferredFetch([
-      [candidateA],
-      [candidateA, candidateB],
-    ]);
-    vi.stubGlobal("fetch", fetchMock);
-
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    seedEstablishedCache(queryClient, []);
-
-    const firstRefresh = refreshScanCandidates(queryClient);
-    const secondRefresh = refreshScanCandidates(queryClient);
-
-    gates[1].release();
-    await secondRefresh;
-    gates[0].release();
-    await firstRefresh;
-
-    expect(readCache(queryClient)).toEqual([candidateA, candidateB]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(firstResult).toEqual([candidateA, candidateB]);
+    expect(secondResult).toEqual([candidateA, candidateB]);
   });
 });

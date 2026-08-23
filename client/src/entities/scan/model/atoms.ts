@@ -34,3 +34,7 @@ export interface ScanActions {
 
 /** ScanRuntime がマウント時に登録する操作群。未配線時は null */
 export const scanActionsAtom = atom<ScanActions | null>(null);
+
+/** 未登録候補のうち、承認・除外操作でローカルに非表示にしたpath。サーバー由来のcandidatesクエリとは独立に持ち、
+ *  再取得のタイミングに関わらず巻き戻らないようにする。 */
+export const scanCandidateHiddenPathsAtom = atom<ReadonlySet<string>>(new Set<string>());

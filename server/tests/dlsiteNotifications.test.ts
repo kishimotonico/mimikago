@@ -1,46 +1,36 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  emptyDlsiteState,
-  coverFieldsFromCover,
-  type Work,
-  type WorkSummary,
-} from "@mimimilli/shared";
+import { coverFieldsFromCover, type Work, type WorkSummary } from "@mimimilli/shared";
 import { createFixtureAdapter } from "../src/adapters/fixture/index.ts";
 import { createApp } from "../src/app.ts";
 import { openDb } from "../src/adapters/real/db.ts";
 import { createTestRealAdapter } from "./helpers/realAdapter.ts";
-import { createWorkRepos, upsertTestWork } from "./helpers/workTestUtils.ts";
+import { createWorkRepos, makeWorkSummary, upsertTestWork } from "./helpers/workTestUtils.ts";
 import { makeSampleLibrary } from "./helpers/sampleLibrary.ts";
 import { nts } from "./helpers/tag.ts";
 
 function notificationWorks(count: number): WorkSummary[] {
-  return Array.from({ length: count }, (_, index) => ({
-    id: `work-${String(index).padStart(3, "0")}`,
-    title: `作品 ${String(count - index).padStart(3, "0")}`,
-    cover: null,
-    status: "ok" as const,
-    physicalPath: `/library/${index}`,
-    totalDurationSec: 0,
-    addedAt: "2026-07-23T00:00:00.000Z",
-    errorMessage: null,
-    urls: [],
-    tags: index % 2 === 0 ? nts(["サークル/テスト"]) : [],
-    trackCount: 0,
-    bookmarked: false,
-    lastPlayedAt: null,
-    dlsite:
-      index < 201
-        ? emptyDlsiteState()
-        : {
-            rjCode: "RJ123456",
-            status: "error" as const,
-            lastAttemptAt: null,
-            error: "failed",
-            errorKind: null,
-            appliedTags: [],
-          },
-  }));
+  return Array.from({ length: count }, (_, index) =>
+    makeWorkSummary({
+      id: `work-${String(index).padStart(3, "0")}`,
+      title: `作品 ${String(count - index).padStart(3, "0")}`,
+      physicalPath: `/library/${index}`,
+      totalDurationSec: 0,
+      addedAt: "2026-07-23T00:00:00.000Z",
+      tags: index % 2 === 0 ? nts(["サークル/テスト"]) : [],
+      trackCount: 0,
+      ...(index >= 201 && {
+        dlsite: {
+          rjCode: "RJ123456",
+          status: "error",
+          lastAttemptAt: null,
+          error: "failed",
+          errorKind: null,
+          appliedTags: [],
+        },
+      }),
+    }),
+  );
 }
 
 function asWork(summary: WorkSummary): Work {

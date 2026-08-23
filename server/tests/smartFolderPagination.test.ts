@@ -4,7 +4,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  emptyDlsiteState,
   WORKS_DEFAULT_PAGE_SIZE,
   type SmartFolder,
   type WorksPage,
@@ -15,27 +14,20 @@ import { createFixtureAdapter } from "../src/adapters/fixture/index.ts";
 import { evalSmartFolder } from "../src/core/smartFolder.ts";
 import { toWorksPage } from "../src/core/worksQuery.ts";
 import { nts } from "./helpers/tag.ts";
+import { makeWorkSummary } from "./helpers/workTestUtils.ts";
 
 const RECENT = new Date(Date.now() - 5 * 86400000).toISOString();
 
 function summary(index: number): WorkSummary {
   const id = `work-${String(index).padStart(4, "0")}`;
-  return {
+  return makeWorkSummary({
     id,
     title: `作品 ${id}`,
-    cover: null,
-    status: "ok",
     physicalPath: `/library/${id}`,
     totalDurationSec: 600,
     addedAt: RECENT,
-    errorMessage: null,
-    urls: [],
     tags: nts(["ASMR"]),
-    trackCount: 1,
-    bookmarked: false,
-    lastPlayedAt: null,
-    dlsite: emptyDlsiteState(),
-  };
+  });
 }
 
 function buildFolder(sort: SmartFolder["sort"]): SmartFolder {

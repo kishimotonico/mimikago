@@ -20,7 +20,12 @@ import { deriveCoverVersion } from "../../src/adapter/media.ts";
 import { WorkQueryRepository } from "../../src/adapters/real/workQueryRepository.ts";
 import { querySmartFolderWorks } from "../../src/adapters/real/smartFolderWorks.ts";
 import { nts, tf, EMPTY_TAG_FILTERS } from "../helpers/tag.ts";
-import { upsertTestWork, resolvedDuration, createWorkRepos } from "../helpers/workTestUtils.ts";
+import {
+  upsertTestWork,
+  resolvedDuration,
+  createWorkRepos,
+  makeWorkSummary,
+} from "../helpers/workTestUtils.ts";
 import { openDb } from "../../src/adapters/real/db.ts";
 import { makeTestScope, writeSampleCover } from "../helpers/sampleLibrary.ts";
 import { buildAxisFacets } from "../../src/core/axisFacets.ts";
@@ -97,7 +102,7 @@ function summary(index: number): WorkSummary {
     ["CV/水瀬なずな", "耳かき", "シリーズ/朝"],
     ["サークル/夜想曲", "添い寝"],
   ];
-  return {
+  return makeWorkSummary({
     id,
     title: titles[index % titles.length]!,
     cover: coverFor(index, id),
@@ -105,14 +110,13 @@ function summary(index: number): WorkSummary {
     physicalPath: join(contractLibraryRoot, id),
     totalDurationSec: (index % 4) * 600,
     addedAt: index % 3 === 0 ? recent : old,
-    errorMessage: index % 11 === 0 ? "probe error" : null,
-    urls: [],
+    ...(index % 11 === 0 && { errorMessage: "probe error" }),
     tags: normalizeTags([...tagSets[index % tagSets.length]!, "e\u0301x/Ｂeta", "e\u0301x/Ａlpha"]),
     trackCount: (index % 3) + 1,
     bookmarked: index % 2 === 0,
     lastPlayedAt: index % 4 === 0 ? "2026-06-01T00:00:00.000Z" : index % 4 === 1 ? null : old,
     dlsite: dlsiteStateFor(index),
-  };
+  });
 }
 
 function fullWork(item: WorkSummary): Work {

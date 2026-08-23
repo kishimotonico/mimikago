@@ -4,7 +4,7 @@ title: smokeテストのfixture状態をスコープ化し並列実行を可能�
 status: Done
 assignee: []
 created_date: '2026-08-21 14:49'
-updated_date: '2026-08-23 03:36'
+updated_date: '2026-08-23 04:19'
 labels: []
 dependencies: []
 priority: medium
@@ -25,6 +25,12 @@ ordinal: 383000
 - [x] #2 テスト間の状態干渉を手動で気遣うコメント運用(他のテストが参照しない作品を選ぶ等)が不要になっている
 - [x] #3 直列時と並列時のsmoke実行時間を記録し、短縮を確認する
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+統括による最終確認（2026-08-23、単独実行・load 0.04の静穏時）: pnpm test:smokeを5回連続で実行し全て23件緑、各実行直後のポート残存もゼロ。直列52秒→並列28秒。検証中に何度か赤が出たが、いずれも統括と実装担当が同一worktreeで同時にsmokeを回してポートが衝突していたことによる交絡だった。
+<!-- SECTION:NOTES:END -->
 
 ## Final Summary
 

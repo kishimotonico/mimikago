@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { useQuery } from "@tanstack/react-query";
@@ -6,8 +6,10 @@ import type { SortId } from "@mimimilli/shared";
 import { SORT_OPTIONS } from "../../../entities/library/types";
 import { axisValueSortAtom } from "../model/atoms";
 import { activeAxisAtom, sortAtom } from "../../../entities/library/model/navigationAtoms";
-import { reshuffleLibraryRandomSeedAtom } from "../../../entities/library/model/navigationActions";
-import { useLibraryNavigation } from "../model/useLibraryNavigation";
+import {
+  reshuffleLibraryRandomSeedAtom,
+  setLibrarySortAtom,
+} from "../../../entities/library/model/navigationActions";
 import { isSmartAxis, getSmartFolderId } from "../../../entities/library/axisDefinitions";
 import { computeResultsPaneKind } from "../model/libraryPresentation";
 import {
@@ -38,7 +40,9 @@ function getAxisValueSortLabel(key: AxisValueSortKey): string {
 export default function LibrarySortMenu() {
   const activeAxis = useAtomValue(activeAxisAtom);
   const sort = useAtomValue(sortAtom);
-  const { setSort } = useLibraryNavigation();
+  const setLibrarySort = useSetAtom(setLibrarySortAtom);
+  const [, startTransition] = useTransition();
+  const setSort = (value: SortId) => startTransition(() => setLibrarySort(value));
   const [axisValueSort, setAxisValueSort] = useAtom(axisValueSortAtom);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);

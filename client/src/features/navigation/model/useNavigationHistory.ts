@@ -25,7 +25,7 @@ import {
   serializeNavigationUrl,
   type NavigationParseResult,
   type NavigationUrlState,
-} from "../../../entities/library/model/navigationUrl";
+} from "./navigationUrl";
 
 const HISTORY_STATE_KEY = "__mimimilliNavigation";
 const MAX_INDEX_KEY = "mimimilli.navigation.maxIndex";

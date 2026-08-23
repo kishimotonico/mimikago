@@ -1,10 +1,10 @@
 ---
 id: TASK-290
 title: レイヤ境界検査を動的importにも適用する
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-08-09 20:44'
-updated_date: '2026-08-23 00:45'
+updated_date: '2026-08-23 02:13'
 labels: []
 dependencies: []
 priority: medium
@@ -25,6 +25,18 @@ scripts/check-layer-boundaries.mjs の collectImports は正規表現ベース�
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 layer跨ぎの動的importが check-layer-boundaries.mjs で検出されること
-- [ ] #2 検出の実効性が違反を仕込んだ確認（テストまたは記録された手動確認）で担保されていること
+- [x] #1 layer跨ぎの動的importが check-layer-boundaries.mjs で検出されること
+- [x] #2 検出の実効性が違反を仕込んだ確認（テストまたは記録された手動確認）で担保されていること
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. collectImports に import() 収集を追加 2. 陽性/陰性の検証 3. pnpm check && pnpm test
+<!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+collectImports に import() 文字列リテラル収集を追加し、node:test による陽性/陰性テストを check 先頭で実行するよう組み込んだ。既存の lazy 動的 import 3箇所（app→features）は禁止方向ではないため誤検出なし。pnpm check・pnpm test 緑。
+<!-- SECTION:FINAL_SUMMARY:END -->

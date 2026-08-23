@@ -168,8 +168,9 @@ mimimilli/
 │   │   ├── entities/        # ドメインエンティティ (work / tag / smart-folder / settings / file-system)
 │   │   └── shared/          # 共通ユーティリティ、UI、API クライアント
 │   ├── tests/
-│   │   ├── unit/            # vitest 単体テスト
-│   │   └── visual/          # Playwright ビジュアルリグレッションテスト
+│   │   ├── helpers/         # テスト共通ヘルパー
+│   │   ├── smoke/           # Playwright smoke テスト
+│   │   └── unit/            # vitest 単体テスト
 │   ├── vite.config.ts
 │   └── package.json
 ├── server/                  # HTTP API サーバー (Hono + Bun / TypeScript)

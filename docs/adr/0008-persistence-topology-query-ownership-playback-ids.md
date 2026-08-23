@@ -2,7 +2,7 @@
 
 - ステータス: 承認
 - 日付: 2026-07-19
-- 関連: [ADR-0003](0003-no-db-migrations.md)、[ADR-0004](0004-core-functions-over-sql.md)、[ADR-0007](0007-bun-distribution-runtime.md)、backlog TASK-71、DRAFT-25、DRAFT-26、DRAFT-27、[Bun配布スパイク](../../scripts/spike/bun-distribution/README.md)
+- 関連: [ADR-0003](0003-no-db-migrations.md)、[ADR-0004](0004-core-functions-over-sql.md)、[ADR-0007](0007-bun-distribution-runtime.md)、backlog TASK-71、DRAFT-25、DRAFT-26、DRAFT-27
 
 ## 文脈
 
@@ -14,7 +14,7 @@ DBを分ける主目的は、catalog再構築がuserデータに触れる経路�
 
 現在のresumeは作品IDに対する`{trackIndex, position}`である。`position`は音声ファイルの絶対秒で、トラックの並べ替えや区間変更に耐えない。PlaylistとTrackには安定IDがなく、既存`.meta.json`へIDを追加するには、ユーザーが管理するファイルを一括変更する移行が必要になる。
 
-[ADR-0007](0007-bun-distribution-runtime.md)のスパイクにより、配布ランタイムはBun、SQLiteは`bun:sqlite`、データルートはWindowsで`%LOCALAPPDATA%\Mimikago`となった。`bun:sqlite`による2DB同時接続と`ATTACH`も実測済みである。本ADRではこの制約を前提に、データの帰属、DB間の読み方、検索仕様の置き場、ID移行、バックアップをまとめて決める。
+[ADR-0007](0007-bun-distribution-runtime.md)のスパイクにより、配布ランタイムはBun、SQLiteは`bun:sqlite`、データルートはWindowsで`%LOCALAPPDATA%\mimimilli`となった。`bun:sqlite`による2DB同時接続と`ATTACH`も実測済みである。本ADRではこの制約を前提に、データの帰属、DB間の読み方、検索仕様の置き場、ID移行、バックアップをまとめて決める。
 
 ## 決定
 

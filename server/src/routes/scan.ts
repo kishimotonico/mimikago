@@ -13,6 +13,7 @@ import {
   type ScanJobEvent,
   type ScanJobStatus,
 } from "@mimimilli/shared";
+import { CandidatePoolChangedError } from "../errors.ts";
 import { ActiveScanConflictError, ScanJobManager } from "../scanJobManager.ts";
 import { conflict, invalidRequest } from "../lib/httpError.ts";
 import { readOptionalJsonBody } from "../lib/jsonBody.ts";
@@ -100,7 +101,7 @@ export function scanRoute(
     try {
       await jobs.excludeCandidates(parsed.data.paths);
     } catch (error) {
-      if (error instanceof Error && error.message.startsWith("候補が更新されています")) {
+      if (error instanceof CandidatePoolChangedError) {
         conflict(error.message);
       }
       throw error;
@@ -129,7 +130,7 @@ export function scanRoute(
       const result = await jobs.registerCandidates(parsed.data.items, onCandidateRegistered);
       return c.json(scanCandidatesRegisterResponseSchema.parse(result), 201);
     } catch (error) {
-      if (error instanceof Error && error.message.startsWith("候補が更新されています")) {
+      if (error instanceof CandidatePoolChangedError) {
         conflict(error.message);
       }
       throw error;

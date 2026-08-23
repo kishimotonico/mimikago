@@ -33,6 +33,7 @@ import type { UserWorkStateRepository } from "./userWorkStateRepository.ts";
 import type { WorkQueryRepository } from "./workQueryRepository.ts";
 import type { ScanWorkState } from "./workRowMapping.ts";
 import { getWorkWithLiveProbe } from "./workRefresh.ts";
+import { CandidatePoolChangedError } from "../../errors.ts";
 import { getCategoryLogger } from "../../lib/logger.ts";
 import { logDataIntegritySkips, toDataIntegrityWarning } from "./dataIntegrity.ts";
 import { naturalCompare } from "./naturalCompare.ts";
@@ -397,7 +398,7 @@ export class Scanner {
     );
     const selected = items.map((item) => ({ item, candidate: byPath.get(item.path) }));
     if (selected.some((entry) => entry.candidate === undefined)) {
-      throw new Error("候補が更新されています。再スキャンして選び直してください");
+      throw new CandidatePoolChangedError();
     }
     const registered: ScanCandidatesRegisterResponse["registered"] = [];
     const failures: ScanCandidatesRegisterResponse["failures"] = [];
@@ -428,7 +429,7 @@ export class Scanner {
     const candidates = await this.listCandidates(root);
     const currentPaths = new Set(candidates.map((candidate) => candidate.path));
     if (paths.some((path) => !currentPaths.has(path as ScanCandidate["path"]))) {
-      throw new Error("候補が更新されています。再スキャンして選び直してください");
+      throw new CandidatePoolChangedError();
     }
     this.user.excludeScanCandidates(paths);
   }

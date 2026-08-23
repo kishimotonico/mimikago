@@ -1,5 +1,5 @@
 import { sep } from "node:path";
-import { asc, eq } from "drizzle-orm";
+import { asc, and, eq } from "drizzle-orm";
 import {
   createRandomSeed,
   evaluateParseErrorAlert,
@@ -23,7 +23,7 @@ import type {
 import type { AxisFacetsQuery } from "@mimimilli/shared";
 import { japaneseSortKey } from "../../core/japaneseSortKey.ts";
 import type { Db } from "./db.ts";
-import { tags, workDlsite, workTags, works } from "./catalogSchema.ts";
+import { tags, tracks, workDlsite, workTags, works } from "./catalogSchema.ts";
 import {
   likeDescendantsPrefix,
   likeStrictDescendantPrefixSql,
@@ -728,6 +728,17 @@ export class WorkQueryRepository {
            FROM main.works WHERE id = ?`,
         )
         .get(id) as MediaRootRow | undefined) ?? null
+    );
+  }
+
+  hasTrackFile(workId: string, file: string): boolean {
+    return (
+      this.db.catalog
+        .select({ id: tracks.id })
+        .from(tracks)
+        .where(and(eq(tracks.workId, workId), eq(tracks.file, file)))
+        .limit(1)
+        .get() !== undefined
     );
   }
 

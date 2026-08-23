@@ -3,6 +3,7 @@
 // 独立したBun+Viteのペアを立て、各テスト開始前にサーバー側の状態をリセットして分離する。
 import { type ChildProcess, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { createServer } from "node:net";
 import { chromium, test as base } from "@playwright/test";
 import { SMOKE_WORKERS } from "./workerCount.ts";
 
@@ -22,6 +23,36 @@ function derivePort(rangeStart: number, rangeSize: number, workerIndex: number):
   const blockCount = Math.floor(rangeSize / SMOKE_WORKERS);
   const block = createHash("sha256").update(process.cwd()).digest().readUInt32BE(0) % blockCount;
   return rangeStart + block * SMOKE_WORKERS + workerIndex;
+}
+
+// 直前の実行のサーバーがkillされてからOSがポートを実際に解放するまでにわずかな遅延が
+// あるため、次のサーバーをspawnする前にbindを試して空きを確認する。接続（connect）は
+// ADR-0020のWSL blackhole（未使用ポートへの接続が約2分ハングする既知障害）を踏むため使わず、
+// bindの成否だけで判定する（bindはローカルのカーネル操作でネットワーク接続を伴わない）。
+function waitForPortFree(port: number, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  return new Promise((resolvePromise, reject) => {
+    function attempt() {
+      const probe = createServer();
+      probe.once("error", (err: NodeJS.ErrnoException) => {
+        probe.close();
+        if (err.code !== "EADDRINUSE") {
+          reject(err);
+          return;
+        }
+        if (Date.now() >= deadline) {
+          reject(new Error(`ポート${port}の解放待ちがタイムアウトしました`));
+          return;
+        }
+        setTimeout(attempt, 100);
+      });
+      probe.once("listening", () => {
+        probe.close(() => resolvePromise());
+      });
+      probe.listen(port, "127.0.0.1");
+    }
+    attempt();
+  });
 }
 
 function waitForLog(proc: ChildProcess, pattern: RegExp, timeoutMs: number): Promise<void> {
@@ -88,14 +119,12 @@ async function shutdown(proc: ChildProcess, timeoutMs: number): Promise<void> {
   if (proc.exitCode !== null) return;
   killGroup(proc, "SIGTERM");
   await new Promise<void>((resolvePromise) => {
-    const timer = setTimeout(() => {
+    const onExit = () => resolvePromise();
+    proc.once("exit", onExit);
+    setTimeout(() => {
       killGroup(proc, "SIGKILL");
-      resolvePromise();
+      // SIGKILLは無視されないため、そのまま "exit" イベントを待ち続ければ確実に発火する。
     }, timeoutMs);
-    proc.once("exit", () => {
-      clearTimeout(timer);
-      resolvePromise();
-    });
   });
 }
 
@@ -117,6 +146,7 @@ export const test = base.extend<{ resetFixtureState: void }, { workerServers: Wo
         workerInfo.workerIndex,
       );
 
+      await waitForPortFree(bunPort, 10_000);
       const bunProc = spawn("bun", ["src/index.ts"], {
         cwd: "../server",
         env: {
@@ -130,6 +160,7 @@ export const test = base.extend<{ resetFixtureState: void }, { workerServers: Wo
       });
       await waitForLog(bunProc, /サーバーを起動しました/, 120_000);
 
+      await waitForPortFree(vitePort, 10_000);
       const viteProc = spawn(
         "pnpm",
         [

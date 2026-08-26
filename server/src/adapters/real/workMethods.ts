@@ -6,7 +6,6 @@ import type {
   DlsiteNotificationPage,
   DlsiteNotificationQuery,
   DlsiteNotificationSummary,
-  FileEntry,
   IdentityConflictReassignBody,
   ResumeBody,
   Work,
@@ -18,7 +17,6 @@ import type {
   WorksQuery,
 } from "@mimimilli/shared";
 import { type Db } from "./db.ts";
-import { buildFileTree } from "./fileTree.ts";
 import { MetaParseError, patchMetaFileCas, readMetaSource } from "./meta.ts";
 import { SourceChangedError } from "../../errors.ts";
 import { resolveWithin } from "./paths.ts";
@@ -176,12 +174,6 @@ export function createWorkMethods(deps: {
     async touchLastPlayed(id: string): Promise<boolean> {
       if (!catalog.workExists(id)) return false;
       return user.touchLastPlayed(id);
-    },
-
-    async listWorkFiles(id: string): Promise<FileEntry | null> {
-      const work = await getWorkWithLiveProbe(db, query, catalog, id);
-      if (!work) return null;
-      return buildFileTree(work.physicalPath);
     },
 
     async listTags(): Promise<string[]> {

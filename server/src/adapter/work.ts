@@ -4,7 +4,6 @@ import type {
   DlsiteNotificationPage,
   DlsiteNotificationQuery,
   DlsiteNotificationSummary,
-  FileEntry,
   IdentityConflictReassignBody,
   ResumeBody,
   Work,
@@ -37,7 +36,6 @@ export interface WorkAdapter {
   patchWork(id: string, patch: WorkPatch): Promise<Work | null>;
   saveResume(id: string, body: ResumeBody): Promise<boolean>;
   touchLastPlayed(id: string): Promise<boolean>;
-  listWorkFiles(id: string): Promise<FileEntry | null>;
   listTags(): Promise<string[]>;
   exportLibrary(): Promise<{ data: string; dataIntegrityWarning?: DataIntegrityWarning }>;
 }

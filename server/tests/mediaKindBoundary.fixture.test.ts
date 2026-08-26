@@ -8,7 +8,6 @@ const WORK_ID = "RJ501001";
 const REGISTERED_AUDIO = "track01.mp3";
 const UNREGISTERED_AUDIO = "cover.jpg";
 const TRAVERSAL_PATHS = ["..%2Fcover.jpg", "特典%2F..%2Fcover.jpg", "..%2F..%2Fetc%2Fpasswd"];
-const FILE_ONLY_PATH = "特典/台本.pdf";
 
 function app(): App {
   return createApp(createFixtureAdapter());
@@ -29,16 +28,4 @@ test("fixture: audio 経路のパストラバーサルは 404", async () => {
     const res = await app().request(`/api/media/audio/${WORK_ID}/${rel}`);
     assert.equal(res.status, 404, `should block audio: ${rel}`);
   }
-});
-
-test("fixture: file 経路のパストラバーサルは 404", async () => {
-  for (const rel of TRAVERSAL_PATHS) {
-    const res = await app().request(`/api/media/file/${WORK_ID}/${rel}`);
-    assert.equal(res.status, 404, `should block file: ${rel}`);
-  }
-});
-
-test("fixture: file 経路は未登録ファイルも配信できる", async () => {
-  const res = await app().request(`/api/media/file/${WORK_ID}/${FILE_ONLY_PATH}`);
-  assert.equal(res.status, 200);
 });

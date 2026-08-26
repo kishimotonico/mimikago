@@ -99,7 +99,6 @@ smokeテストの注意:
 | DELETE       | `/works/:id`                                                          | 作品の登録解除                                                                                                              |
 | POST         | `/works/:id/resume`                                                   | `{ playlistId, trackId, offsetSec }`（`shared/src/work.ts` の `resumeSchema`。高頻度のため PATCH と分離）                 |
 | POST         | `/works/:id/last-played`                                              |                                                                                                                           |
-| GET          | `/works/:id/files`                                                    | 物理ファイルツリー                                                                                                        |
 | POST         | `/dlsite/fetch-by-code`                                               | RJ/VJコード指定のプレビュー取得                                                                                             |
 | POST         | `/dlsite/:id/fetch`                                                   | DLsite情報のプレビュー取得。失敗分類は `not_found / parse_error / error`                                                  |
 | POST         | `/dlsite/:id/apply`                                                   | タイトル・カバー・選択タグを適用し、連携状態をメタへ保存                                                                  |
@@ -122,9 +121,9 @@ smokeテストの注意:
 | GET          | `/smart-folders/:id/works`                                            | スマートフォルダー評価結果                                                                                                |
 | GET          | `/fs`                                                                 | 物理FSブラウズ（Filesモード）                                                                                             |
 | GET          | `/media/workspace`                                                    | File Explorer のプレビュー用メディア（`?path=`）                                                                            |
-| GET          | `/media/cover/:id`、`/media/audio/:id/:path`、`/media/file/:id/:path` | audio は Range(206) 対応。cover は `?w=128\|256\|512` でサムネイル（realはwebp化+ディスクキャッシュ、fixtureのSVGは原寸） |
+| GET          | `/media/cover/:id`、`/media/audio/:id/:path`                          | audio は Range(206) 対応。cover は `?w=128\|256\|512` でサムネイル（realはwebp化+ディスクキャッシュ、fixtureのSVGは原寸） |
 
-メディアURLは client の `entities/work/api.ts` の `getCoverImageUrl`/`getAudioUrl`/`getFileUrl` が組み立てる（`<img src>`/`<audio src>` に直接使える）。
+メディアURLは client の `entities/work/api.ts` の `getCoverImageUrl`/`getAudioUrl` が組み立てる（`<img src>`/`<audio src>` に直接使える）。
 
 ### タグの構造（編集時に注意）
 

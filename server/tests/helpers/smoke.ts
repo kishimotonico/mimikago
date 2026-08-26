@@ -45,7 +45,7 @@ if (generated) {
     res.headers.get("content-type"),
   );
   const trav = await app.request(
-    `/api/media/file/${generated.id}/..%2F..%2F..%2F..%2Fetc%2Fpasswd`,
+    `/api/media/audio/${generated.id}/..%2F..%2F..%2F..%2Fetc%2Fpasswd`,
   );
   console.log("== traversal ==", trav.status);
 }

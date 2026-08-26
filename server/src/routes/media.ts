@@ -1,4 +1,4 @@
-// GET /media/cover/:id, GET /media/audio/:id/*path, GET /media/file/:id/*path
+// GET /media/cover/:id, GET /media/audio/:id/*path
 // adapter.locateMedia が null なら404。non-null なら location.type に応じて配信する:
 //   - "file": node:fs でストリーミング（real アダプタ）
 //   - "synthetic": メモリ上で合成したコンテンツを配信（fixture アダプタ）
@@ -70,14 +70,6 @@ export function mediaRoute(adapter: DataAdapter, options: MediaRouteOptions = {}
     if (!location)
       notFound(`音声ファイルが見つかりません: ${c.req.param("id")}/${c.req.param("path")}`);
     return streamWithRange(location, c.req.header("Range"), chunkSizeBytes);
-  });
-
-  app.get("/media/file/:id/:path{.+}", async (c) => {
-    disableIdleTimeout(c);
-    const location = await adapter.locateMedia("file", c.req.param("id"), c.req.param("path"));
-    if (!location)
-      notFound(`ファイルが見つかりません: ${c.req.param("id")}/${c.req.param("path")}`);
-    return streamWhole(location);
   });
 
   return app;

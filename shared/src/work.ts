@@ -379,27 +379,6 @@ export function getDefaultPlaylistTrackCount(
   return playlist?.tracks.length ?? 0;
 }
 
-/** 作品配下の物理ファイルツリー（GET /api/works/:id/files） */
-export interface FileEntry {
-  name: string;
-  path: string;
-  isDir: boolean;
-  size: number;
-  fileType: string;
-  children: FileEntry[];
-}
-
-export const fileEntrySchema: z.ZodType<FileEntry> = z.lazy(() =>
-  z.object({
-    name: z.string(),
-    path: z.string(),
-    isDir: z.boolean(),
-    size: z.number(),
-    fileType: z.string(),
-    children: z.array(fileEntrySchema),
-  }),
-);
-
 // ── タグ解析 ──────────────────────────────────────────────────
 
 export interface ParsedTag {

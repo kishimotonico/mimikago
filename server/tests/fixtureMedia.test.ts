@@ -12,8 +12,6 @@ function buildAppWithChunkSize(chunkSizeBytes: number) {
   return createApp(createFixtureAdapter(), { media: { chunkSizeBytes } });
 }
 
-const FIXTURE_UNMEASURED_ID = "RJ501003";
-
 test("workspace media: fixtureの非音声textをroot相対パスで配信する", async () => {
   const app = buildApp();
   const res = await app.request("/api/media/workspace?path=readme.txt", {
@@ -239,34 +237,5 @@ test("音声配信: トラックを持たない作品は 404", async () => {
   const app = buildApp();
   // RJ501009 は trackCount: 0
   const res = await app.request("/api/media/audio/RJ501009/track01.mp3");
-  assert.equal(res.status, 404);
-});
-
-test("ファイル配信: unmeasured 作品でもカバーファイル実体は配信できる", async () => {
-  const app = buildApp();
-  const res = await app.request(`/api/media/file/${FIXTURE_UNMEASURED_ID}/cover.jpg`);
-  assert.equal(res.status, 200);
-  assert.equal(res.headers.get("content-type"), "image/svg+xml");
-});
-
-test("ファイル配信: 特典フォルダー配下の画像は SVG プレースホルダー、テキストは固定文言", async () => {
-  const app = buildApp();
-
-  const pdf = await app.request("/api/media/file/RJ501001/特典/台本.pdf");
-  assert.equal(pdf.status, 200);
-  assert.equal(pdf.headers.get("content-type"), "text/plain; charset=utf-8");
-
-  const txt = await app.request("/api/media/file/RJ501001/特典/あとがき.txt");
-  assert.equal(txt.status, 200);
-  assert.equal(txt.headers.get("content-type"), "text/plain; charset=utf-8");
-
-  const cover = await app.request("/api/media/file/RJ501001/cover.jpg");
-  assert.equal(cover.status, 200);
-  assert.equal(cover.headers.get("content-type"), "image/svg+xml");
-});
-
-test("ファイル配信: 存在しないパスは 404", async () => {
-  const app = buildApp();
-  const res = await app.request("/api/media/file/RJ501001/no-such-file.txt");
   assert.equal(res.status, 404);
 });

@@ -109,9 +109,10 @@ test("root変更後の候補登録・除外はCandidatePoolChangedErrorで拒否
   const adapter = directory.own(createTestRealAdapter({ database: { kind: "memory" } }));
   await adapter.updateSettings({ rootFolder: rootA });
   await adapter.scan();
-  assert.deepEqual((await adapter.listScanCandidates()).map((candidate) => candidate.path), [
-    "同名候補",
-  ]);
+  assert.deepEqual(
+    (await adapter.listScanCandidates()).map((candidate) => candidate.path),
+    ["同名候補"],
+  );
 
   await adapter.updateSettings({ rootFolder: rootB });
 

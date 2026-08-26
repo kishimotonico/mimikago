@@ -189,7 +189,10 @@ export function dlsiteRoute(adapter: DataAdapter, dlsiteJobs: DlsiteJobManager):
         if (stopped) return;
         const written = send(event);
         if (event.type !== "progress" && event.type !== "cancelling") {
-          void written.then(() => stop(), () => stop());
+          void written.then(
+            () => stop(),
+            () => stop(),
+          );
         }
       };
 

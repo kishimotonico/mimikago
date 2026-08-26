@@ -301,7 +301,8 @@ describe("ScanRuntime EventSource ownership", () => {
         const url = String(input);
         if (url.endsWith("/scan/active")) return response(running);
         if (url.endsWith("/scan/job-1")) return response(completedJob);
-        if (url.endsWith("/scan/candidates")) return response({ error: { code: "internal", message: "boom" } }, 500);
+        if (url.endsWith("/scan/candidates"))
+          return response({ error: { code: "internal", message: "boom" } }, 500);
         return response(null, 204);
       }),
     );

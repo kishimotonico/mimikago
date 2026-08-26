@@ -6,11 +6,7 @@ import type {
   Work,
   WorkSummary,
 } from "@mimimilli/shared";
-import {
-  SEED_PLAYLIST_SPECS,
-  SEED_TRACK_NAMES,
-  type FixtureCoverColumns,
-} from "./data.ts";
+import { SEED_PLAYLIST_SPECS, SEED_TRACK_NAMES, type FixtureCoverColumns } from "./data.ts";
 import { fixtureCoverFromColumns } from "./coverDto.ts";
 import type { FixtureState, PlaybackIds } from "./state.ts";
 import { coverColumnsOf } from "./state.ts";
@@ -124,4 +120,3 @@ export function findTrackByFile(work: Work, relPath: string): ResolvedTrack | un
   }
   return undefined;
 }
-

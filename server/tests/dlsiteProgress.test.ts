@@ -140,7 +140,10 @@ test("adapterが通常例外でrejectした場合はerrorを配信する", async
     await new Promise((resolve) => setImmediate(resolve));
   }
   subscription.unsubscribe();
-  assert.deepEqual(events.map((event) => event.type), ["error"]);
+  assert.deepEqual(
+    events.map((event) => event.type),
+    ["error"],
+  );
   assert.equal(events.at(-1)?.message, "ネットワークエラー");
 });
 

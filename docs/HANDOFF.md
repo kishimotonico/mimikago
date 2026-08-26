@@ -73,55 +73,55 @@ smokeテストの注意:
 
 すべて `/api` 配下。リクエスト/レスポンスは `shared/src/*.ts` の Zod スキーマが正典。エラーは `{ error: { code, message } }`（`apiErrorSchema`）。**下表はあくまで概観で、エンドポイントを追加・変更したときに更新漏れしうる。実装時は必ず `shared/src/` を直接確認すること。**
 
-| メソッド     | パス                                                                  | 備考                                                                                                                      |
-| ------------ | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| GET / PUT    | `/settings`                                                           |                                                                                                                           |
-| POST         | `/scan`                                                               | 202 で `{ job }` を即返す（`Location: /api/scan/:id`）。実行中の二重POSTは409（`active` 付き）                            |
-| GET          | `/scan/active`                                                        | 実行中ジョブのスナップショット。なければ204                                                                               |
-| GET          | `/scan/last`                                                          | サーバー起動後に一度でも完了した直近スキャンの結果（`finishedAt` 付き）。なければ204（メモリのみ保持）                    |
-| GET          | `/scan/:id`                                                           | ジョブスナップショット。なければ404                                                                                       |
-| DELETE       | `/scan/:id`                                                           | キャンセル（`status` → `cancelling`）。なければ404                                                                        |
-| GET          | `/scan/:id/events`                                                    | ジョブ進捗のSSE（`reset`/`state`/`progress`/`completed`/`failed`/`cancelled`・15秒`ping`）。`Last-Event-ID` 対応          |
-| GET          | `/scan/diagnostics`                                                   | スキャン診断（候補プール・identity conflict 等のサマリー）                                                                  |
-| GET          | `/scan/candidates`                                                    | 未登録候補一覧                                                                                                              |
-| POST         | `/scan/candidates/exclude`                                            | 候補の除外                                                                                                                  |
-| GET          | `/scan/candidates/exclusions`                                         | 除外済み候補一覧                                                                                                            |
-| POST         | `/scan/candidates/exclusions/restore`                                 | 除外の取り消し                                                                                                              |
-| POST         | `/scan/candidates/register`                                           | 候補の登録                                                                                                                  |
-| GET          | `/works`                                                              | **ページングエンベロープ `{ items, total }`**（page/limit省略時は page=1, limit=200）                                     |
-| GET          | `/works/register-preview`                                             | 未登録候補の登録プレビュー                                                                                                  |
-| POST         | `/works`                                                              | 候補から作品を登録                                                                                                          |
-| POST         | `/works/identity-conflicts/reassign`                                  | identity conflict の再採番                                                                                                  |
-| GET          | `/works/missing-count`                                                | 行方不明作品の件数                                                                                                          |
-| POST         | `/works/unregister-missing`                                           | 行方不明作品の登録解除                                                                                                      |
-| GET          | `/works/:id`                                                          | 完全な Work（playlists・defaultPlaylistId・resume 含む）                                                                  |
-| PATCH        | `/works/:id`                                                          | `{ title?, tags?, bookmarked? }` を統合（旧 PUT tags/title・POST bookmark を廃止）                                        |
-| DELETE       | `/works/:id`                                                          | 作品の登録解除                                                                                                              |
-| POST         | `/works/:id/resume`                                                   | `{ playlistId, trackId, offsetSec }`（`shared/src/work.ts` の `resumeSchema`。高頻度のため PATCH と分離）                 |
-| POST         | `/works/:id/last-played`                                              |                                                                                                                           |
-| POST         | `/dlsite/fetch-by-code`                                               | RJ/VJコード指定のプレビュー取得                                                                                             |
-| POST         | `/dlsite/:id/fetch`                                                   | DLsite情報のプレビュー取得。失敗分類は `not_found / parse_error / error`                                                  |
-| POST         | `/dlsite/:id/apply`                                                   | タイトル・カバー・選択タグを適用し、連携状態をメタへ保存                                                                  |
-| POST         | `/dlsite/apply-missing`                                               | 未取得作品への一括適用                                                                                                    |
-| PATCH        | `/dlsite/:id`                                                         | RJコード修正・skipped切替                                                                                                 |
-| GET          | `/dlsite/bulk`                                                        | 実行中または直近の一括取得ジョブスナップショット。なければ204                                                               |
-| POST         | `/dlsite/bulk`                                                        | none/error作品の一括取得ジョブを開始                                                                                      |
-| DELETE       | `/dlsite/bulk`                                                        | 実行中の一括取得をキャンセル                                                                                                |
-| GET          | `/dlsite/events`                                                      | 一括取得ジョブの進捗SSE                                                                                                   |
-| GET          | `/dlsite/notifications`                                               | RJコード未検出・取得失敗・パース失敗の件数サマリー                                                                        |
-| GET          | `/dlsite/notifications/:kind`                                         | `rj-missing` / `fetch-failed` / `parse-failed` の該当作品一覧（詳細は docs/dlsite.md）                                    |
-| GET          | `/tags`                                                               | フラット/構造化タグの一覧                                                                                                 |
-| GET/POST     | `/tag-prefixes`                                                       | prefix定義の一覧・追加                                                                                                    |
-| PATCH/DELETE | `/tag-prefixes/:prefix`                                               | prefix定義の変更・削除                                                                                                    |
-| GET          | `/tag-prefixes/candidates`                                            | データ中に存在する未登録prefixの候補                                                                                      |
-| POST         | `/export`                                                             | `{ data }`（JSON文字列）                                                                                                  |
-| GET          | `/axes/:axis`                                                         | prefix定義から動的生成した軸と、組み込みのタグ・追加日軸のファセット集計                                                  |
-| GET/POST     | `/smart-folders`                                                      |                                                                                                                           |
-| PUT/DELETE   | `/smart-folders/:id`                                                  |                                                                                                                           |
-| GET          | `/smart-folders/:id/works`                                            | スマートフォルダー評価結果                                                                                                |
-| GET          | `/fs`                                                                 | 物理FSブラウズ（Filesモード）                                                                                             |
-| GET          | `/media/workspace`                                                    | File Explorer のプレビュー用メディア（`?path=`）                                                                            |
-| GET          | `/media/cover/:id`、`/media/audio/:id/:path`                          | audio は Range(206) 対応。cover は `?w=128\|256\|512` でサムネイル（realはwebp化+ディスクキャッシュ、fixtureのSVGは原寸） |
+| メソッド     | パス                                         | 備考                                                                                                                      |
+| ------------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| GET / PUT    | `/settings`                                  |                                                                                                                           |
+| POST         | `/scan`                                      | 202 で `{ job }` を即返す（`Location: /api/scan/:id`）。実行中の二重POSTは409（`active` 付き）                            |
+| GET          | `/scan/active`                               | 実行中ジョブのスナップショット。なければ204                                                                               |
+| GET          | `/scan/last`                                 | サーバー起動後に一度でも完了した直近スキャンの結果（`finishedAt` 付き）。なければ204（メモリのみ保持）                    |
+| GET          | `/scan/:id`                                  | ジョブスナップショット。なければ404                                                                                       |
+| DELETE       | `/scan/:id`                                  | キャンセル（`status` → `cancelling`）。なければ404                                                                        |
+| GET          | `/scan/:id/events`                           | ジョブ進捗のSSE（`reset`/`state`/`progress`/`completed`/`failed`/`cancelled`・15秒`ping`）。`Last-Event-ID` 対応          |
+| GET          | `/scan/diagnostics`                          | スキャン診断（候補プール・identity conflict 等のサマリー）                                                                |
+| GET          | `/scan/candidates`                           | 未登録候補一覧                                                                                                            |
+| POST         | `/scan/candidates/exclude`                   | 候補の除外                                                                                                                |
+| GET          | `/scan/candidates/exclusions`                | 除外済み候補一覧                                                                                                          |
+| POST         | `/scan/candidates/exclusions/restore`        | 除外の取り消し                                                                                                            |
+| POST         | `/scan/candidates/register`                  | 候補の登録                                                                                                                |
+| GET          | `/works`                                     | **ページングエンベロープ `{ items, total }`**（page/limit省略時は page=1, limit=200）                                     |
+| GET          | `/works/register-preview`                    | 未登録候補の登録プレビュー                                                                                                |
+| POST         | `/works`                                     | 候補から作品を登録                                                                                                        |
+| POST         | `/works/identity-conflicts/reassign`         | identity conflict の再採番                                                                                                |
+| GET          | `/works/missing-count`                       | 行方不明作品の件数                                                                                                        |
+| POST         | `/works/unregister-missing`                  | 行方不明作品の登録解除                                                                                                    |
+| GET          | `/works/:id`                                 | 完全な Work（playlists・defaultPlaylistId・resume 含む）                                                                  |
+| PATCH        | `/works/:id`                                 | `{ title?, tags?, bookmarked? }` を統合（旧 PUT tags/title・POST bookmark を廃止）                                        |
+| DELETE       | `/works/:id`                                 | 作品の登録解除                                                                                                            |
+| POST         | `/works/:id/resume`                          | `{ playlistId, trackId, offsetSec }`（`shared/src/work.ts` の `resumeSchema`。高頻度のため PATCH と分離）                 |
+| POST         | `/works/:id/last-played`                     |                                                                                                                           |
+| POST         | `/dlsite/fetch-by-code`                      | RJ/VJコード指定のプレビュー取得                                                                                           |
+| POST         | `/dlsite/:id/fetch`                          | DLsite情報のプレビュー取得。失敗分類は `not_found / parse_error / error`                                                  |
+| POST         | `/dlsite/:id/apply`                          | タイトル・カバー・選択タグを適用し、連携状態をメタへ保存                                                                  |
+| POST         | `/dlsite/apply-missing`                      | 未取得作品への一括適用                                                                                                    |
+| PATCH        | `/dlsite/:id`                                | RJコード修正・skipped切替                                                                                                 |
+| GET          | `/dlsite/bulk`                               | 実行中または直近の一括取得ジョブスナップショット。なければ204                                                             |
+| POST         | `/dlsite/bulk`                               | none/error作品の一括取得ジョブを開始                                                                                      |
+| DELETE       | `/dlsite/bulk`                               | 実行中の一括取得をキャンセル                                                                                              |
+| GET          | `/dlsite/events`                             | 一括取得ジョブの進捗SSE                                                                                                   |
+| GET          | `/dlsite/notifications`                      | RJコード未検出・取得失敗・パース失敗の件数サマリー                                                                        |
+| GET          | `/dlsite/notifications/:kind`                | `rj-missing` / `fetch-failed` / `parse-failed` の該当作品一覧（詳細は docs/dlsite.md）                                    |
+| GET          | `/tags`                                      | フラット/構造化タグの一覧                                                                                                 |
+| GET/POST     | `/tag-prefixes`                              | prefix定義の一覧・追加                                                                                                    |
+| PATCH/DELETE | `/tag-prefixes/:prefix`                      | prefix定義の変更・削除                                                                                                    |
+| GET          | `/tag-prefixes/candidates`                   | データ中に存在する未登録prefixの候補                                                                                      |
+| POST         | `/export`                                    | `{ data }`（JSON文字列）                                                                                                  |
+| GET          | `/axes/:axis`                                | prefix定義から動的生成した軸と、組み込みのタグ・追加日軸のファセット集計                                                  |
+| GET/POST     | `/smart-folders`                             |                                                                                                                           |
+| PUT/DELETE   | `/smart-folders/:id`                         |                                                                                                                           |
+| GET          | `/smart-folders/:id/works`                   | スマートフォルダー評価結果                                                                                                |
+| GET          | `/fs`                                        | 物理FSブラウズ（Filesモード）                                                                                             |
+| GET          | `/media/workspace`                           | File Explorer のプレビュー用メディア（`?path=`）                                                                          |
+| GET          | `/media/cover/:id`、`/media/audio/:id/:path` | audio は Range(206) 対応。cover は `?w=128\|256\|512` でサムネイル（realはwebp化+ディスクキャッシュ、fixtureのSVGは原寸） |
 
 メディアURLは client の `entities/work/api.ts` の `getCoverImageUrl`/`getAudioUrl` が組み立てる（`<img src>`/`<audio src>` に直接使える）。
 

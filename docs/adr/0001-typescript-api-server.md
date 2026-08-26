@@ -13,7 +13,7 @@ Tauri 時代のサービス層を HTTP 化した Rust(axum) サーバーが `ser
 API サーバーは Rust 資産を引き継がず、TypeScript で新規開発する。
 
 - フレームワーク: Hono（ランタイム非依存。Vite dev middleware にマウント可能）
-- 開発ランタイム: Node / Bun いずれも可。配布は `bun build --compile` の単一 exe を本線とし、ネイティブモジュール依存を避ける（SQLite は Drizzle 経由で `bun:sqlite` / `better-sqlite3` を切替、watcher は chokidar v4、音声メタデータは music-metadata）
+- 開発ランタイム: Node / Bun いずれも可。配布は `bun build --compile` の単一 exe を本線とし、ネイティブモジュール依存を避ける（SQLite は Drizzle 経由で `bun:sqlite`、watcher は chokidar v4、音声メタデータは music-metadata）
 - API 契約は `shared/` パッケージの Zod スキーマを正典とし、client / server が共有する
 
 ## 理由
@@ -32,4 +32,4 @@ API サーバーは Rust 資産を引き継がず、TypeScript で新規開発�
 
 ## 現状（2026-07-10）
 
-実装完了。`server/` は TypeScript（Hono）になり、旧 Rust 実装は `server-rust/` に退避したのち、全機能（scanner / db / dlsite / handlers）の移植完了を確認して 2026-07-10 に削除した（Git 履歴で参照可能。本文中の「`server/`（Rust）」は決定当時の配置を指す）。Bun compile による単一 exe 配布とネイティブ依存回避の方針は未達で、現状は `better-sqlite3`（ネイティブモジュール）に依存している（詳細は [ARCHITECTURE.md](../ARCHITECTURE.md) 参照）。
+実装完了。`server/` は TypeScript（Hono）になり、旧 Rust 実装は `server-rust/` に退避したのち、全機能（scanner / db / dlsite / handlers）の移植完了を確認して 2026-07-10 に削除した（Git 履歴で参照可能。本文中の「`server/`（Rust）」は決定当時の配置を指す）。SQLite は `bun:sqlite`（Drizzle 経由）を使用している。Bun compile による単一 exe 配布は未達（詳細は [ARCHITECTURE.md](../ARCHITECTURE.md) 参照）。

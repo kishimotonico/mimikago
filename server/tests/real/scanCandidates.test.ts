@@ -94,6 +94,40 @@ test("選択した候補だけを登録し、除外した候補は以後返さ�
   );
 });
 
+test("root変更後の候補登録・除外はCandidatePoolChangedErrorで拒否する", async (t) => {
+  const directory = makeTestDirectory("scan-candidate-root-mismatch");
+  t.after(directory.cleanup);
+  const rootA = join(directory.path, "lib-a");
+  const rootB = join(directory.path, "lib-b");
+  const candidateDirA = join(rootA, "同名候補");
+  const candidateDirB = join(rootB, "同名候補");
+  mkdirSync(candidateDirA, { recursive: true });
+  mkdirSync(candidateDirB, { recursive: true });
+  writeWav(join(candidateDirA, "track.wav"), 1);
+  writeWav(join(candidateDirB, "track.wav"), 1);
+
+  const adapter = directory.own(createTestRealAdapter({ database: { kind: "memory" } }));
+  await adapter.updateSettings({ rootFolder: rootA });
+  await adapter.scan();
+  assert.deepEqual((await adapter.listScanCandidates()).map((candidate) => candidate.path), [
+    "同名候補",
+  ]);
+
+  await adapter.updateSettings({ rootFolder: rootB });
+
+  await assert.rejects(
+    () => adapter.registerScanCandidates([{ path: workspacePath("同名候補") }]),
+    CandidatePoolChangedError,
+  );
+  assert.equal(existsSync(join(candidateDirA, "mimimilli.json")), false);
+  assert.equal(existsSync(join(candidateDirB, "mimimilli.json")), false);
+
+  await assert.rejects(
+    () => adapter.excludeScanCandidates(["同名候補"]),
+    CandidatePoolChangedError,
+  );
+});
+
 test("stale候補を含む一括登録は書込み前に全件拒否する", async (t) => {
   const directory = makeTestDirectory("scan-candidate-stale-preflight");
   t.after(directory.cleanup);

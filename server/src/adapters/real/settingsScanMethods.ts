@@ -119,11 +119,11 @@ export function createSettingsScanMethods(deps: {
           dlsiteCache,
           normalized,
         );
-        candidateSession = ScanCandidateSession.fromPool(execution.candidatePool);
+        candidateSession = ScanCandidateSession.fromPool(execution.candidatePool, root);
         return execution.result;
       }
       const execution = await scanner.scan(root, normalized);
-      candidateSession = ScanCandidateSession.fromPool(execution.candidatePool);
+      candidateSession = ScanCandidateSession.fromPool(execution.candidatePool, root);
       const checkAbort = () => {
         if (normalized.signal?.aborted) {
           throw new DOMException("スキャンはキャンセルされました", "AbortError");
@@ -153,7 +153,7 @@ export function createSettingsScanMethods(deps: {
       return candidateSession.registerCandidates(requireRoot(), items, scanner, user, onRegistered);
     },
     async excludeScanCandidates(paths: string[]): Promise<void> {
-      await candidateSession.excludeCandidates(paths, user);
+      await candidateSession.excludeCandidates(requireRoot(), paths, user);
     },
     async listScanCandidateExclusions(): Promise<string[]> {
       return candidateSession.listExcludedCandidates(user);

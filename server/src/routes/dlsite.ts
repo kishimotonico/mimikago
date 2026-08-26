@@ -159,29 +159,56 @@ export function dlsiteRoute(adapter: DataAdapter, dlsiteJobs: DlsiteJobManager):
   app.get("/dlsite/events", (c) =>
     streamSSE(c, async (stream) => {
       let resolveDone!: () => void;
-      const done = new Promise<void>((resolve) => (resolveDone = resolve));
-      let chain = Promise.resolve();
-      const send = (event: import("@mimimilli/shared").DlsiteBulkProgressEvent) => {
-        chain = chain.then(() =>
-          stream.writeSSE({ event: event.type, data: JSON.stringify(event) }),
+      const done = new Promise<void>((resolve) => {
+        resolveDone = resolve;
+      });
+      let stopped = false;
+      let writeChain: Promise<void> = Promise.resolve();
+      let unsubscribe = (): void => {};
+
+      const writeSerialized = (frame: { event: string; data: string }): Promise<void> => {
+        const next = writeChain.then(() => stream.writeSSE(frame));
+        writeChain = next.then(
+          () => {},
+          () => {},
         );
-        return chain;
+        return next;
       };
+
+      const stop = (): void => {
+        if (stopped) return;
+        stopped = true;
+        unsubscribe();
+        resolveDone();
+      };
+
+      const send = (event: import("@mimimilli/shared").DlsiteBulkProgressEvent): Promise<void> =>
+        writeSerialized({ event: event.type, data: JSON.stringify(event) });
+
       const listener = (event: import("@mimimilli/shared").DlsiteBulkProgressEvent) => {
+        if (stopped) return;
         const written = send(event);
-        if (event.type !== "progress" && event.type !== "cancelling")
-          void written.then(resolveDone);
+        if (event.type !== "progress" && event.type !== "cancelling") {
+          void written.then(() => stop(), () => stop());
+        }
       };
-      const subscription = dlsiteJobs.subscribe(listener);
-      for (const event of subscription.replay) await send(event);
-      if (!subscription.isLive || subscription.replay.some((event) => event.type !== "progress")) {
-        subscription.unsubscribe();
-        return;
+
+      try {
+        const subscription = dlsiteJobs.subscribe(listener);
+        unsubscribe = subscription.unsubscribe;
+        for (const event of subscription.replay) await send(event);
+        if (
+          !subscription.isLive ||
+          subscription.replay.some((event) => event.type !== "progress")
+        ) {
+          return;
+        }
+        stream.onAbort(stop);
+        await done;
+        await writeChain;
+      } finally {
+        unsubscribe();
       }
-      stream.onAbort(resolveDone);
-      await done;
-      await chain;
-      subscription.unsubscribe();
     }),
   );
 

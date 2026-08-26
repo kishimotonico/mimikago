@@ -44,6 +44,10 @@ async function readLimitedBody(
       const chunk = await reader.read();
       if (chunk.done) break;
       total += chunk.value.byteLength;
+      if (total > transferMax) {
+        await reader.cancel();
+        throw new Error(`DLsiteレスポンスのサイズが上限を超えました: ${total}`);
+      }
       if (total > expandedMax) {
         await reader.cancel();
         throw new Error(`DLsiteレスポンスのサイズが上限を超えました: ${total}`);

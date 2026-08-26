@@ -162,6 +162,7 @@ export function createDlsiteFetch(deps: DlsiteFetchDeps) {
 
   async function fetchDlsiteHtmlNetworkAttempt(
     productCode: string,
+    force: boolean,
     signal?: AbortSignal,
   ): Promise<DlsiteFetchAttempt> {
     const key = productCode.trim().toUpperCase();
@@ -176,7 +177,8 @@ export function createDlsiteFetch(deps: DlsiteFetchDeps) {
       }
       throw error;
     }
-    return dlsiteFlightPool.run(key, signal, async (flightSignal) => {
+    const flightKey = force ? `${key}:force` : key;
+    return dlsiteFlightPool.run(flightKey, signal, async (flightSignal) => {
       try {
         const response = await dlsiteHtmlFetcher(key, flightSignal);
         if (response.status === 404) {
@@ -234,7 +236,7 @@ export function createDlsiteFetch(deps: DlsiteFetchDeps) {
     throwIfAborted(signal, "DLsite一括取得はキャンセルされました");
     const cached = resolveCachedDlsiteAttempt(productCode, force);
     if (cached) return cached;
-    return fetchDlsiteHtmlNetworkAttempt(productCode, signal);
+    return fetchDlsiteHtmlNetworkAttempt(productCode, force, signal);
   }
 
   async function fetchCachedDlsite(

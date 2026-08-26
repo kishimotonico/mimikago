@@ -845,7 +845,7 @@ test("parse_errorはcacheに保存し、mimimilli.jsonへ状態を書かない",
   assert.deepEqual(readFileSync(metaPath), bytesBefore);
 });
 
-test("DLsite HTMLキャッシュ: cache missのforceとnormalは同じHTTPへ合流する", async (t) => {
+test("DLsite HTMLキャッシュ: cache missのforceは実行中の非force flightに合流しない", async (t) => {
   const lib = makeSampleLibrary();
   const dir = makeTestDirectory("dlsite-force-flight");
   t.after(lib.cleanup);
@@ -874,7 +874,7 @@ test("DLsite HTMLキャッシュ: cache missのforceとnormalは同じHTTPへ合
   release();
   assert.equal((await force).ok, true);
   assert.equal((await normal).ok, true);
-  assert.equal(calls, 1);
+  assert.equal(calls, 2);
 });
 
 test("DLsite HTMLキャッシュ: 相乗り中の先着abortはその呼び出し元だけ失敗し他方は完了できる", async (t) => {
@@ -1465,6 +1465,31 @@ test("DLsite HTML: Content-Lengthがtransfer上限を超える場合は本文読
   });
   await assert.rejects(() => fetchDlsiteHtml("RJ900002", async () => response, 8, 64));
   assert.equal(cancelled, true);
+});
+
+test("DLsite HTML: Content-Lengthが過小申告でもtransferMax超過で読み取りを打ち切る", async () => {
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new Uint8Array(48));
+      controller.close();
+    },
+  });
+  const response = new Response(body, {
+    status: 200,
+    headers: { "content-type": "text/html", "content-length": "16" },
+  });
+  await assert.rejects(() => fetchDlsiteHtml("RJ900002", async () => response, 32, 128));
+});
+
+test("DLsite HTML: transferMaxはexpandedMaxより先に適用される", async () => {
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new Uint8Array(48));
+      controller.close();
+    },
+  });
+  const response = new Response(body, { status: 200, headers: { "content-type": "text/html" } });
+  await assert.rejects(() => fetchDlsiteHtml("RJ900002", async () => response, 32, 128));
 });
 
 test("DLsite apply: カバーはcache transportを通る", async (t) => {

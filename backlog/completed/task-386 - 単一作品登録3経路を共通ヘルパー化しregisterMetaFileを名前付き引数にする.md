@@ -1,10 +1,10 @@
 ---
 id: TASK-386
 title: 単一作品登録3経路を共通ヘルパー化しregisterMetaFileを名前付き引数にする
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-21 14:49'
-updated_date: '2026-08-23 01:18'
+updated_date: '2026-08-26 08:06'
 labels: []
 dependencies: []
 priority: low

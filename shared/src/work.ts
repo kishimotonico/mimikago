@@ -27,9 +27,28 @@ export {
   TagNormalizationError,
 } from "./tagNormalize.ts";
 
+/** http/https の絶対 URL のみ許可する（外部リンク href 用）。 */
+export function isHttpAbsoluteUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/** 安全に href に出せる外部 URL。許可スキーム以外は null。 */
+export function toSafeExternalUrlHref(url: string): string | null {
+  return isHttpAbsoluteUrl(url) ? url : null;
+}
+
+const httpAbsoluteUrlSchema = z.string().refine(isHttpAbsoluteUrl, {
+  message: "URL must be an absolute http or https URL",
+});
+
 export const urlEntrySchema = z.object({
   label: z.string(),
-  url: z.string(),
+  url: httpAbsoluteUrlSchema,
 });
 export type UrlEntry = z.infer<typeof urlEntrySchema>;
 

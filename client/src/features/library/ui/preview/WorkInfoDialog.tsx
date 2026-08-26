@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Track, Work } from "@mimimilli/shared";
+import { toSafeExternalUrlHref } from "@mimimilli/shared";
 import Button from "../../../../shared/ui/Button";
 import IconButton from "../../../../shared/ui/IconButton";
 import { I } from "../../../../shared/ui/Icon";
@@ -107,18 +108,25 @@ export function WorkInfoDialog({
               <InfoRow label="外部リンク">
                 {work.urls.length > 0 ? (
                   <ul className="flex flex-col gap-0.5">
-                    {work.urls.map((u) => (
-                      <li key={u.url}>
-                        <a
-                          href={u.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-acc-ink hover:underline"
-                        >
-                          {u.label}
-                        </a>
-                      </li>
-                    ))}
+                    {work.urls.map((u) => {
+                      const href = toSafeExternalUrlHref(u.url);
+                      return (
+                        <li key={u.url}>
+                          {href ? (
+                            <a
+                              href={href}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-acc-ink hover:underline"
+                            >
+                              {u.label}
+                            </a>
+                          ) : (
+                            <span>{u.label}</span>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 ) : (
                   "なし"

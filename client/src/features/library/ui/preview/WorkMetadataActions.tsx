@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Work } from "@mimimilli/shared";
+import { toSafeExternalUrlHref } from "@mimimilli/shared";
 import { I } from "../../../../shared/ui/Icon";
 import IconButton from "../../../../shared/ui/IconButton";
 import { apiErrorMessage } from "../../../../shared/lib/apiError";
@@ -112,22 +113,37 @@ export function WorkMetadataActions({
               {work.urls.length > 0 && (
                 <>
                   <hr className="my-1 border-0 border-t border-t-line-soft" />
-                  {work.urls.map((u) => (
-                    <a
-                      key={u.url}
-                      role="menuitem"
-                      className="flex min-h-7 w-full items-center gap-2 rounded-1 px-2 font-jp text-[12px] text-ink-1 hover:bg-paper-2 hover:text-ink-0 focus:bg-paper-2 focus:outline-none"
-                      href={u.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={() => close()}
-                    >
-                      <I.ext size={13} />
-                      <span className="min-w-0 flex-1 truncate">
-                        {u.label === "DLsite" ? "DLsiteを開く" : `${u.label}を開く`}
+                  {work.urls.map((u) => {
+                    const href = toSafeExternalUrlHref(u.url);
+                    const label = u.label === "DLsite" ? "DLsiteを開く" : `${u.label}を開く`;
+                    if (href) {
+                      return (
+                        <a
+                          key={u.url}
+                          role="menuitem"
+                          className="flex min-h-7 w-full items-center gap-2 rounded-1 px-2 font-jp text-[12px] text-ink-1 hover:bg-paper-2 hover:text-ink-0 focus:bg-paper-2 focus:outline-none"
+                          href={href}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={() => close()}
+                        >
+                          <I.ext size={13} />
+                          <span className="min-w-0 flex-1 truncate">{label}</span>
+                        </a>
+                      );
+                    }
+                    return (
+                      <span
+                        key={u.url}
+                        role="menuitem"
+                        aria-disabled="true"
+                        className="flex min-h-7 w-full items-center gap-2 rounded-1 px-2 font-jp text-[12px] text-ink-2"
+                      >
+                        <I.ext size={13} />
+                        <span className="min-w-0 flex-1 truncate">{label}</span>
                       </span>
-                    </a>
-                  ))}
+                    );
+                  })}
                 </>
               )}
               <hr className="my-1 border-0 border-t border-t-line-soft" />

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { metaFileSchema, tagSchema, trackSchema } from "@mimimilli/shared";
+import { metaFileSchema, tagSchema, trackSchema, urlEntrySchema } from "@mimimilli/shared";
 
 const PLAYLIST_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const TRACK_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -140,4 +140,34 @@ test("同名Playlistは異なるIDなら許容する", () => {
     ],
   });
   assert.equal(metaFileSchema.safeParse(meta).success, true);
+});
+
+test("urlEntrySchemaはhttpおよびhttps以外のスキームを拒否する", () => {
+  assert.equal(
+    urlEntrySchema.safeParse({ label: "DLsite", url: "https://www.dlsite.com/work/123" }).success,
+    true,
+  );
+  assert.equal(
+    urlEntrySchema.safeParse({ label: "Example", url: "http://example.com/path" }).success,
+    true,
+  );
+
+  for (const badUrl of [
+    "javascript:alert(1)",
+    "data:text/html,<script>alert(1)</script>",
+    "//example.com/path",
+    "/relative/path",
+    "example.com",
+    "",
+  ]) {
+    assert.equal(urlEntrySchema.safeParse({ label: "bad", url: badUrl }).success, false, badUrl);
+  }
+});
+
+test("metaFileSchema.urlsでも危険スキームを拒否する", () => {
+  const meta = {
+    ...validMeta(),
+    urls: [{ label: "evil", url: "javascript:alert(1)" }],
+  };
+  assert.equal(metaFileSchema.safeParse(meta).success, false);
 });

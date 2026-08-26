@@ -39,14 +39,15 @@ async function setup(t: TestContext): Promise<{
 function jsonRequest(
   app: App,
   path: string,
-  init: RequestInit & { method?: string; body?: unknown },
+  init: { method?: string; body?: unknown },
 ): Promise<Response> {
-  const { body, ...rest } = init;
-  return app.request(path, {
-    ...rest,
-    headers: { "Content-Type": "application/json", ...(rest.headers ?? {}) },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  return Promise.resolve(
+    app.request(path, {
+      method: init.method,
+      headers: { "Content-Type": "application/json" },
+      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+    }),
+  );
 }
 
 test("POST /api/works/:id/resume は正当な resume で 204 を返し GET で永続化を確認する", async (t) => {

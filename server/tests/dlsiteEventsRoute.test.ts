@@ -24,7 +24,8 @@ const emptyResult: DlsiteBulkResult = { fetched: 1, failed: 0, parseErrors: 0, s
 const progressWork = { id: "work-1", rjCode: "RJ111111", title: "作品" };
 
 function activeListenerCount(manager: DlsiteJobManager): number {
-  const current = (manager as { currentJob: { listeners: Set<unknown> } | null }).currentJob;
+  const current = (manager as unknown as { currentJob: { listeners: Set<unknown> } | null })
+    .currentJob;
   return current?.listeners.size ?? 0;
 }
 

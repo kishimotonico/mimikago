@@ -409,10 +409,12 @@ test("未知ルートは404 + not_found", async () => {
 test("POST /api/__test__/reset は実行中スキャンを取消して完了待ちしてからfixture状態を戻す", async () => {
   const adapter = createFixtureAdapter();
   adapter.scan = async (options) => {
-    while (!options.signal.aborted) {
+    const signal = options?.signal;
+    if (!signal) throw new Error("missing signal");
+    while (!signal.aborted) {
       await new Promise((resolve) => setTimeout(resolve, 5));
     }
-    throw options.signal.reason ?? new Error("aborted");
+    throw signal.reason ?? new Error("aborted");
   };
   const app = createApp(adapter);
 
@@ -441,7 +443,9 @@ test("POST /api/__test__/reset は実行中スキャンを取消して完了待�
 test("POST /api/__test__/reset は実行中DLsite一括取得を取消して完了待ちしてからfixture状態を戻す", async () => {
   const adapter = createFixtureAdapter();
   adapter.runDlsiteBulk = async (_mode, _workIds, options) => {
-    while (!options.signal.aborted) {
+    const signal = options?.signal;
+    if (!signal) throw new Error("missing signal");
+    while (!signal.aborted) {
       await new Promise((resolve) => setTimeout(resolve, 5));
     }
     return { fetched: 0, failed: 0, parseErrors: 0, skipped: 0 };

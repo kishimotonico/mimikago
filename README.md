@@ -102,6 +102,8 @@ DBはデータルートの `db/catalog.sqlite` と `db/user.sqlite` に作る。
 
 ### 検証
 
+ローカルでは次を実行する。
+
 ```bash
 pnpm check          # shared + server + client の型チェック
 pnpm test           # server + client のユニットテスト
@@ -110,6 +112,10 @@ pnpm test:server    # server のみ（Bunランナー、テストAPIはnode:test
 pnpm test:client    # client のみ（vitest）
 pnpm test:smoke     # Playwright スモークテスト（roleベースの動作確認）
 ```
+
+### CI（GitHub Actions）
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) が `master` への push と pull_request で Ubuntu 上の `pnpm check` と `pnpm test` を実行する（Playwright smoke と Windows は対象外）。ブランチ保護を使う場合は、GitHub のリポジトリ設定でこの workflow の `check-and-test` ジョブを required check に指定する。
 
 ## 使い方
 

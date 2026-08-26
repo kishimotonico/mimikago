@@ -165,10 +165,20 @@ export class DlsiteJobManager {
         if (job.controller.signal.aborted) job.emit({ type: "cancelled", result });
         else job.emit({ type: "complete", result });
       } catch (error) {
-        job.emit({
-          type: "error",
-          message: error instanceof Error ? error.message : "DLsite一括取得に失敗しました",
-        });
+        const aborted =
+          job.controller.signal.aborted ||
+          (error instanceof DOMException && error.name === "AbortError");
+        if (aborted) {
+          job.emit({
+            type: "cancelled",
+            result: { fetched: 0, failed: 0, parseErrors: 0, skipped: 0 },
+          });
+        } else {
+          job.emit({
+            type: "error",
+            message: error instanceof Error ? error.message : "DLsite一括取得に失敗しました",
+          });
+        }
       } finally {
         job.finish();
       }

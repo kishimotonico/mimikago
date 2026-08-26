@@ -88,6 +88,62 @@ test("実行中のDLsite一括取得はcancelで打ち切り、cancelledを配�
   assert.deepEqual(events.at(-1)?.result, { fetched: 2, failed: 1, parseErrors: 0, skipped: 0 });
 });
 
+test("実行中のDLsite一括取得はcancel後にadapterがAbortErrorでrejectしてもcancelledを配信する", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  const adapter = {
+    async runDlsiteBulk(
+      _mode: string,
+      _workIds: string[] | undefined,
+      options?: { signal?: AbortSignal },
+    ) {
+      await gate;
+      if (options?.signal?.aborted) {
+        throw new DOMException("DLsiteリクエストはキャンセルされました", "AbortError");
+      }
+      return { fetched: 2, failed: 1, parseErrors: 0, skipped: 0 };
+    },
+  } as unknown as DataAdapter;
+  const manager = createManager(adapter);
+
+  manager.enqueue("existing", undefined);
+  await new Promise((resolve) => setImmediate(resolve));
+  const events: Array<{ type: string; result?: { fetched: number } }> = [];
+  const subscription = manager.subscribe((event) => events.push(event));
+  assert.equal(manager.cancel(), true);
+  release();
+  while (events.at(-1)?.type !== "cancelled") await new Promise((resolve) => setImmediate(resolve));
+  subscription.unsubscribe();
+  assert.deepEqual(
+    events.map((event) => event.type),
+    ["cancelling", "cancelled"],
+  );
+  assert.deepEqual(events.at(-1)?.result, { fetched: 0, failed: 0, parseErrors: 0, skipped: 0 });
+});
+
+test("adapterが通常例外でrejectした場合はerrorを配信する", async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  const adapter = {
+    async runDlsiteBulk() {
+      await gate;
+      throw new Error("ネットワークエラー");
+    },
+  } as unknown as DataAdapter;
+  const manager = createManager(adapter);
+  const events: Array<{ type: string; message?: string }> = [];
+  manager.enqueue("existing", undefined);
+  await new Promise((resolve) => setImmediate(resolve));
+  const subscription = manager.subscribe((event) => events.push(event));
+  release();
+  while (!events.some((event) => event.type === "error")) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  subscription.unsubscribe();
+  assert.deepEqual(events.map((event) => event.type), ["error"]);
+  assert.equal(events.at(-1)?.message, "ネットワークエラー");
+});
+
 test("中止時はキューに積まれた未実行ジョブを破棄する", async () => {
   const calls: string[] = [];
   let release!: () => void;

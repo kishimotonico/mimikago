@@ -139,6 +139,12 @@ export class DlsiteJobManager {
     }
   }
 
+  async cancelActiveAndAwait(): Promise<void> {
+    this.pendingJobs.length = 0;
+    if (this.currentJob) this.cancel();
+    if (this.queueDrain) await this.queueDrain;
+  }
+
   private async drainQueue(): Promise<void> {
     if (this.processingQueue) return;
     this.processingQueue = true;

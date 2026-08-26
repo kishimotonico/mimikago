@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { scanCandidateSchema, workspacePath } from "@mimimilli/shared";
 import type { DataAdapter } from "../src/adapter/index.ts";
 import { createApp } from "../src/app.ts";
+import { pollUntil } from "./helpers/poll.ts";
 import { createClassificationMethods } from "../src/adapters/fixture/classification.ts";
 import { createCoverMediaMethods } from "../src/adapters/fixture/coverMedia.ts";
 import { createDlsiteMethods } from "../src/adapters/fixture/dlsiteMethods.ts";
@@ -54,18 +55,14 @@ test("new-work: スキャン結果に新規作品IDが含まれる", async () =>
   const started = await app.request("/api/scan", { method: "POST" });
   assert.equal(started.status, 202);
   const { job } = await started.json();
-  let scanResult: { insertedWorkIds: string[] } | null = null;
-  for (let attempt = 0; attempt < 80; attempt++) {
+  await pollUntil(async () => {
     const state = await app.request(`/api/scan/${job.id}`);
     const snapshot = await state.json();
-    if (snapshot.status === "completed") {
-      scanResult = snapshot.result;
-      break;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  assert.ok(scanResult);
-  assert.deepEqual(scanResult.insertedWorkIds, ["RJ501011", "RJ501001", "RJ501003"]);
+    return snapshot.status === "completed";
+  });
+  const state = await app.request(`/api/scan/${job.id}`);
+  const snapshot = await state.json();
+  assert.deepEqual(snapshot.result.insertedWorkIds, ["RJ501011", "RJ501001", "RJ501003"]);
 
   // 新規作品自体は works 一覧に存在する（スキャンで見つかった扱い）
   const worksRes = await app.request("/api/works");

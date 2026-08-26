@@ -549,49 +549,45 @@ test("スマートフォルダーのSQL候補絞り込み(第1段)とcore純粋�
   }
 });
 
-test(
-  "スマートフォルダー候補IDが900件を超えてもlistSummariesのchunk境界をまたいで同値",
-  { timeout: 15_000 },
-  (t) => {
-    const scope = makeTestScope();
-    t.after(scope.cleanup);
-    const db = scope.own(openDb({ kind: "memory" }));
-    const { query: queryRepo, catalog, user } = createWorkRepos(db);
-    // listSummaries(workIds) はSQLiteのパラメータ上限を避けるため900件ごとに分割してIN句を発行する
-    // （TASK-85）。候補IDがちょうどその境界をまたぐ件数になるデータセットで、分割・再結合が
-    // 欠落や重複なく行われることを直接検証する。
-    const largeDataset = Array.from({ length: 950 }, (_, index) => summary(index));
-    db.transaction(() => {
-      for (const item of largeDataset) upsertTestWork(catalog, user, catalogSeedWork(item));
-    });
+test("スマートフォルダー候補IDが900件を超えてもlistSummariesのchunk境界をまたいで同値", (t) => {
+  const scope = makeTestScope();
+  t.after(scope.cleanup);
+  const db = scope.own(openDb({ kind: "memory" }));
+  const { query: queryRepo, catalog, user } = createWorkRepos(db);
+  // listSummaries(workIds) はSQLiteのパラメータ上限を避けるため900件ごとに分割してIN句を発行する
+  // （TASK-85）。候補IDがちょうどその境界をまたぐ件数になるデータセットで、分割・再結合が
+  // 欠落や重複なく行われることを直接検証する。
+  const largeDataset = Array.from({ length: 950 }, (_, index) => summary(index));
+  db.transaction(() => {
+    for (const item of largeDataset) upsertTestWork(catalog, user, catalogSeedWork(item));
+  });
 
-    const rule: SmartFolderRule = {
-      conjunction: "WHERE",
-      field: "長さ",
-      operator: "≥",
-      values: ["0"],
-    };
-    const query = { page: 1, limit: largeDataset.length };
+  const rule: SmartFolderRule = {
+    conjunction: "WHERE",
+    field: "長さ",
+    operator: "≥",
+    values: ["0"],
+  };
+  const query = { page: 1, limit: largeDataset.length };
 
-    const candidateIds = queryRepo.resolveSmartFolderCandidateIds([rule]);
-    assert.notEqual(candidateIds, null);
-    assert.ok(
-      candidateIds!.size > 900,
-      `候補IDがchunk境界(900件)を超えている前提が崩れている: ${candidateIds!.size}`,
-    );
+  const candidateIds = queryRepo.resolveSmartFolderCandidateIds([rule]);
+  assert.notEqual(candidateIds, null);
+  assert.ok(
+    candidateIds!.size > 900,
+    `候補IDがchunk境界(900件)を超えている前提が崩れている: ${candidateIds!.size}`,
+  );
 
-    const works = queryRepo.listSummaries([...candidateIds!]).summaries;
-    assert.equal(works.length, candidateIds!.size, "chunk分割後も欠落・重複がない");
+  const works = queryRepo.listSummaries([...candidateIds!]).summaries;
+  assert.equal(works.length, candidateIds!.size, "chunk分割後も欠落・重複がない");
 
-    const fixture = evalSmartFolder({ rules: [rule], sort: "id-asc" }, largeDataset, query);
-    const real = evalSmartFolder({ rules: [rule], sort: "id-asc" }, works, query);
-    assert.deepEqual(
-      real.items.map((work) => work.id),
-      fixture.items.map((work) => work.id),
-    );
-    assert.equal(real.total, fixture.total);
-  },
-);
+  const fixture = evalSmartFolder({ rules: [rule], sort: "id-asc" }, largeDataset, query);
+  const real = evalSmartFolder({ rules: [rule], sort: "id-asc" }, works, query);
+  assert.deepEqual(
+    real.items.map((work) => work.id),
+    fixture.items.map((work) => work.id),
+  );
+  assert.equal(real.total, fixture.total);
+});
 
 test("tag軸はprefixタグも自由タグも数える（ADR-0005 追記）", (t) => {
   const scope = makeTestScope();

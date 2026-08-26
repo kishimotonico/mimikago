@@ -95,6 +95,9 @@ async function runContendedWrite(input: BusyTimeoutWriteInput): Promise<{
   });
   try {
     await waitForWorkerMessage(worker, ["ready"], "start");
+    const opened = waitForWorkerMessage(worker, ["opened"], "open");
+    worker.postMessage({ type: "open", input });
+    await opened;
 
     const locker = new Database(input.userPath);
     locker.exec("BEGIN IMMEDIATE");
@@ -105,21 +108,14 @@ async function runContendedWrite(input: BusyTimeoutWriteInput): Promise<{
       elapsedMs: event.elapsedMs ?? 0,
       message: event.message,
     }));
-
-    worker.postMessage({ type: "write", input });
+    const attempting = waitForWorkerMessage(worker, ["attempting"], "attempt write");
+    worker.postMessage({ type: "write" });
+    await attempting;
     await new Promise((resolve) => setTimeout(resolve, LOCK_HOLD_MS));
     locker.exec("COMMIT");
     locker.close();
 
-    return await Promise.race([
-      resultPromise,
-      new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new Error("contended write timed out")),
-          SQLITE_BUSY_TIMEOUT_MS + 1_000,
-        ),
-      ),
-    ]);
+    return await resultPromise;
   } finally {
     worker.terminate();
   }

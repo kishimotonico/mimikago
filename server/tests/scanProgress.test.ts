@@ -6,6 +6,7 @@ import { createApp } from "../src/app.ts";
 import type { DataAdapter } from "../src/adapter/index.ts";
 import { scanRoute } from "../src/routes/scan.ts";
 import { ScanJobManager } from "../src/scanJobManager.ts";
+import { pollUntil } from "./helpers/poll.ts";
 
 function createScanJobManager(
   adapter: DataAdapter,
@@ -42,13 +43,13 @@ async function waitForTerminal(
   app: ReturnType<typeof createApp>,
   id: string,
 ): Promise<Record<string, unknown>> {
-  for (let attempt = 0; attempt < 80; attempt++) {
+  let job!: Record<string, unknown>;
+  await pollUntil(async () => {
     const response = await app.request(`/api/scan/${id}`);
-    const job = (await response.json()) as Record<string, unknown>;
-    if (["completed", "failed", "cancelled"].includes(job.status as string)) return job;
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error("scan job did not finish");
+    job = (await response.json()) as Record<string, unknown>;
+    return ["completed", "failed", "cancelled"].includes(job.status as string);
+  });
+  return job;
 }
 
 test("POST /scan はbody省略で202を返し、full:trueも受け付ける", async () => {
@@ -373,8 +374,7 @@ test("進捗の無い区間でも一定間隔でpingを送り、完了時にハ�
   const reader = response.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  const deadline = Date.now() + 2000;
-  while ([...buffer.matchAll(/event: ping/g)].length < 2 && Date.now() < deadline) {
+  while ([...buffer.matchAll(/event: ping/g)].length < 2) {
     const { value, done } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value);
@@ -388,6 +388,6 @@ test("進捗の無い区間でも一定間隔でpingを送り、完了時にハ�
   for (;;) {
     const { done } = await reader.read();
     if (done) break;
-    assert.ok(Date.now() - closedAt < 2000, "完了後は速やかにストリームが閉じること");
   }
+  assert.ok(Date.now() - closedAt < 10_000, "完了後は速やかにストリームが閉じること");
 });

@@ -1,0 +1,3 @@
+# per-test timeout is set in tests/preload.ts (Bun 1.3 has no [test].timeout key).
+[test]
+preload = ["./tests/preload.ts"]

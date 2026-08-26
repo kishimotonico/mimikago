@@ -9,6 +9,7 @@ import {
 import { createFixtureAdapter } from "../src/adapters/fixture/index.ts";
 import { createApp } from "../src/app.ts";
 import { CandidatePoolChangedError } from "../src/errors.ts";
+import { pollUntil } from "./helpers/poll.ts";
 
 const candidate = scanCandidateSchema.parse({
   path: "候補作品",
@@ -62,9 +63,7 @@ test("候補APIは取得・一括登録・stale拒否を提供し、登録ごと
       ],
       failures: [],
     });
-    for (let attempt = 0; attempt < 20 && queued.length < 2; attempt++) {
-      await new Promise((resolve) => setTimeout(resolve, 5));
-    }
+    await pollUntil(() => queued.length >= 2, 5);
     assert.deepEqual(queued, [["work-a"], ["work-b"]]);
 
     const stale = await app.request("/api/scan/candidates/exclude", {
@@ -106,9 +105,7 @@ test("候補登録APIは部分失敗と全失敗を201で返し、成功分だ�
       registered: [{ path: "候補作品", workId: "work-ok" }],
       failures: [{ path: "失敗作品", message: "catalogの投影に失敗しました" }],
     });
-    for (let attempt = 0; attempt < 20 && queued.length === 0; attempt++) {
-      await new Promise((resolve) => setTimeout(resolve, 5));
-    }
+    await pollUntil(() => queued.length > 0, 5);
     assert.deepEqual(queued, [["work-ok"]]);
   } finally {
     await app.shutdown();

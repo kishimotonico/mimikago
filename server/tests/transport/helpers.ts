@@ -2,6 +2,7 @@ import type { DataAdapter } from "../../src/adapter/index.ts";
 import type { CreateAppOptions } from "../../src/app.ts";
 import { createFixtureAdapter } from "../../src/adapters/fixture/index.ts";
 import { serveMimimilli } from "../../src/serve.ts";
+import { TEST_RUNNER_TIMEOUT_MS } from "../helpers/poll.ts";
 
 export type FixtureTransportServer = {
   app: ReturnType<typeof serveMimimilli>["app"];
@@ -26,7 +27,7 @@ export function serveFixtureTransport(
 export async function readResponseText(
   response: Response,
   predicate: (text: string) => boolean,
-  timeoutMs = 10_000,
+  timeoutMs = TEST_RUNNER_TIMEOUT_MS,
 ): Promise<string> {
   const reader = response.body?.getReader();
   if (!reader) return "";
@@ -44,7 +45,7 @@ export async function readResponseText(
 
 export async function waitFor(
   predicate: () => boolean | Promise<boolean>,
-  timeoutMs = 10_000,
+  timeoutMs = TEST_RUNNER_TIMEOUT_MS,
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {

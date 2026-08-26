@@ -32,12 +32,23 @@ function withStubAdapter(overrides: Partial<DataAdapter> & Pick<DataAdapter, "sc
 }
 
 async function waitForTerminal(manager: ScanJobManager, id: string): Promise<void> {
-  for (let attempt = 0; attempt < 80; attempt++) {
-    const snapshot = manager.get(id);
-    if (snapshot?.finishedAt) return;
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  }
-  throw new Error("scan job did not finish");
+  if (manager.get(id)?.finishedAt) return;
+  await new Promise<void>((resolve, reject) => {
+    const sub = manager.subscribe(id, null, (event) => {
+      if (event.type === "completed" || event.type === "failed" || event.type === "cancelled") {
+        sub?.unsubscribe();
+        resolve();
+      }
+    });
+    if (!sub) {
+      reject(new Error(`scan job not found: ${id}`));
+      return;
+    }
+    if (sub.snapshot.finishedAt) {
+      sub.unsubscribe();
+      resolve();
+    }
+  });
 }
 
 function recordMessage(record: { message: readonly unknown[] }): string {

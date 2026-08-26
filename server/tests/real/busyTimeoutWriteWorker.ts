@@ -10,7 +10,10 @@ export interface BusyTimeoutWriteInput {
 
 type WorkerMessage =
   | { type: "ready" }
-  | { type: "write"; input: BusyTimeoutWriteInput }
+  | { type: "open"; input: BusyTimeoutWriteInput }
+  | { type: "opened" }
+  | { type: "write" }
+  | { type: "attempting" }
   | { type: "result"; ok: true; elapsedMs: number }
   | { type: "result"; ok: false; elapsedMs: number; message: string };
 
@@ -18,13 +21,22 @@ function post(message: WorkerMessage): void {
   globalThis.postMessage(message);
 }
 
-post({ type: "ready" });
+let db: ReturnType<typeof openDb> | undefined;
+let workId: string | undefined;
 
-globalThis.onmessage = (event: MessageEvent<Extract<WorkerMessage, { type: "write" }>>) => {
-  if (event.data.type !== "write") return;
-  const { catalogPath, userPath, workId } = event.data.input;
+globalThis.onmessage = (
+  event: MessageEvent<Extract<WorkerMessage, { type: "open" } | { type: "write" }>>,
+) => {
+  if (event.data.type === "open") {
+    const { catalogPath, userPath } = event.data.input;
+    workId = event.data.input.workId;
+    db = openDb({ kind: "files", catalogPath, userPath });
+    post({ type: "opened" });
+    return;
+  }
+  if (event.data.type !== "write" || db === undefined || workId === undefined) return;
+  post({ type: "attempting" });
   const started = performance.now();
-  const db = openDb({ kind: "files", catalogPath, userPath });
   try {
     db.user.update(workStates).set({ bookmarked: true }).where(eq(workStates.workId, workId)).run();
     post({ type: "result", ok: true, elapsedMs: performance.now() - started });
@@ -37,5 +49,9 @@ globalThis.onmessage = (event: MessageEvent<Extract<WorkerMessage, { type: "writ
     });
   } finally {
     db.close();
+    db = undefined;
+    workId = undefined;
   }
 };
+
+post({ type: "ready" });

@@ -34,6 +34,7 @@ pnpm dev            # Vite + Bun fixture サーバーを並列起動（large シ
 pnpm check          # shared/server/client の tsc + oxlint + oxfmt --check（これが通れば typecheck/lint/fmt の DoD を満たす）
 pnpm test           # server (Bunランナー + node:test API) + client (vitest)
 pnpm test:server
+# server テストは bunfig.toml [test].preload で per-test タイムアウト 30s（ハング検出。Bun既定5sは並列負荷で偽陽性になる）
 pnpm test:client
 pnpm test:smoke          # Playwright スモークテスト（roleベースの動作確認）
 # smokeテストの webServer は MIMIMILLI_MOCK_SCENARIO=new-work で自前サーバーを立てる。

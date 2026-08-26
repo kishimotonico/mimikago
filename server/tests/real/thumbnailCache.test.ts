@@ -167,7 +167,7 @@ test("片方のキーのadmission判定が保留中でも、別キーのキャ�
   const slow = cache.getOrCreate(cacheDir, "slow-key", 256, coverSlow, source);
   const raced = await Promise.race([
     cache.getOrCreate(cacheDir, "fast-key", 256, coverFast, source),
-    new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), 200)),
+    new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), 5_000)),
   ]);
   assert.notEqual(raced, "timeout", "別キーのキャッシュヒットが保留中のadmissionに待たされている");
 

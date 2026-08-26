@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import {
   dlsiteApplyBodySchema,
+  dlsiteApplyMissingBodySchema,
   dlsiteBulkApplyMissingResultSchema,
   dlsiteBulkCancelResponseSchema,
   dlsiteFetchByCodeBodySchema,
@@ -14,6 +15,7 @@ import { DlsiteOfflineError } from "../errors.ts";
 import { SourceChangedError } from "../errors.ts";
 import type { DataAdapter } from "../adapter/index.ts";
 import { apiError, invalidRequest, notFound } from "../lib/httpError.ts";
+import { readOptionalJsonBody } from "../lib/jsonBody.ts";
 import { getCategoryLogger } from "../lib/logger.ts";
 import type { DlsiteJobManager } from "../dlsiteJobManager.ts";
 
@@ -117,17 +119,15 @@ export function dlsiteRoute(adapter: DataAdapter, dlsiteJobs: DlsiteJobManager):
   });
 
   app.post("/dlsite/apply-missing", async (c) => {
-    const body = await c.req.json().catch(() => null);
-    const workIds =
-      body === null
-        ? undefined
-        : Array.isArray((body as { workIds?: unknown }).workIds) &&
-            (body as { workIds: unknown[] }).workIds.every((id) => typeof id === "string")
-          ? (body as { workIds: string[] }).workIds
-          : null;
-    if (workIds === null) invalidRequest("workIds は文字列配列で指定してください");
+    const body = await readOptionalJsonBody(c, "workIds は文字列配列で指定してください");
+    const parsed = dlsiteApplyMissingBodySchema.safeParse(body);
+    if (!parsed.success) {
+      invalidRequest("workIds は文字列配列で指定してください");
+    }
     return c.json(
-      dlsiteBulkApplyMissingResultSchema.parse(await adapter.dlsiteApplyMissing(workIds)),
+      dlsiteBulkApplyMissingResultSchema.parse(
+        await adapter.dlsiteApplyMissing(parsed.data.workIds),
+      ),
     );
   });
 

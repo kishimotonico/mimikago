@@ -31,7 +31,7 @@ export default function ScanRuntime() {
       if (job.status !== "completed" || !job.result || !job.finishedAt) return;
       const result = job.result;
       queryClient.setQueryData(SCAN_QUERY_KEYS.last(), { result, finishedAt: job.finishedAt });
-      void refreshScanCandidates(queryClient);
+      void refreshScanCandidates(queryClient).catch(() => {});
       queryClient.invalidateQueries({ queryKey: WORK_QUERY_KEYS.all() });
       queryClient.invalidateQueries({ queryKey: WORK_QUERY_KEYS.dlsiteNotifications() });
       queryClient.invalidateQueries({ queryKey: WORK_QUERY_KEYS.allFacets() });

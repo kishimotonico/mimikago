@@ -7,6 +7,7 @@ import Button from "../../../shared/ui/Button";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
 import { formatFileSize } from "../../../shared/lib/format";
 import { WORK_QUERY_KEYS } from "../../../entities/work/queryKeys";
+import { SCAN_QUERY_KEYS } from "../../../entities/scan/queryKeys";
 import { FILE_SYSTEM_QUERY_KEYS } from "../../../entities/file-system/queryKeys";
 import { getWorkRegisterPreview, reassignIdentityConflict } from "../api";
 import { deleteWork } from "../../../entities/work/api";
@@ -72,8 +73,8 @@ export default function FilePreview({
         queryClient.invalidateQueries({ queryKey: FILE_SYSTEM_QUERY_KEYS.directory(path) }),
       ),
     );
-    await queryClient.invalidateQueries({ queryKey: ["fs"] });
-    await queryClient.invalidateQueries({ queryKey: ["scan", "diagnostics"] });
+    await queryClient.invalidateQueries({ queryKey: FILE_SYSTEM_QUERY_KEYS.all() });
+    await queryClient.invalidateQueries({ queryKey: SCAN_QUERY_KEYS.diagnostics() });
     await queryClient.invalidateQueries({ queryKey: WORK_QUERY_KEYS.all() });
     await onWorkRegistered?.();
   }, [browsePath, entry, onWorkRegistered, queryClient]);

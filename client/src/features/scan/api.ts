@@ -9,8 +9,7 @@ import {
   postVoid,
   type StatusHandler,
 } from "../../shared/api/http";
-import { SCAN_CANDIDATE_EXCLUSIONS_QUERY_KEY } from "../../entities/scan/api";
-import { SCAN_CANDIDATES_QUERY_KEY } from "../../entities/scan/scanCandidatesCache";
+import { SCAN_QUERY_KEYS } from "../../entities/scan/queryKeys";
 import type { StartScanRequest } from "@mimimilli/shared";
 import {
   scanConflictResponseSchema,
@@ -28,14 +27,7 @@ import {
   type ScanCandidatesRegisterResponse,
 } from "@mimimilli/shared";
 
-export const SCAN_QUERY_KEYS = {
-  last: () => ["scan", "last"] as const,
-  candidates: () => SCAN_CANDIDATES_QUERY_KEY,
-  candidateExclusions: () => SCAN_CANDIDATE_EXCLUSIONS_QUERY_KEY,
-  /** files feature の同名キー（features/files/api.ts）と同じ /scan/diagnostics を指す。
-   *  各 feature の api.ts は自 feature の model のみに依存する方針のため、意図的に別定義。 */
-  diagnostics: () => ["scan", "diagnostics"] as const,
-} as const;
+export { SCAN_QUERY_KEYS };
 
 export type { ScanResult } from "./model";
 export type { StartScanRequest };

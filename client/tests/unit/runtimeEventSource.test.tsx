@@ -139,6 +139,24 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
+async function expectNoUnhandledRejection(run: () => Promise<void>) {
+  const rejections: unknown[] = [];
+  const handler = (event: PromiseRejectionEvent) => {
+    event.preventDefault();
+    rejections.push(event.reason);
+  };
+  window.addEventListener("unhandledrejection", handler);
+  try {
+    await run();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(rejections).toEqual([]);
+  } finally {
+    window.removeEventListener("unhandledrejection", handler);
+  }
+}
 
 describe("ScanRuntime EventSource ownership", () => {
   it("active job への attach で EventSource を1つだけ生成する", async () => {
@@ -275,6 +293,27 @@ describe("ScanRuntime EventSource ownership", () => {
 
     unmount();
     expect(source.closed).toBe(true);
+  });
+  it("候補再取得が失敗しても unhandled rejection にならない", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/scan/active")) return response(running);
+        if (url.endsWith("/scan/job-1")) return response(completedJob);
+        if (url.endsWith("/scan/candidates")) return response({ error: { code: "internal", message: "boom" } }, 500);
+        return response(null, 204);
+      }),
+    );
+
+    renderRuntime(createElement(ScanRuntime));
+    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
+    const source = FakeEventSource.instances[0]!;
+
+    await expectNoUnhandledRejection(async () => {
+      dispatchScan(source, { type: "completed", seq: 1, result: scanResult });
+      await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
+    });
   });
 });
 
@@ -714,5 +753,30 @@ describe("DlsiteBulkRuntime EventSource ownership", () => {
     await waitFor(() => expect(store.get(dlsiteBulkActiveAtom)).toBe(false));
     expect(store.get(dlsiteBulkErrorAtom)).toBe("DLsite進捗イベントの形式が不正です");
     expect(store.get(dlsiteBulkResultAtom)).toBeNull();
+  });
+  it("キャッシュ無効化が失敗しても unhandled rejection にならない", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => response({ ok: true })),
+    );
+
+    const { store, queryClient } = renderRuntime(createElement(DlsiteBulkRuntime));
+    const invalidateQueries = vi
+      .spyOn(queryClient, "invalidateQueries")
+      .mockRejectedValue(new Error("invalidate failed"));
+
+    act(() => {
+      store.set(dlsiteBulkActiveAtom, true);
+    });
+    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
+    const source = FakeEventSource.instances[0]!;
+
+    await expectNoUnhandledRejection(async () => {
+      dispatchDlsite(source, "complete", {
+        type: "complete",
+        result: dlsiteResult,
+      });
+      await waitFor(() => expect(invalidateQueries).toHaveBeenCalled());
+    });
   });
 });

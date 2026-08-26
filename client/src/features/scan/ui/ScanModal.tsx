@@ -75,7 +75,7 @@ export default function ScanModal({
 
   useEffect(() => {
     if (queryClient.getQueryData(SCAN_QUERY_KEYS.candidates()) !== undefined) return;
-    void refreshScanCandidates(queryClient);
+    void refreshScanCandidates(queryClient).catch(() => {});
   }, [queryClient]);
 
   // ID重複はFilesでの解決を随時反映する必要があるため、スキャン時点のスナップショットではなく

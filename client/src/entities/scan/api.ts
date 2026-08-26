@@ -4,13 +4,9 @@ import {
   scanCandidateExclusionsResponseSchema,
   scanCandidatesMutationSchema,
 } from "@mimimilli/shared";
-import { SCAN_CANDIDATES_QUERY_KEY } from "./scanCandidatesCache";
+import { SCAN_CANDIDATE_EXCLUSIONS_QUERY_KEY } from "./queryKeys";
 
-/** exclusionsはcandidatesの子キーなので、candidatesを無効化すれば連動して無効化される。 */
-export const SCAN_CANDIDATE_EXCLUSIONS_QUERY_KEY = [
-  ...SCAN_CANDIDATES_QUERY_KEY,
-  "exclusions",
-] as const;
+export { SCAN_CANDIDATE_EXCLUSIONS_QUERY_KEY };
 
 export async function getScanCandidateExclusions(): Promise<string[]> {
   const { paths } = await getParsed(

@@ -264,6 +264,8 @@ export class Scanner {
             result,
             existingWorks,
             existingByPhysicalPath,
+            root,
+            result.identityConflicts,
           );
           result.invalidMetaFiles.push({
             path: workspacePath(toPortableRelativePath(root, entry.metaPath)),
@@ -299,6 +301,8 @@ export class Scanner {
             result,
             existingWorks,
             existingByPhysicalPath,
+            root,
+            result.identityConflicts,
           );
           result.invalidMetaFiles.push({
             path: workspacePath(toPortableRelativePath(root, entry.metaPath)),

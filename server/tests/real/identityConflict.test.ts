@@ -135,3 +135,75 @@ test("identity_conflictの指定pathだけを別作品として取り込み、Wo
   assert.deepEqual(await adapter.listScanDiagnostics(), []);
   assert.equal((await adapter.getWork(work.id))?.physicalPath, join(root, "work-copy"));
 });
+
+test("壊れたコピーのcandidateIdで既存作品の投影を乗っ取らない", async (t) => {
+  const directory = makeTestDirectory("broken-copy-identity-conflict");
+  t.after(directory.cleanup);
+  const root = join(directory.path, "library");
+  makeWork(root, "work-owner", "元作品");
+  const adapter = directory.own(createTestRealAdapter({ database: { kind: "memory" } }));
+  await adapter.updateSettings({ rootFolder: root });
+  await adapter.scan({ full: true });
+
+  const ownerBefore = await adapter.getWork(WORK_ID);
+  assert.ok(ownerBefore);
+  assert.equal(ownerBefore!.physicalPath, join(root, "work-owner"));
+  assert.equal(ownerBefore!.status, "ok");
+
+  const copyDir = join(root, "work-copy");
+  mkdirSync(copyDir, { recursive: true });
+  writeWav(join(copyDir, "track.wav"), 1);
+  const copyMeta = join(copyDir, "mimimilli.json");
+  writeFileSync(
+    copyMeta,
+    `{
+  "formatVersion": 1,
+  "id": "${WORK_ID}",
+  "title": `,
+  );
+
+  const result = await adapter.scan({ full: true });
+  const ownerAfter = await adapter.getWork(WORK_ID);
+
+  assert.equal(ownerAfter?.physicalPath, ownerBefore!.physicalPath);
+  assert.equal(ownerAfter?.status, "ok");
+  assert.deepEqual(result.identityConflicts, [
+    { kind: "identity_conflict", workId: WORK_ID, paths: ["work-copy", "work-owner"] },
+  ]);
+  assert.equal(result.invalidMetaFiles.length, 1);
+  assert.equal(result.invalidMetaFiles[0]?.path, "work-copy/mimimilli.json");
+
+  const app = directory.ownFn(createApp(adapter), (a) => a.shutdown());
+  const response = await app.request("/api/scan/diagnostics");
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).diagnostics, result.identityConflicts);
+});
+
+test("同一ディレクトリの壊れたメタは従来どおり作品をerrorにする", async (t) => {
+  const directory = makeTestDirectory("broken-meta-same-dir");
+  t.after(directory.cleanup);
+  const root = join(directory.path, "library");
+  const metaPath = makeWork(root, "work-a", "作品A");
+  const adapter = directory.own(createTestRealAdapter({ database: { kind: "memory" } }));
+  await adapter.updateSettings({ rootFolder: root });
+  await adapter.scan({ full: true });
+
+  writeFileSync(
+    metaPath,
+    `${JSON.stringify({
+      formatVersion: 1,
+      id: WORK_ID,
+      title: 123,
+      playlists: [],
+    })}
+`,
+  );
+
+  const result = await adapter.scan({ full: true });
+  const work = await adapter.getWork(WORK_ID);
+
+  assert.equal(result.errors, 1);
+  assert.equal(work?.status, "error");
+  assert.equal(work?.physicalPath, join(root, "work-a"));
+  assert.deepEqual(result.identityConflicts, []);
+});

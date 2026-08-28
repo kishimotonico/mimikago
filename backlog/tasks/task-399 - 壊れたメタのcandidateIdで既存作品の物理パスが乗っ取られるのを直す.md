@@ -4,7 +4,7 @@ title: 壊れたメタのcandidateIdで既存作品の物理パスが乗っ取�
 status: Done
 assignee: []
 created_date: '2026-08-26 10:39'
-updated_date: '2026-08-26 14:12'
+updated_date: '2026-08-28 13:42'
 labels: []
 dependencies:
   - TASK-386
@@ -38,6 +38,15 @@ IDは信頼せず physical path 一致を優先する。IDだけ一致して pat
 <!-- SECTION:PLAN:BEGIN -->
 1. handleMetaParseErrorの紐付け順をphysical path優先に変える 2. ID一致・path不一致をidentity_conflictへ 3. 乗っ取りを再現するrealテストを追加し負の検証 4. pnpm check / pnpm test
 <!-- SECTION:PLAN:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-08-28 13:42
+---
+統合前レビューで追補修正（e6430c0）: 乗っ取り防止分岐が、root変更後に残る旧root作品（physicalPathがroot外）とのID一致時にtoPortableRelativePathの例外でスキャン全体を失敗させていた。identity_conflictのpathsはroot相対のworkspacePathSchemaでroot外パスを表現できないため、この場合はconflict扱いにせず独立したerror（invalidMetaFiles）へ落とす。回帰テストをidentityConflict.test.tsに追加済み。
+---
+<!-- COMMENTS:END -->
 
 ## Final Summary
 

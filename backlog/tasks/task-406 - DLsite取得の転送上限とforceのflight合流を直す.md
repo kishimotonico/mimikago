@@ -4,7 +4,7 @@ title: DLsite取得の転送上限とforceのflight合流を直す
 status: Done
 assignee: []
 created_date: '2026-08-26 10:40'
-updated_date: '2026-08-26 14:12'
+updated_date: '2026-08-28 13:42'
 labels: []
 dependencies: []
 references:
@@ -38,6 +38,15 @@ ordinal: 405000
 <!-- SECTION:PLAN:BEGIN -->
 1. 読込ループにtransferMaxを入れる 2. forceと非forceでflightキーを分ける 3. 上限超過とforce非合流のテストと負の検証 4. pnpm check / pnpm test
 <!-- SECTION:PLAN:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-08-28 13:42
+---
+統合前レビューで追補修正（bed3115）: 追加したループ内transferMaxチェックが無条件に先へ発火し、expandedMax判定が到達不能・Content-Length検証済みの圧縮応答まで2MiBで誤打ち切りする退行になっていた。Content-Length宣言あり→ループ内はexpandedMaxのみ、宣言なし→transferMaxで打ち切りの二段判定へ復元。過小申告はfetch APIの制約上expandedMaxが実質上限（テストで固定）。エラーメッセージも転送/展開で区別。
+---
+<!-- COMMENTS:END -->
 
 ## Final Summary
 

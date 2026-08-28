@@ -4,7 +4,7 @@ title: smokeのresetが実行中ジョブを止めずERR_ABORTEDを隠すのを�
 status: Done
 assignee: []
 created_date: '2026-08-26 10:41'
-updated_date: '2026-08-26 14:12'
+updated_date: '2026-08-28 13:42'
 labels: []
 dependencies: []
 references:
@@ -37,6 +37,15 @@ ordinal: 407000
 <!-- SECTION:PLAN:BEGIN -->
 1. resetでジョブcancel/awaitを追加 2. ERR_ABORTED除外をナビゲーション中断に限定 3. test:smoke
 <!-- SECTION:PLAN:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-08-28 13:42
+---
+統合前レビューで追補修正（cbd4ded）: (1) 絞り込み後のフィルタに「同一URLが未成功のままナビゲーションで中断される」レースがあり smoke が確率的に失敗していた（実測6回中2回）。ナビゲーション開始時点の未完了リクエストを許容する追跡を追加し、CV軸画面は値一覧の描画待ち後に検証するよう変更。(2) okUrls免除はAC#2の「ナビゲーション限定」より広いが意図的に残す: SSE(EventSource)の正常closeとTanStack Query再フェッチ中断はネットワークレベルで実障害のERR_ABORTEDと区別不能で、dlsiteBulkApply等の現行smokeがこの免除に依存している。照合はmethod+URLに狭め、GET成功がPOST失敗を隠す穴は塞いだ。
+---
+<!-- COMMENTS:END -->
 
 ## Final Summary
 

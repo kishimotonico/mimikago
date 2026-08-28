@@ -130,12 +130,6 @@ export function synthesizeFilePlaceholderSvg(relPath: string): MediaLocation {
   return synthesizeStaticContent(svg, "image/svg+xml");
 }
 
-/** テキスト系ファイルに対する固定プレースホルダーテキスト */
-export function synthesizeFilePlaceholderText(relPath: string): MediaLocation {
-  const text = `（fixture）${relPath} はモックデータのためプレースホルダーを表示しています。\n`;
-  return synthesizeStaticContent(text, "text/plain; charset=utf-8");
-}
-
 function escapeXml(text: string): string {
   return text.replace(/[<>&"']/g, (ch) => {
     switch (ch) {

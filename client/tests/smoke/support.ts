@@ -53,6 +53,8 @@ export interface ErrorTracker {
   failedResponses: string[];
   pageErrors: string[];
   failedRequests: string[];
+  /** ok応答の `${method} ${url}`。SSEの正常closeやTanStack Queryの再フェッチ中断は
+   *  ネットワークレベルではERR_ABORTEDと区別できないため、失敗判定から除外する目的で使う。 */
   okUrls: Set<string>;
 }
 
@@ -66,11 +68,16 @@ export function trackErrors(page: Page): ErrorTracker {
     failedRequests: [],
     okUrls: new Set<string>(),
   };
+  // 新しいドキュメントへのナビゲーション開始は、旧ドキュメントの未完了リクエストを
+  // 中断させる。その中断は不具合ではないため、ナビゲーション開始時点の未完了分を
+  // まとめて「中断されても正常」として扱う。
+  const pendingRequests = new Set<Request>();
+  const expectedAborts = new Set<Request>();
   page.on("console", (message: ConsoleMessage) => {
     if (message.type() === "error") tracker.consoleErrors.push(message.text());
   });
   page.on("response", (response) => {
-    if (response.ok()) tracker.okUrls.add(response.url());
+    if (response.ok()) tracker.okUrls.add(`${response.request().method()} ${response.url()}`);
     if (response.status() >= 400) {
       tracker.failedResponses.push(`${response.status()} ${response.url()}`);
     }
@@ -78,10 +85,24 @@ export function trackErrors(page: Page): ErrorTracker {
   page.on("pageerror", (error) => {
     tracker.pageErrors.push(error.message);
   });
+  page.on("request", (request: Request) => {
+    if (request.isNavigationRequest()) {
+      for (const pending of pendingRequests) expectedAborts.add(pending);
+    }
+    pendingRequests.add(request);
+  });
+  page.on("requestfinished", (request: Request) => {
+    pendingRequests.delete(request);
+  });
   page.on("requestfailed", (request: Request) => {
+    pendingRequests.delete(request);
     const errorText = request.failure()?.errorText ?? "";
-    // ERR_ABORTED はナビゲーション中断時のみ正常。API等の途中失敗は拾う。
-    if (errorText === "net::ERR_ABORTED" && request.isNavigationRequest()) return;
+    if (
+      errorText === "net::ERR_ABORTED" &&
+      (request.isNavigationRequest() || expectedAborts.has(request))
+    ) {
+      return;
+    }
     tracker.failedRequests.push(`${request.method()} ${request.url()} ${errorText}`);
   });
   return tracker;
@@ -89,8 +110,8 @@ export function trackErrors(page: Page): ErrorTracker {
 
 function isReportableFailedRequest(line: string, okUrls: Set<string>): boolean {
   if (!line.endsWith("net::ERR_ABORTED")) return true;
-  const url = line.split(" ")[1];
-  return url !== undefined && !okUrls.has(url);
+  const [method, url] = line.split(" ");
+  return method === undefined || url === undefined || !okUrls.has(`${method} ${url}`);
 }
 
 /** trackErrors で集めた4種の異常がいずれも空であることを確認する。 */

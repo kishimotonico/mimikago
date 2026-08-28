@@ -377,6 +377,8 @@ test("主要画面でヨコ方向スクロールが発生しない", async ({ pa
 
   // 軸の値一覧（CV軸選択時は結果面が値一覧に置き換わる。ADR-0012）
   await page.getByRole("button", { name: "CV" }).click();
+  const valueList = page.getByRole("group", { name: "CVの値一覧" });
+  await expect(valueList.getByRole("button").first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   // 作品プレビュー（画面遷移を跨がず独立に確認するため再度 openApp から）

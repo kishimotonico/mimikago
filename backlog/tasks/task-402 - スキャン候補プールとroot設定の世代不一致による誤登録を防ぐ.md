@@ -4,7 +4,7 @@ title: スキャン候補プールとroot設定の世代不一致による誤登
 status: Done
 assignee: []
 created_date: '2026-08-26 10:40'
-updated_date: '2026-08-26 14:12'
+updated_date: '2026-08-28 14:32'
 labels: []
 dependencies: []
 references:
@@ -34,6 +34,15 @@ ordinal: 401000
 <!-- SECTION:PLAN:BEGIN -->
 1. プールにroot指紋を持たせ登録・除外前に現行rootと照合 2. root変更後の誤登録テストと負の検証 3. pnpm check / pnpm test
 <!-- SECTION:PLAN:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+created: 2026-08-28 14:32
+---
+マージ後のCodexレビューで追補修正（35fb77a）: スキャン後にrootが削除・アンマウントされた状態で候補登録・除外を行うと、assertRootMatchesのrealpathSyncがENOENTを生のまま投げて500になっていた。root解決失敗はnullへ変換し既存の不一致判定でCandidatePoolChangedError（409）に落とす。fromPool側（スキャン完了時のroot消失＝スキャン失敗）は正当な挙動として変更なし。HTTP経由の409回帰テストをscanCandidates.test.tsに追加。
+---
+<!-- COMMENTS:END -->
 
 ## Final Summary
 

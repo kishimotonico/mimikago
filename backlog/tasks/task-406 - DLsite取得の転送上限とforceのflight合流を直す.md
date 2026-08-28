@@ -4,7 +4,7 @@ title: DLsite取得の転送上限とforceのflight合流を直す
 status: Done
 assignee: []
 created_date: '2026-08-26 10:40'
-updated_date: '2026-08-28 13:42'
+updated_date: '2026-08-28 14:29'
 labels: []
 dependencies: []
 references:
@@ -45,6 +45,11 @@ ordinal: 405000
 created: 2026-08-28 13:42
 ---
 統合前レビューで追補修正（bed3115）: 追加したループ内transferMaxチェックが無条件に先へ発火し、expandedMax判定が到達不能・Content-Length検証済みの圧縮応答まで2MiBで誤打ち切りする退行になっていた。Content-Length宣言あり→ループ内はexpandedMaxのみ、宣言なし→transferMaxで打ち切りの二段判定へ復元。過小申告はfetch APIの制約上expandedMaxが実質上限（テストで固定）。エラーメッセージも転送/展開で区別。
+---
+
+created: 2026-08-28 14:29
+---
+マージ後のCodexレビュー指摘（chunked圧縮応答でCL無し時のtransferMax適用は展開後バイト数への適用であり、展開後2〜8MiBの正常HTMLを誤拒否しうる）は対応なしと判断: 指摘の観察自体は正確だが、CL無し時にexpandedMaxのみへ緩めるとtransferSize（=読込total、最大8MiB）がdlsiteCacheの検証（transferSize>maxTransferBytesでthrow）に当たり、本タスクの起票理由（recordSuccess後に失敗）が再発する。正しく直すにはCL無し時のtransferSize=undefined化まで必要。現行は端から端まで整合しておりAC#1どおり。実害条件は「chunked＋展開後2MiB超」でDLsite実ページサイズは未計測。TASK-100の実測で2MiB級のページが実在したら再評価する。
 ---
 <!-- COMMENTS:END -->
 

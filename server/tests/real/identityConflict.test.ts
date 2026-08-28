@@ -179,6 +179,55 @@ test("壊れたコピーのcandidateIdで既存作品の投影を乗っ取らな
   assert.deepEqual((await response.json()).diagnostics, result.identityConflicts);
 });
 
+test("root変更後、旧rootの作品IDと衝突する壊れたメタがあってもスキャン全体は失敗せず他作品は登録される", async (t) => {
+  const directory = makeTestDirectory("stale-root-identity-conflict");
+  t.after(directory.cleanup);
+  const rootA = join(directory.path, "library-a");
+  const rootB = join(directory.path, "library-b");
+  const OTHER_WORK_ID = "22222222-2222-4222-8222-222222222222";
+  makeWork(rootA, "work-owner", "旧root作品");
+  const adapter = directory.own(createTestRealAdapter({ database: { kind: "memory" } }));
+  await adapter.updateSettings({ rootFolder: rootA });
+  await adapter.scan({ full: true });
+
+  const ownerBefore = await adapter.getWork(WORK_ID);
+  assert.ok(ownerBefore);
+  assert.equal(ownerBefore!.physicalPath, join(rootA, "work-owner"));
+  assert.equal(ownerBefore!.status, "ok");
+
+  makeWork(rootB, "work-other", "新root作品", OTHER_WORK_ID);
+  await adapter.updateSettings({ rootFolder: rootB });
+  await adapter.scan({ full: true });
+
+  const ownerAfterRootChange = await adapter.getWork(WORK_ID);
+  assert.equal(ownerAfterRootChange?.status, "missing");
+  assert.equal(ownerAfterRootChange?.physicalPath, join(rootA, "work-owner"));
+
+  const brokenDir = join(rootB, "work-broken");
+  mkdirSync(brokenDir, { recursive: true });
+  writeWav(join(brokenDir, "track.wav"), 1);
+  writeFileSync(
+    join(brokenDir, "mimimilli.json"),
+    `{
+  "formatVersion": 1,
+  "id": "${WORK_ID}",
+  "title": `,
+  );
+
+  const result = await adapter.scan({ full: true });
+
+  assert.deepEqual(result.identityConflicts, []);
+  assert.equal(result.invalidMetaFiles.length, 1);
+  assert.equal(result.invalidMetaFiles[0]?.path, "work-broken/mimimilli.json");
+  assert.equal((await adapter.getWork(OTHER_WORK_ID))?.title, "新root作品");
+  assert.equal((await adapter.getWork(WORK_ID))?.status, "missing");
+
+  const app = directory.ownFn(createApp(adapter), (a) => a.shutdown());
+  const response = await app.request("/api/scan/diagnostics");
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).diagnostics, []);
+});
+
 test("同一ディレクトリの壊れたメタは従来どおり作品をerrorにする", async (t) => {
   const directory = makeTestDirectory("broken-meta-same-dir");
   t.after(directory.cleanup);

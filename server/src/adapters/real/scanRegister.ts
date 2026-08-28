@@ -24,6 +24,7 @@ import type { DlsiteCache } from "./dlsiteCache.ts";
 import { resolveMetaDlsiteProjection } from "./dlsiteProjection.ts";
 import { naturalCompare } from "./naturalCompare.ts";
 import { toPortableRelativePath } from "./paths.ts";
+import { isPathWithin } from "../../lib/path.ts";
 
 const scanLogger = getCategoryLogger("scan");
 
@@ -324,7 +325,13 @@ export function handleMetaParseError(
   const candidateId = error.candidateId;
   if (candidateId) {
     const existingById = existingWorks.get(candidateId);
-    if (existingById && existingById.physicalPath !== workDir) {
+    // 旧rootに残った投影（root変更後にstatus="missing"化したもの等）とのID一致は、
+    // 現root配下のpathで表現できないためidentity_conflictにはせず、独立したerrorとして扱う。
+    if (
+      existingById &&
+      existingById.physicalPath !== workDir &&
+      isPathWithin(root, existingById.physicalPath)
+    ) {
       const brokenPath = toPortableRelativePath(root, workDir);
       const ownerPath = toPortableRelativePath(root, existingById.physicalPath);
       const existingConflict = identityConflicts.find(

@@ -1442,7 +1442,7 @@ test("DLsite HTTP body: Content-Lengthなしのchunked HTMLとcoverは上限超�
     });
     const response = new Response(body, { status: 200, headers: { "content-type": "text/html" } });
     if (target === "html") {
-      await assert.rejects(() => fetchDlsiteHtml("RJ900002", async () => response, 64, 8));
+      await assert.rejects(() => fetchDlsiteHtml("RJ900002", async () => response, 8, 64));
     } else {
       await assert.rejects(() =>
         fetchDlsiteCover("https://img.dlsite.jp/a.jpg", async () => response, 8),
@@ -1467,7 +1467,9 @@ test("DLsite HTML: Content-Lengthがtransfer上限を超える場合は本文読
   assert.equal(cancelled, true);
 });
 
-test("DLsite HTML: Content-Lengthが過小申告でもtransferMax超過で読み取りを打ち切る", async () => {
+test("DLsite HTML: Content-Lengthが宣言値どおり転送上限以内でも、展開後の読込量がtransferMaxを超えexpandedMax以内なら成功する", async () => {
+  // gzip応答は展開後サイズが転送(圧縮)サイズより大きくなるのが正常。Content-Lengthが検証済みなら
+  // 展開後の読込量はexpandedMaxまで許容する（TASK-406での回帰: transferMaxで誤って打ち切っていた）。
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
       controller.enqueue(new Uint8Array(48));
@@ -1478,10 +1480,29 @@ test("DLsite HTML: Content-Lengthが過小申告でもtransferMax超過で読み
     status: 200,
     headers: { "content-type": "text/html", "content-length": "16" },
   });
-  await assert.rejects(() => fetchDlsiteHtml("RJ900002", async () => response, 32, 128));
+  const result = await fetchDlsiteHtml("RJ900002", async () => response, 32, 128);
+  assert.equal(result.body.length, 48);
+  assert.equal(result.transferSize, 16);
 });
 
-test("DLsite HTML: transferMaxはexpandedMaxより先に適用される", async () => {
+test("DLsite HTML: Content-Lengthが過小申告で展開後の読込量がexpandedMaxを超える場合は打ち切る", async () => {
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new Uint8Array(48));
+      controller.close();
+    },
+  });
+  const response = new Response(body, {
+    status: 200,
+    headers: { "content-type": "text/html", "content-length": "16" },
+  });
+  await assert.rejects(
+    () => fetchDlsiteHtml("RJ900002", async () => response, 32, 40),
+    (error: unknown) => error instanceof Error && error.message.includes("展開サイズ"),
+  );
+});
+
+test("DLsite HTML: Content-Lengthが無い場合は実読込量がtransferMaxを超えた時点で打ち切る", async () => {
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
       controller.enqueue(new Uint8Array(48));
@@ -1489,7 +1510,10 @@ test("DLsite HTML: transferMaxはexpandedMaxより先に適用される", async 
     },
   });
   const response = new Response(body, { status: 200, headers: { "content-type": "text/html" } });
-  await assert.rejects(() => fetchDlsiteHtml("RJ900002", async () => response, 32, 128));
+  await assert.rejects(
+    () => fetchDlsiteHtml("RJ900002", async () => response, 32, 128),
+    (error: unknown) => error instanceof Error && error.message.includes("転送サイズ"),
+  );
 });
 
 test("DLsite apply: カバーはcache transportを通る", async (t) => {

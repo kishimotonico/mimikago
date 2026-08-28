@@ -33,9 +33,14 @@ async function readLimitedBody(
   const declared = response.headers.get("content-length");
   if (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > transferMax)) {
     await response.body?.cancel();
-    throw new Error(`DLsiteレスポンスのサイズが上限を超えました: ${declared}`);
+    throw new Error(`DLsiteレスポンスの転送サイズが上限を超えました: ${declared}`);
   }
   if (!response.body) return { body: new Uint8Array(), transferSize: 0 };
+  // Content-Lengthが検証済みなら転送サイズは保証済みなので、以降はgzip展開後の実読込量をexpandedMaxで見る
+  // （展開後は宣言値より大きくなるのが正常）。Content-Length省略時は転送サイズを事前検証できないため、
+  // 実読込量そのものをtransferMaxで打ち切る。
+  const readLimit = declared === null ? transferMax : expandedMax;
+  const limitLabel = declared === null ? "転送" : "展開";
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -44,13 +49,9 @@ async function readLimitedBody(
       const chunk = await reader.read();
       if (chunk.done) break;
       total += chunk.value.byteLength;
-      if (total > transferMax) {
+      if (total > readLimit) {
         await reader.cancel();
-        throw new Error(`DLsiteレスポンスのサイズが上限を超えました: ${total}`);
-      }
-      if (total > expandedMax) {
-        await reader.cancel();
-        throw new Error(`DLsiteレスポンスのサイズが上限を超えました: ${total}`);
+        throw new Error(`DLsiteレスポンスの${limitLabel}サイズが上限を超えました: ${total}`);
       }
       chunks.push(chunk.value);
     }

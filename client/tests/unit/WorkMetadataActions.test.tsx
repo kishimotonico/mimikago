@@ -117,4 +117,41 @@ describe("WorkMetadataActions", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "作品登録を解除" }));
     expect(onDelete).toHaveBeenCalledTimes(1);
   });
+
+  it("http(s)の外部リンクはメニューでhref付きリンクとして表示する", () => {
+    render(
+      <WorkMetadataActions
+        work={makeWork({
+          urls: [{ label: "DLsite", url: "https://www.dlsite.com/work/123" }],
+        })}
+        bookmarkMutation={makeBookmarkMutation()}
+        onEdit={vi.fn()}
+        onShowInfo={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "その他" }));
+    const link = screen.getByRole("menuitem", { name: "DLsiteを開く" });
+    expect(link).toHaveAttribute("href", "https://www.dlsite.com/work/123");
+  });
+
+  it("危険スキームの外部リンクはメニューでリンク化しない", () => {
+    render(
+      <WorkMetadataActions
+        work={makeWork({
+          urls: [{ label: "Evil", url: "javascript:alert(1)" }],
+        })}
+        bookmarkMutation={makeBookmarkMutation()}
+        onEdit={vi.fn()}
+        onShowInfo={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "その他" }));
+    const item = screen.getByRole("menuitem", { name: "Evilを開く" });
+    expect(item).not.toHaveAttribute("href");
+    expect(item).toHaveAttribute("aria-disabled", "true");
+  });
 });

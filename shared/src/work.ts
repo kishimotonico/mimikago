@@ -27,9 +27,28 @@ export {
   TagNormalizationError,
 } from "./tagNormalize.ts";
 
+/** http/https の絶対 URL のみ許可する（外部リンク href 用）。 */
+export function isHttpAbsoluteUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/** 安全に href に出せる外部 URL。許可スキーム以外は null。 */
+export function toSafeExternalUrlHref(url: string): string | null {
+  return isHttpAbsoluteUrl(url) ? url : null;
+}
+
+const httpAbsoluteUrlSchema = z.string().refine(isHttpAbsoluteUrl, {
+  message: "URL must be an absolute http or https URL",
+});
+
 export const urlEntrySchema = z.object({
   label: z.string(),
-  url: z.string(),
+  url: httpAbsoluteUrlSchema,
 });
 export type UrlEntry = z.infer<typeof urlEntrySchema>;
 
@@ -359,27 +378,6 @@ export function getDefaultPlaylistTrackCount(
     work.playlists[0];
   return playlist?.tracks.length ?? 0;
 }
-
-/** 作品配下の物理ファイルツリー（GET /api/works/:id/files） */
-export interface FileEntry {
-  name: string;
-  path: string;
-  isDir: boolean;
-  size: number;
-  fileType: string;
-  children: FileEntry[];
-}
-
-export const fileEntrySchema: z.ZodType<FileEntry> = z.lazy(() =>
-  z.object({
-    name: z.string(),
-    path: z.string(),
-    isDir: z.boolean(),
-    size: z.number(),
-    fileType: z.string(),
-    children: z.array(fileEntrySchema),
-  }),
-);
 
 // ── タグ解析 ──────────────────────────────────────────────────
 

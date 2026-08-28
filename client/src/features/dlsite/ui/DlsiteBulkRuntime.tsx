@@ -52,7 +52,7 @@ export default function DlsiteBulkRuntime() {
 
   const invalidateDlsiteQueries = useCallback(
     (workIds?: string | string[]) => {
-      void invalidateDlsiteCache(queryClient, workIds);
+      void invalidateDlsiteCache(queryClient, workIds).catch(() => {});
     },
     [queryClient],
   );

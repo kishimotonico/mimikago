@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { MediaKind, PreviewCapability, WorkspaceResourceRef } from "@mimimilli/shared";
 
-export type CatalogMediaKind = "audio" | "file";
+export type CatalogMediaKind = "audio";
 
 /**
  * カバーの条件付きGETを、実体の生成・読み込みより先に判定するための情報。
@@ -59,7 +59,7 @@ export interface MediaAdapter {
     workId: string,
     relPath?: string,
   ): Promise<MediaLocation | null>;
-  /** カバー専用の軽量な事前確認。音声・通常ファイルの契約は locateMedia のまま維持する。 */
+  /** カバー専用の軽量な事前確認。音声の契約は locateMedia のまま維持する。 */
   describeCover(workId: string, width?: number): Promise<CoverDescriptor | null>;
 }
 

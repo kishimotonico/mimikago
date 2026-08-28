@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { coverFieldsFromColumns, metaFileSchema, selectDefaultPlaylist } from "@mimimilli/shared";
-import type { Cover, MetaFile, ScanResult, Work } from "@mimimilli/shared";
+import type { Cover, MetaFile, ScanDiagnostic, ScanResult, Work } from "@mimimilli/shared";
 import type { Db } from "./db.ts";
 import { computeWorkRevisions } from "./fingerprint.ts";
 import { MetaParseError, readMetaFile, readMetaSource, syncDetectedRjCode } from "./meta.ts";
@@ -22,11 +22,19 @@ import {
 import type { CoverDimensions } from "./thumbnailCache.ts";
 import type { DlsiteCache } from "./dlsiteCache.ts";
 import { resolveMetaDlsiteProjection } from "./dlsiteProjection.ts";
+import { naturalCompare } from "./naturalCompare.ts";
+import { toPortableRelativePath } from "./paths.ts";
+import { isPathWithin } from "../../lib/path.ts";
 
 const scanLogger = getCategoryLogger("scan");
 
 type ScanUpsertTracking = Pick<ScanResult, "coverErrors" | "insertedWorkIds" | "updatedWorkIds">;
 type ScanErrorTracking = ScanUpsertTracking & Pick<ScanResult, "errors">;
+
+function extractCandidateIdFromMetaContent(content: string): string | null {
+  const match = content.match(/"id"\s*:\s*"([^"\\]+)"/);
+  return match?.[1] ?? null;
+}
 
 function trackUpsertedWork(result: ScanUpsertTracking, workId: string, isNew: boolean): void {
   if (isNew) result.insertedWorkIds.push(workId);
@@ -161,7 +169,11 @@ export function prepareMetaEntries(
         try {
           return JSON.parse(content) as unknown;
         } catch (e) {
-          throw new MetaParseError(metaPath, `JSON パースエラー: ${(e as Error).message}`);
+          throw new MetaParseError(
+            metaPath,
+            `JSON パースエラー: ${(e as Error).message}`,
+            extractCandidateIdFromMetaContent(content),
+          );
         }
       })();
       const candidateId =
@@ -180,7 +192,11 @@ export function prepareMetaEntries(
         try {
           return JSON.parse(content) as unknown;
         } catch (e) {
-          throw new MetaParseError(metaPath, `JSON パースエラー: ${(e as Error).message}`);
+          throw new MetaParseError(
+            metaPath,
+            `JSON パースエラー: ${(e as Error).message}`,
+            extractCandidateIdFromMetaContent(content),
+          );
         }
       })();
       const parsed = metaFileSchema.safeParse(raw);
@@ -292,21 +308,55 @@ export function handleMetaParseError(
   result: ScanErrorTracking,
   existingWorks: Map<string, ScanWorkState>,
   existingByPhysicalPath: Map<string, { id: string; state: ScanWorkState }>,
+  root: string,
+  identityConflicts: ScanDiagnostic[],
 ): void {
   scanLogger.warn(error.message, { metaPath });
   const workDir = dirname(metaPath);
-  const existingById =
-    error.candidateId && !seenIds.work.has(error.candidateId)
-      ? existingWorks.get(error.candidateId)
-        ? { id: error.candidateId, state: existingWorks.get(error.candidateId)! }
-        : null
-      : null;
-  const existing = existingById ?? existingByPhysicalPath.get(workDir) ?? null;
-  if (existing) {
-    batch.addError(existing.id, workDir, metaPath, error.message);
-    seenIds.work.add(existing.id);
-    trackUpsertedWork(result, existing.id, false);
+  const existingByPath = existingByPhysicalPath.get(workDir) ?? null;
+  if (existingByPath) {
+    batch.addError(existingByPath.id, workDir, metaPath, error.message);
+    seenIds.work.add(existingByPath.id);
+    trackUpsertedWork(result, existingByPath.id, false);
+    result.errors += 1;
+    return;
   }
+
+  const candidateId = error.candidateId;
+  if (candidateId) {
+    const existingById = existingWorks.get(candidateId);
+    // 旧rootに残った投影（root変更後にstatus="missing"化したもの等）とのID一致は、
+    // 現root配下のpathで表現できないためidentity_conflictにはせず、独立したerrorとして扱う。
+    if (
+      existingById &&
+      existingById.physicalPath !== workDir &&
+      isPathWithin(root, existingById.physicalPath)
+    ) {
+      const brokenPath = toPortableRelativePath(root, workDir);
+      const ownerPath = toPortableRelativePath(root, existingById.physicalPath);
+      const existingConflict = identityConflicts.find(
+        (diagnostic): diagnostic is Extract<ScanDiagnostic, { kind: "identity_conflict" }> =>
+          diagnostic.kind === "identity_conflict" && diagnostic.workId === candidateId,
+      );
+      if (existingConflict) {
+        const merged = new Set([...existingConflict.paths, brokenPath, ownerPath]);
+        existingConflict.paths = [...merged].sort(naturalCompare);
+      } else {
+        identityConflicts.push({
+          kind: "identity_conflict",
+          workId: candidateId,
+          paths: [brokenPath, ownerPath].sort(naturalCompare),
+        });
+        identityConflicts.sort((a, b) => {
+          if (a.kind !== "identity_conflict" || b.kind !== "identity_conflict") return 0;
+          return naturalCompare(a.workId, b.workId);
+        });
+      }
+      result.errors += 1;
+      return;
+    }
+  }
+
   result.errors += 1;
 }
 

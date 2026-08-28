@@ -139,6 +139,12 @@ export class DlsiteJobManager {
     }
   }
 
+  async cancelActiveAndAwait(): Promise<void> {
+    this.pendingJobs.length = 0;
+    if (this.currentJob) this.cancel();
+    if (this.queueDrain) await this.queueDrain;
+  }
+
   private async drainQueue(): Promise<void> {
     if (this.processingQueue) return;
     this.processingQueue = true;
@@ -165,10 +171,20 @@ export class DlsiteJobManager {
         if (job.controller.signal.aborted) job.emit({ type: "cancelled", result });
         else job.emit({ type: "complete", result });
       } catch (error) {
-        job.emit({
-          type: "error",
-          message: error instanceof Error ? error.message : "DLsite一括取得に失敗しました",
-        });
+        const aborted =
+          job.controller.signal.aborted ||
+          (error instanceof DOMException && error.name === "AbortError");
+        if (aborted) {
+          job.emit({
+            type: "cancelled",
+            result: { fetched: 0, failed: 0, parseErrors: 0, skipped: 0 },
+          });
+        } else {
+          job.emit({
+            type: "error",
+            message: error instanceof Error ? error.message : "DLsite一括取得に失敗しました",
+          });
+        }
       } finally {
         job.finish();
       }

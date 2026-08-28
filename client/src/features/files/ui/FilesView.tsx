@@ -11,6 +11,7 @@ import { browseFs, getScanDiagnostics } from "../api";
 import { useFilesNavigation } from "../model/useFilesNavigation";
 import { filesDirectionAtom } from "../../../entities/file-system/model/navigationAtoms";
 import { FILE_SYSTEM_QUERY_KEYS } from "../../../entities/file-system/queryKeys";
+import { SCAN_QUERY_KEYS } from "../../../entities/scan/queryKeys";
 import { buildFolderAudioQueue } from "../model/filePlayback";
 import { classifyFile } from "../model/types";
 import type { PlaybackTrack } from "../../../entities/player/model/playbackTrack";
@@ -71,7 +72,7 @@ export default function FilesView({ rootFolder, onPlayFile }: FilesViewProps) {
   });
   const cwdEntries = cwdQuery.data?.entries ?? [];
   const diagnosticsQuery = useQuery({
-    queryKey: ["scan", "diagnostics"],
+    queryKey: SCAN_QUERY_KEYS.diagnostics(),
     queryFn: getScanDiagnostics,
   });
   const identityConflictPaths = useMemo(

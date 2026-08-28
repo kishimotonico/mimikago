@@ -74,7 +74,9 @@ export function createApp(adapter: DataAdapter, options: CreateAppOptions = {}):
 
   if (adapter.resetFixtureState) {
     const resetFixtureState = adapter.resetFixtureState;
-    api.post("/__test__/reset", (c) => {
+    api.post("/__test__/reset", async (c) => {
+      await scanJobs.cancelActiveAndAwait();
+      await dlsiteJobs.cancelActiveAndAwait();
       resetFixtureState();
       return c.json({ ok: true });
     });

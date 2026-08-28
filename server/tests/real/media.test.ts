@@ -88,7 +88,7 @@ test("パストラバーサル: ../ を含む相対パスは 404", async (t) => 
     "..%2F..%2F..%2Fetc%2Fpasswd",
     "mp3%2F..%2F..%2Fsecret.txt",
   ]) {
-    const res = await app.request(`/api/media/file/${generated.id}/${rel}`);
+    const res = await app.request(`/api/media/audio/${generated.id}/${rel}`);
     assert.equal(res.status, 404, `should block: ${rel}`);
   }
 });
@@ -159,10 +159,7 @@ test("メディア解決: getWork・probe cache問い合わせを伴わない", 
     const audio = await app.request(`/api/media/audio/${workId}/track-00.wav`);
     assert.equal(audio.status, 200);
 
-    const file = await app.request(`/api/media/file/${workId}/track-29.wav`);
-    assert.equal(file.status, 200);
-
-    const missing = await app.request(`/api/media/file/${workId}/no-such.wav`);
+    const missing = await app.request(`/api/media/audio/${workId}/no-such.wav`);
     assert.equal(missing.status, 404);
 
     assert.equal(fetchWorkDetailCalls, 0, "locateMedia must not call fetchWorkDetail");

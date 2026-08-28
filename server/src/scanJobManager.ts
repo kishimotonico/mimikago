@@ -159,6 +159,11 @@ export class ScanJobManager {
     await this.runCompletion;
   }
 
+  async cancelActiveAndAwait(): Promise<void> {
+    if (this.activeId) this.cancel(this.activeId);
+    await this.runCompletion;
+  }
+
   subscribe(
     id: string,
     lastEventId: number | null,

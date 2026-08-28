@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import type {
   ScanCandidate,
@@ -8,20 +9,35 @@ import { CandidatePoolChangedError } from "../../errors.ts";
 import type { Scanner } from "./scanner.ts";
 import type { UserWorkStateRepository } from "./userWorkStateRepository.ts";
 
+function resolveRootFingerprint(root: string): string {
+  return realpathSync(resolve(root));
+}
+
 /** 直近スキャン由来の候補プール。worker 完了時はインスタンスごと置き換える。 */
 export class ScanCandidateSession {
   private pool: ScanCandidate[];
+  private readonly rootFingerprint: string | null;
 
-  private constructor(pool: ScanCandidate[]) {
+  private constructor(pool: ScanCandidate[], rootFingerprint: string | null) {
     this.pool = pool;
+    this.rootFingerprint = rootFingerprint;
   }
 
-  static fromPool(pool: ScanCandidate[]): ScanCandidateSession {
-    return new ScanCandidateSession(pool);
+  static fromPool(pool: ScanCandidate[], root: string): ScanCandidateSession {
+    return new ScanCandidateSession(pool, resolveRootFingerprint(root));
   }
 
   static empty(): ScanCandidateSession {
-    return new ScanCandidateSession([]);
+    return new ScanCandidateSession([], null);
+  }
+
+  private assertRootMatches(currentRoot: string): void {
+    if (this.rootFingerprint === null) {
+      throw new CandidatePoolChangedError();
+    }
+    if (resolveRootFingerprint(currentRoot) !== this.rootFingerprint) {
+      throw new CandidatePoolChangedError();
+    }
   }
 
   listCandidates(
@@ -38,6 +54,7 @@ export class ScanCandidateSession {
     user: Pick<UserWorkStateRepository, "listScanCandidateExclusions">,
     onRegistered: (workId: string) => void = () => {},
   ): Promise<ScanCandidatesRegisterResponse> {
+    this.assertRootMatches(root);
     const candidates = this.listCandidates(user);
     const byPath = new Map<string, ScanCandidate>(
       candidates.map((candidate) => [candidate.path, candidate]),
@@ -70,9 +87,11 @@ export class ScanCandidateSession {
   }
 
   async excludeCandidates(
+    root: string,
     paths: string[],
     user: Pick<UserWorkStateRepository, "listScanCandidateExclusions" | "excludeScanCandidates">,
   ): Promise<void> {
+    this.assertRootMatches(root);
     const currentPaths = new Set(this.listCandidates(user).map((candidate) => candidate.path));
     if (paths.some((path) => !currentPaths.has(path as ScanCandidate["path"]))) {
       throw new CandidatePoolChangedError();

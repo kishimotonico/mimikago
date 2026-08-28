@@ -19,15 +19,21 @@ const TOTAL_BYTES = FIRST_CHUNK.length + SECOND_CHUNK.length;
 function fifoAdapter(fifoPath: string): DataAdapter {
   return {
     async locateMedia() {
-      return {
-        type: "file",
-        absolutePath: fifoPath,
-        mime: "application/octet-stream",
-        size: TOTAL_BYTES,
-      };
+      return null;
     },
     async describeCover() {
-      return null;
+      return {
+        etag: 'W/"fifo-test"',
+        lastModifiedMs: 0,
+        async materialize() {
+          return {
+            type: "file",
+            absolutePath: fifoPath,
+            mime: "application/octet-stream",
+            size: TOTAL_BYTES,
+          };
+        },
+      };
     },
     async locateWorkspaceMedia() {
       return null;
@@ -52,7 +58,7 @@ test("音声配信: 配信中に無通信期間が続いても切断されず全
     (s) => s.stop(true),
   );
 
-  const responsePromise = fetch(`http://127.0.0.1:${server.port}/media/file/w/track.bin`);
+  const responsePromise = fetch(`http://127.0.0.1:${server.port}/media/cover/w`);
 
   const writer = createWriteStream(fifoPath);
   await new Promise<void>((resolve, reject) => {

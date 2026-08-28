@@ -16,7 +16,6 @@ const TRAVERSAL_PATHS = [
   "..%2F..%2F..%2Fetc%2Fpasswd",
   "mp3%2F..%2F..%2Fsecret.txt",
 ];
-const FILE_ONLY_PATH = "cover.jpg";
 
 async function setup(t: TestContext): Promise<{ app: App; workId: string }> {
   const lib = makeSampleLibrary();
@@ -49,18 +48,4 @@ test("real: audio 経路のパストラバーサルは 404", async (t) => {
     const res = await app.request(`/api/media/audio/${workId}/${rel}`);
     assert.equal(res.status, 404, `should block audio: ${rel}`);
   }
-});
-
-test("real: file 経路のパストラバーサルは 404", async (t) => {
-  const { app, workId } = await setup(t);
-  for (const rel of TRAVERSAL_PATHS) {
-    const res = await app.request(`/api/media/file/${workId}/${rel}`);
-    assert.equal(res.status, 404, `should block file: ${rel}`);
-  }
-});
-
-test("real: file 経路は未登録ファイルも配信できる", async (t) => {
-  const { app, workId } = await setup(t);
-  const res = await app.request(`/api/media/file/${workId}/${FILE_ONLY_PATH}`);
-  assert.equal(res.status, 200);
 });

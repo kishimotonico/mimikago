@@ -32,7 +32,7 @@
 - `mll-`: Library モード固有（軸レール・作品行・リッチ詳細・スマートルールなど）
 - 状態は `is-` プレフィックス: 選択 = `.is-on`（paper-4 背景）、選択+フォーカス = `.is-on.is-focused`（黒地白文字に反転）。行・軸系コンポーネントを追加するときはこのパターンを踏襲する
 
-`shell.css` は全規則がカスケードレイヤー内にある。UA要素のリセット（`button` / `input` / `a` / `ul` / `ol` 等）は `@layer base`、`mle-`/`mll-` のコンポーネント規則は `@layer components` に置く。Tailwind v4 のレイヤー順（`theme, base, components, utilities`）により、`@layer utilities`（Tailwindユーティリティ）が `components` より強く効くため、tsx側で `mle-`/`mll-` クラスと Tailwind ユーティリティを併用すると、ユーティリティ側で局所的に上書きできる。レイヤー外に素のセレクタを書くと、レイヤーの規則（unlayered が常に layered に勝つ）で utilities を問答無用で潰してしまうため、セレクタを足すときは必ずどちらかのレイヤー内に置く。
+`client/src/styles/shell/index.css`（および同ディレクトリ配下の分割 CSS）は全規則がカスケードレイヤー内にある。UA要素のリセット（`button` / `input` / `a` / `ul` / `ol` 等）は `@layer base`、`mle-`/`mll-` のコンポーネント規則は `@layer components` に置く。Tailwind v4 のレイヤー順（`theme, base, components, utilities`）により、`@layer utilities`（Tailwindユーティリティ）が `components` より強く効くため、tsx側で `mle-`/`mll-` クラスと Tailwind ユーティリティを併用すると、ユーティリティ側で局所的に上書きできる。レイヤー外に素のセレクタを書くと、レイヤーの規則（unlayered が常に layered に勝つ）で utilities を問答無用で潰してしまうため、セレクタを足すときは必ずどちらかのレイヤー内に置く。
 
 フォント指定とUA要素のリセット（`@layer base` の `button` / `input` / `a` / `ul` / `ol`）は `body` セレクタでスコープする（`.mle-app` ではない）。アプリの DOM は `body` 直下に `#root`（= `.mle-app`）と、`createPortal(..., document.body)` で出すポータル要素しかないため、`body` にスコープしておけば新しくポータルを追加しても個別に打ち消しCSSを書く必要がない。ポータルを新規に追加するときはこの前提を壊さないこと（ラッパー要素にあえて別のフォント・リセットを指定したい場合を除き、何もしなくてよい）。
 
@@ -109,9 +109,9 @@ top layer 内の前後関係は表示タイミングの新しい方が手前に�
 
 ## テキスト選択
 
-UI 全体は `shell.css` の `@layer base` で `body { user-select: none }` を既定とする（初回セットアップ画面・`document.body` へポータルするダイアログも含む）。`input` / `textarea` / `select` は同レイヤーで `user-select: text` を明示し、入力・IME・フィールド内選択を維持する。
+UI 全体は `client/src/styles/shell/index.css` の `@layer base` で `body { user-select: none }` を既定とする（初回セットアップ画面・`document.body` へポータルするダイアログも含む）。`input` / `textarea` / `select` は同レイヤーで `user-select: text` を明示し、入力・IME・フィールド内選択を維持する。
 
-コピー需要のあるテキスト（物理パス、RJコード、エラーメッセージ、CLI 例文、ルートフォルダーパス、作品情報ダイアログ本文など）は `.mll-selectable` を付与するか、既存のパス・警告・エラー用クラス（`.mle-prv__warn-path` / `.mle-fprev__path` 等、`shell.css` の `@layer components`）で `user-select: text` に戻す。一覧・グリッド・ファイル行のラベルは操作と競合するため選択可能に戻さない。
+コピー需要のあるテキスト（物理パス、RJコード、エラーメッセージ、CLI 例文、ルートフォルダーパス、作品情報ダイアログ本文など）は `.mll-selectable` を付与するか、既存のパス・警告・エラー用クラス（`.mle-prv__warn-path` / `.mle-fprev__path` 等、`client/src/styles/shell/` 配下 CSS の `@layer components`）で `user-select: text` に戻す。一覧・グリッド・ファイル行のラベルは操作と競合するため選択可能に戻さない。
 
 ## アイコン
 

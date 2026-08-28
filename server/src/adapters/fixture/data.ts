@@ -427,7 +427,7 @@ const fsDir = (name: string, children: FsNode[]): FsNode => ({
   children,
 });
 
-/** 作品配下のファイルツリーを構築する（GET /works/:id/files でも /fs でも使う）。
+/** 作品配下のファイルツリーを構築する（/fs でも使う）。
  *  coverImage は表示用 cover が null（unmeasured）でもファイル実体がある場合に指定する。 */
 export function buildWorkFileTree(work: WorkSummary, coverImage: string | null): FsNode[] {
   const children: FsNode[] = [];

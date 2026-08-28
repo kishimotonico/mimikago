@@ -1,19 +1,12 @@
 import { coverFieldsFromColumns, toTrackDurationFieldsFromSec } from "@mimimilli/shared";
 import type {
-  FileEntry,
   ResolvedPlaylist,
   ResolvedTrack,
   ResumeBody,
   Work,
   WorkSummary,
 } from "@mimimilli/shared";
-import {
-  buildWorkFileTree,
-  SEED_PLAYLIST_SPECS,
-  SEED_TRACK_NAMES,
-  type FixtureCoverColumns,
-  type FsNode,
-} from "./data.ts";
+import { SEED_PLAYLIST_SPECS, SEED_TRACK_NAMES, type FixtureCoverColumns } from "./data.ts";
 import { fixtureCoverFromColumns } from "./coverDto.ts";
 import type { FixtureState, PlaybackIds } from "./state.ts";
 import { coverColumnsOf } from "./state.ts";
@@ -126,35 +119,4 @@ export function findTrackByFile(work: Work, relPath: string): ResolvedTrack | un
     if (track) return track;
   }
   return undefined;
-}
-
-/** 作品の FileEntry ツリー（ルートは作品フォルダー自体。path は相対パスで `""` がルート直下を示す） */
-export function buildWorkFileEntryTree(
-  work: WorkSummary,
-  coverColumns: FixtureCoverColumns,
-): FileEntry {
-  const children = buildWorkFileTree(work, coverColumns.image);
-
-  function convert(nodes: FsNode[], basePath: string): FileEntry[] {
-    return nodes.map((n): FileEntry => {
-      const path = basePath ? `${basePath}/${n.name}` : n.name;
-      return {
-        name: n.name,
-        path,
-        isDir: n.isDir,
-        size: n.size,
-        fileType: n.fileType,
-        children: n.isDir ? convert(n.children, path) : [],
-      };
-    });
-  }
-
-  return {
-    name: work.id,
-    path: "",
-    isDir: true,
-    size: 0,
-    fileType: "dir",
-    children: convert(children, ""),
-  };
 }

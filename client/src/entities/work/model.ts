@@ -11,7 +11,6 @@ export type {
   Work,
   WorkListItem,
   WorkSummary,
-  FileEntry,
   DlsiteWorkInfo,
   ParsedTag,
 } from "@mimimilli/shared";

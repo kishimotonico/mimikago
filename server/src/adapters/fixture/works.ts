@@ -26,9 +26,9 @@ import { summarizeDlsiteNotifications } from "../../core/dlsiteNotifications.ts"
 import { compareJapaneseSortKeys, compareUtf8Bytes } from "../../core/japaneseSortKey.ts";
 import { applyWorksQuery, toWorksPage } from "../../core/worksQuery.ts";
 import { isPathWithin } from "../../lib/path.ts";
-import { buildFullWorkFromState, buildWorkFileEntryTree } from "./playback.ts";
+import { buildFullWorkFromState } from "./playback.ts";
 import { normalizeFsPath } from "./fsResolve.ts";
-import { coverColumnsOf, type FixtureState } from "./state.ts";
+import { type FixtureState } from "./state.ts";
 
 export function createWorkMethods(state: FixtureState): WorkAdapter {
   async function getWorkRegisterPreview(path: WorkspacePath): Promise<WorkRegisterPreview | null> {
@@ -220,11 +220,6 @@ export function createWorkMethods(state: FixtureState): WorkAdapter {
       if (!work) return false;
       work.lastPlayedAt = new Date().toISOString();
       return true;
-    },
-
-    async listWorkFiles(id: string) {
-      const work = state.works.find((w) => w.id === id);
-      return work ? buildWorkFileEntryTree(work, coverColumnsOf(state, work.id)) : null;
     },
 
     async listTags(): Promise<string[]> {

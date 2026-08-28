@@ -224,6 +224,8 @@ importはHTML snapshotを成功記録として書き直すため、取り込ん�
 - `POST /dlsite/:id/apply` — プレビュー結果のうち選択した項目を適用
 - `PATCH /dlsite/:id` — RJコードの手動設定、または `skipped` の切り替え
 - `POST /dlsite/bulk` — 一括取得ジョブを開始（`mode: "existing"`で起動。実行中は409相当のエラー）
+- `GET /dlsite/bulk` — 実行中または直近の一括取得ジョブスナップショット。なければ204
+- `DELETE /dlsite/bulk` — 実行中の一括取得をキャンセル（実行中ジョブがなければ404）
 - `GET /dlsite/events` — 一括取得の進捗をSSEで配信。ジョブ実行中に接続すると直近の進捗を再送し、実行中でなければ直近の完了/エラーを1件返す
 
 一括取得ジョブは `dlsiteProgress.ts` のFIFOキューで直列実行するが、投入経路によって挙動が非対称になっている。スキャン完了後の自動起動（`scanJobManager.ts`、`mode: "new"`）は `enqueueDlsiteJob` を直接呼ぶため、実行中のジョブがあってもキューに積まれ、順番に処理される。一方、手動の `POST /dlsite/bulk` は先に `isDlsiteJobInProgress()` を確認し、実行中ならキューに積まれずconflictエラーで即座に弾かれる。

@@ -146,6 +146,12 @@ export type DlsiteApplyBody = z.output<typeof dlsiteApplyBodySchema>;
 export const dlsiteRegistrationBodySchema = dlsiteApplyBodySchema.omit({ sourceRevision: true });
 export type DlsiteRegistrationBody = z.output<typeof dlsiteRegistrationBodySchema>;
 
+/** POST /api/dlsite/apply-missing のリクエスト。workIds 省略時は全作品対象。 */
+export const dlsiteApplyMissingBodySchema = z.object({
+  workIds: z.array(z.string()).optional(),
+});
+export type DlsiteApplyMissingBody = z.infer<typeof dlsiteApplyMissingBodySchema>;
+
 export const dlsiteBulkApplyMissingResultSchema = z.object({
   applied: z.number().int().nonnegative(),
   skipped: z.number().int().nonnegative(),

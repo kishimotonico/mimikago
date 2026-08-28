@@ -22,7 +22,7 @@ fixture API は Bun サーバー（`bun --watch`）で動く。`server/src`・`s
 
 ### CSS レイヤー
 
-`shell.css` にセレクタを足すときは必ずカスケードレイヤー内に置くこと（レイヤー外の素のセレクタが Tailwind ユーティリティを潰す不具合が過去に発生済み）。仕組みと規約は [design-system.md](design-system.md) の「クラス命名」節が正。
+`client/src/styles/shell/` 配下 CSS にセレクタを足すときは必ずカスケードレイヤー内に置くこと（レイヤー外の素のセレクタが Tailwind ユーティリティを潰す不具合が過去に発生済み）。仕組みと規約は [design-system.md](design-system.md) の「クラス命名」節が正。
 
 ## 起動・検証コマンド
 

@@ -13,6 +13,16 @@ function resolveRootFingerprint(root: string): string {
   return realpathSync(resolve(root));
 }
 
+/** root消失（削除・アンマウント等）を「プールがstale」として扱うための実行時解決。
+ *  ENOENT等はnullへ変換し、assertRootMatches側でCandidatePoolChangedErrorにする */
+function tryResolveRootFingerprint(root: string): string | null {
+  try {
+    return resolveRootFingerprint(root);
+  } catch {
+    return null;
+  }
+}
+
 /** 直近スキャン由来の候補プール。worker 完了時はインスタンスごと置き換える。 */
 export class ScanCandidateSession {
   private pool: ScanCandidate[];
@@ -35,7 +45,7 @@ export class ScanCandidateSession {
     if (this.rootFingerprint === null) {
       throw new CandidatePoolChangedError();
     }
-    if (resolveRootFingerprint(currentRoot) !== this.rootFingerprint) {
+    if (tryResolveRootFingerprint(currentRoot) !== this.rootFingerprint) {
       throw new CandidatePoolChangedError();
     }
   }

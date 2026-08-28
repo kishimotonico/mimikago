@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { workspacePath } from "@mimimilli/shared";
+import { createApp } from "../../src/app.ts";
 import { CandidatePoolChangedError } from "../../src/errors.ts";
 import { createTestRealAdapter } from "../helpers/realAdapter.ts";
 import { makeTestDirectory, writeWav } from "../helpers/sampleLibrary.ts";
@@ -127,6 +128,34 @@ test("root変更後の候補登録・除外はCandidatePoolChangedErrorで拒否
     () => adapter.excludeScanCandidates(["同名候補"]),
     CandidatePoolChangedError,
   );
+});
+
+test("rootフォルダー消失後の候補登録はCandidatePoolChangedError(409)で拒否する", async (t) => {
+  const directory = makeTestDirectory("scan-candidate-root-missing");
+  t.after(directory.cleanup);
+  const root = join(directory.path, "lib");
+  const candidateDir = join(root, "候補作品");
+  mkdirSync(candidateDir, { recursive: true });
+  writeWav(join(candidateDir, "track.wav"), 1);
+
+  const adapter = directory.own(createTestRealAdapter({ database: { kind: "memory" } }));
+  await adapter.updateSettings({ rootFolder: root });
+  await adapter.scan();
+  assert.deepEqual(
+    (await adapter.listScanCandidates()).map((candidate) => candidate.path),
+    ["候補作品"],
+  );
+
+  // 外付けドライブのアンマウント等を模して、スキャン後にrootごと消す
+  rmSync(root, { recursive: true, force: true });
+
+  const app = directory.ownFn(createApp(adapter), (a) => a.shutdown());
+  const response = await app.request("/api/scan/candidates/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ items: [{ path: "候補作品" }] }),
+  });
+  assert.equal(response.status, 409);
 });
 
 test("stale候補を含む一括登録は書込み前に全件拒否する", async (t) => {

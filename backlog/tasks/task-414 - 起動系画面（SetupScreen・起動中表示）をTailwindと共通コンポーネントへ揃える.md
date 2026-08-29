@@ -1,11 +1,11 @@
 ---
 id: TASK-414
 title: 起動系画面（SetupScreen・起動中表示）をTailwindと共通コンポーネントへ揃える
-status: In Progress
+status: Done
 assignee:
   - '@omp'
 created_date: '2026-08-28 14:56'
-updated_date: '2026-08-29 17:51'
+updated_date: '2026-08-29 17:56'
 labels: []
 dependencies: []
 priority: medium
@@ -21,8 +21,10 @@ client/src/features/setup/ui/SetupScreen.tsx:46-219 はほぼ全JSXがインラ�
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 SetupScreenとApp.tsxの起動中表示がTailwindユーティリティと共通コンポーネントで実装され、インラインstyleが除去される
-- [ ] #2 見た目が現行と同等であることを確認する（pnpm test:smoke 通過を含む）
+- [x] #2 見た目が現行と同等であることを確認する（pnpm test:smoke 通過を含む）
 <!-- AC:END -->
+
+
 
 ## Implementation Plan
 

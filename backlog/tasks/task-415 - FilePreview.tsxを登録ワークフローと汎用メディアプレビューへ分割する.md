@@ -1,11 +1,11 @@
 ---
 id: TASK-415
 title: FilePreview.tsxを登録ワークフローと汎用メディアプレビューへ分割する
-status: In Progress
+status: Done
 assignee:
   - '@omp'
 created_date: '2026-08-28 14:56'
-updated_date: '2026-08-29 17:53'
+updated_date: '2026-08-29 17:56'
 labels: []
 dependencies: []
 priority: medium
@@ -22,8 +22,10 @@ client/src/features/files/ui/FilePreview.tsx（516行、client内最大ファイ
 <!-- AC:BEGIN -->
 - [x] #1 メディアプレビュー群が登録ワークフローと別モジュールへ分離される
 - [x] #2 メディア種別ごとのエラー処理の重複パターンが共通化される
-- [ ] #3 挙動不変（既存テストとsmokeが期待値の変更なしで通る）
+- [x] #3 挙動不変（既存テストとsmokeが期待値の変更なしで通る）
 <!-- AC:END -->
+
+
 
 ## Implementation Plan
 

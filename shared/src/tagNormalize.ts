@@ -99,7 +99,7 @@ export type StoredNormalizedTagsResult =
 
 /** DB 読み出し境界用。正規形なら参照をそのまま返し、違反時だけ詳細メッセージを構築する。 */
 export function parseStoredNormalizedTags(tags: string[]): StoredNormalizedTagsResult {
-  const value: NormalizedTag[] = new Array(tags.length);
+  const value: NormalizedTag[] = [];
   for (let i = 0; i < tags.length; i++) {
     const tag = tags[i]!;
     const normalized = normalizeTag(tag);
@@ -109,7 +109,7 @@ export function parseStoredNormalizedTags(tags: string[]): StoredNormalizedTagsR
     if (normalized !== tag) {
       return { ok: false, index: i, message: `タグが正規化されていません: ${JSON.stringify(tag)}` };
     }
-    value[i] = normalized;
+    value.push(normalized);
   }
   return { ok: true, value };
 }

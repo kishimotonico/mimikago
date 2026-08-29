@@ -175,19 +175,8 @@ export default function App() {
   if (startupState === "loading") {
     return (
       <MotionConfig reducedMotion="user">
-        <div
-          style={{
-            width: "100%",
-            height: "100vh",
-            background: "var(--paper-0)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <span style={{ fontFamily: "var(--font-jp)", fontSize: 13, color: "var(--ink-4)" }}>
-            読み込み中...
-          </span>
+        <div className="flex h-screen w-full items-center justify-center bg-paper-0">
+          <span className="font-jp text-[13px] text-ink-4">読み込み中...</span>
         </div>
       </MotionConfig>
     );

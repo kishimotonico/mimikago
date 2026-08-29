@@ -1,34 +1,19 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useSetAtom } from "jotai";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { errorToastAtom } from "../../../shared/model/errorToastAtom";
 import { I } from "../../../shared/ui/Icon";
 import Button from "../../../shared/ui/Button";
 import ConfirmDialog from "../../../shared/ui/ConfirmDialog";
-import { formatFileSize } from "../../../shared/lib/format";
 import { WORK_QUERY_KEYS } from "../../../entities/work/queryKeys";
 import { SCAN_QUERY_KEYS } from "../../../entities/scan/queryKeys";
 import { FILE_SYSTEM_QUERY_KEYS } from "../../../entities/file-system/queryKeys";
 import { getWorkRegisterPreview, reassignIdentityConflict } from "../api";
 import { deleteWork } from "../../../entities/work/api";
-import { getWorkspaceMediaUrl } from "../../../entities/file-system/api";
-import { getWorkFolderDisplay } from "../model/workFolderDisplay";
 import RegisterWorkDialog from "./RegisterWorkDialog";
-import Lightbox from "../../../shared/ui/Lightbox";
-import type {
-  MediaKind,
-  ScanDiagnostic,
-  WorkRegisterPreview,
-  WorkspacePath,
-} from "@mimimilli/shared";
-import {
-  classifyFile,
-  summarizeKinds,
-  FILE_KIND_ICON,
-  FILE_KIND_LABEL,
-  type FsEntry,
-  type FileKind,
-} from "../model/types";
+import { Hero, WorkspaceMedia } from "./FilePreviewMedia";
+import type { ScanDiagnostic, WorkRegisterPreview, WorkspacePath } from "@mimimilli/shared";
+import { classifyFile, summarizeKinds, FILE_KIND_LABEL, type FsEntry } from "../model/types";
 import { apiErrorMessage } from "../../../shared/lib/apiError";
 
 interface FilePreviewProps {
@@ -265,12 +250,6 @@ export default function FilePreview({
   );
 }
 
-function formatBreakdownLine(breakdown: { kind: FileKind; count: number }[]): string {
-  return breakdown.map(({ kind: k, count }) => `${FILE_KIND_LABEL[k]} ${count}`).join(" ・ ");
-}
-
-// ── 空 ────────────────────────────────────────────────────────
-
 function EmptyPreview() {
   return (
     <div
@@ -289,228 +268,4 @@ function EmptyPreview() {
       <span style={{ fontSize: 12 }}>フォルダーまたはファイルを選択してください</span>
     </div>
   );
-}
-
-// ── コンパクトなヒーロー（巨大な空ボックスを置かない） ──────────
-
-function Hero({
-  kind,
-  entry,
-  isWorkFolder,
-  breakdown,
-}: {
-  kind: FileKind;
-  entry: FsEntry;
-  isWorkFolder: boolean;
-  breakdown?: { kind: FileKind; count: number }[];
-}) {
-  const Ic = I[FILE_KIND_ICON[kind]];
-  const display = getWorkFolderDisplay(entry.name, isWorkFolder ? entry.workId : null);
-  const metaLine =
-    breakdown && breakdown.length > 0
-      ? formatBreakdownLine(breakdown)
-      : kind !== "dir"
-        ? formatFileSize(entry.size)
-        : null;
-  return (
-    <div className={`mle-fprev__hero is-${kind}`}>
-      <span className="ic">
-        <Ic size={28} />
-      </span>
-      <div className="bd">
-        <div className="mle-fprev__name">
-          {display.badge && <span className="wbadge">{display.badge}</span>}
-          {display.name}
-        </div>
-        <div className="mle-fprev__path">{entry.path}</div>
-        {metaLine && <div className="mle-fprev__meta">{metaLine}</div>}
-      </div>
-    </div>
-  );
-}
-
-function WorkspaceMedia({ entry }: { entry: FsEntry }) {
-  const kind = entry.mediaKind!;
-  const preview = entry.preview!;
-  const src = getWorkspaceMediaUrl(entry.path);
-
-  if (preview.kind === "unavailable") {
-    return <UnavailableMedia entry={entry} kind={kind} />;
-  }
-
-  switch (kind) {
-    case "audio":
-      return <Hero kind="audio" entry={entry} isWorkFolder={false} />;
-    case "image":
-      return <ImageMedia entry={entry} src={src} />;
-    case "pdf":
-      return <PdfMedia entry={entry} src={src} />;
-    case "text":
-      return <TextMedia entry={entry} src={src} truncated={preview.kind === "truncated"} />;
-    case "video":
-      return <VideoMedia entry={entry} src={src} />;
-    default:
-      return <UnavailableMedia entry={entry} kind={kind} />;
-  }
-}
-
-function MediaCaption({ entry }: { entry: FsEntry }) {
-  return (
-    <div className="mle-fprev__caption">
-      <div className="mle-fprev__name">{entry.name}</div>
-      <div className="mle-fprev__path">{entry.path}</div>
-      <div className="mle-fprev__meta">{formatFileSize(entry.size)}</div>
-    </div>
-  );
-}
-
-function ImageMedia({ entry, src }: { entry: FsEntry; src: string }) {
-  const [errored, setErrored] = useState(false);
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  useEffect(() => setErrored(false), [src]);
-
-  if (errored) {
-    return <MediaError entry={entry} kind="image" />;
-  }
-  return (
-    <>
-      <div className="mle-fprev__media">
-        <img
-          // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role, jsx-a11y/no-noninteractive-element-to-interactive-role -- imgをbuttonで包むとサイズ算出が崩れる（縮小フィットのみのimgをshrink-to-fitコンテナに置くと0x0になる既知の挙動）ため、img自体をクリック領域にする
-          role="button"
-          className="mle-fprev__img cursor-zoom-in"
-          src={src}
-          alt={entry.name}
-          tabIndex={0}
-          aria-label="画像を拡大表示"
-          onClick={() => setIsLightboxOpen(true)}
-          onKeyDown={(event) => {
-            if (event.key !== "Enter" && event.key !== " ") return;
-            event.preventDefault();
-            setIsLightboxOpen(true);
-          }}
-          onError={() => setErrored(true)}
-        />
-      </div>
-      <MediaCaption entry={entry} />
-      {isLightboxOpen && (
-        <Lightbox src={src} alt={entry.name} onClose={() => setIsLightboxOpen(false)} />
-      )}
-    </>
-  );
-}
-
-function PdfMedia({ entry, src }: { entry: FsEntry; src: string }) {
-  const [errored, setErrored] = useState(false);
-  useEffect(() => setErrored(false), [src]);
-  if (errored) return <MediaError entry={entry} kind="pdf" />;
-  return (
-    <>
-      <div className="mle-fprev__media is-document">
-        <object
-          className="mle-fprev__document"
-          data={src}
-          type="application/pdf"
-          aria-label={`${entry.name}のPDFプレビュー`}
-          onError={() => setErrored(true)}
-        >
-          <span>PDFを表示できませんでした。</span>
-        </object>
-      </div>
-      <MediaCaption entry={entry} />
-    </>
-  );
-}
-
-function VideoMedia({ entry, src }: { entry: FsEntry; src: string }) {
-  const [errored, setErrored] = useState(false);
-  useEffect(() => setErrored(false), [src]);
-  if (errored) return <MediaError entry={entry} kind="video" />;
-  return (
-    <>
-      <div className="mle-fprev__media is-video">
-        <video className="mle-fprev__video" controls src={src} onError={() => setErrored(true)}>
-          このブラウザは動画再生に対応していません。
-        </video>
-      </div>
-      <MediaCaption entry={entry} />
-    </>
-  );
-}
-
-function TextMedia({ entry, src, truncated }: { entry: FsEntry; src: string; truncated: boolean }) {
-  const [state, setState] = useState<{ text: string; error: boolean }>({ text: "", error: false });
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setState({ text: "", error: false });
-    fetch(src, { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error("text preview failed");
-        return response.text();
-      })
-      .then((text) => setState({ text, error: false }))
-      .catch((error: unknown) => {
-        if (error instanceof Error && error.name === "AbortError") return;
-        setState({ text: "", error: true });
-      });
-    return () => controller.abort();
-  }, [src]);
-
-  if (state.error) return <MediaError entry={entry} kind="text" />;
-  return (
-    <>
-      <div className="mle-fprev__media is-text">
-        <pre className="mle-fprev__text">{state.text}</pre>
-      </div>
-      {truncated && <p className="mle-fprev__note">サイズ上限のため先頭のみ表示</p>}
-      <MediaCaption entry={entry} />
-    </>
-  );
-}
-
-function UnavailableMedia({ entry, kind }: { entry: FsEntry; kind: MediaKind }) {
-  const fileKind = kind === "other" ? "other" : kind;
-  const Icon = I[FILE_KIND_ICON[fileKind]];
-  const extension = extensionOf(entry.name);
-  return (
-    <div className={`mle-fprev__hero is-${fileKind}`}>
-      <span className="ic">
-        <Icon size={28} />
-      </span>
-      <div className="bd">
-        <div className="mle-fprev__name">{entry.name}</div>
-        <div className="mle-fprev__path">
-          {FILE_KIND_LABEL[fileKind]}
-          {extension ? `（.${extension}）` : ""}のプレビューは利用できません
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MediaError({
-  entry,
-  kind,
-}: {
-  entry: FsEntry;
-  kind: Exclude<MediaKind, "audio" | "other">;
-}) {
-  const Icon = I[FILE_KIND_ICON[kind]];
-  return (
-    <div className={`mle-fprev__hero is-${kind}`} role="alert">
-      <span className="ic">
-        <Icon size={28} />
-      </span>
-      <div className="bd">
-        <div className="mle-fprev__name">{entry.name}</div>
-        <div className="mle-fprev__path">プレビューを読み込めませんでした</div>
-      </div>
-    </div>
-  );
-}
-
-function extensionOf(name: string): string | null {
-  const dot = name.lastIndexOf(".");
-  return dot > 0 && dot < name.length - 1 ? name.slice(dot + 1) : null;
 }

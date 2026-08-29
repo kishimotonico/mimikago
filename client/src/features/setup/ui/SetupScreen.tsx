@@ -1,6 +1,7 @@
 import { useAtomValue } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import { I } from "../../../shared/ui/Icon";
+import Button from "../../../shared/ui/Button";
 import {
   scanningAtom,
   scanErrorAtom,
@@ -23,6 +24,7 @@ export default function SetupScreen({ onComplete }: SetupScreenProps) {
   const pathInputRef = useRef<HTMLInputElement | null>(null);
   const scanning = isSubmitting || scanningFromJob;
   const alertMessage = scanError ?? setupError;
+  const canSubmit = Boolean(path.trim()) && !scanning;
 
   useEffect(() => {
     if (scanning) return;
@@ -44,131 +46,41 @@ export default function SetupScreen({ onComplete }: SetupScreenProps) {
   };
 
   return (
-    <div
-      style={{
-        width: "100%",
-        height: "100vh",
-        background: "var(--paper-0)",
-        color: "var(--ink-0)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "var(--font-jp)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 32,
-          maxWidth: 480,
-          width: "100%",
-          padding: "0 24px",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 9,
-              background: "var(--ink-0)",
-              color: "var(--paper-1)",
-              display: "grid",
-              placeItems: "center",
-              fontFamily: "var(--font-sans)",
-              fontSize: 20,
-              fontWeight: 600,
-              letterSpacing: "-0.04em",
-            }}
-          >
+    <div className="flex h-screen w-full flex-col items-center justify-center bg-paper-0 font-jp text-ink-0">
+      <div className="flex w-full max-w-[480px] flex-col items-center gap-8 px-6">
+        <div className="flex items-center gap-3">
+          <div className="grid size-10 place-items-center rounded-[9px] bg-ink-0 font-sans text-[20px] font-semibold tracking-[-0.04em] text-paper-1">
             m
           </div>
-          <span
-            style={{
-              fontFamily: "var(--font-sans)",
-              fontWeight: 500,
-              fontSize: 24,
-              letterSpacing: "-0.01em",
-            }}
-          >
-            mimimilli
-          </span>
+          <span className="font-sans text-2xl font-medium tracking-[-0.01em]">mimimilli</span>
         </div>
 
-        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 8 }}>
-          <h1
-            style={{
-              fontFamily: "var(--font-jp)",
-              fontSize: 22,
-              fontWeight: 600,
-              letterSpacing: "-0.005em",
-              margin: 0,
-            }}
-          >
-            ようこそ
-          </h1>
-          <p style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.7, margin: 0 }}>
+        <div className="flex flex-col gap-2 text-center">
+          <h1 className="m-0 font-jp text-[22px] font-semibold tracking-[-0.005em]">ようこそ</h1>
+          <p className="m-0 text-[13px] leading-[1.7] text-ink-2">
             音声作品が保存されているルートフォルダーを指定してください。
             <br />
             フォルダー内を自動でスキャンしてライブラリを構築します。
           </p>
         </div>
 
-        <form
-          onSubmit={(e) => void handleSubmit(e)}
-          style={{ width: "100%", display: "flex", flexDirection: "column", gap: 12 }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              height: 40,
-              padding: "0 14px",
-              background: "var(--paper-1)",
-              border: "1px solid var(--line)",
-              borderRadius: 8,
-            }}
-          >
-            <I.folder size={14} style={{ color: "var(--ink-3)", flexShrink: 0 }} />
+        <form onSubmit={(e) => void handleSubmit(e)} className="flex w-full flex-col gap-3">
+          <div className="flex h-10 items-center gap-2 rounded-[8px] border border-line bg-paper-1 px-[14px]">
+            <I.folder size={14} className="shrink-0 text-ink-3" />
             <input
               ref={pathInputRef}
               value={path}
               onChange={(e) => setPath(e.target.value)}
               placeholder="/Users/yourname/Music/ASMR"
-              style={{
-                flex: 1,
-                fontFamily: "var(--font-mono)",
-                fontSize: 12,
-                color: "var(--ink-0)",
-                background: "none",
-                border: "none",
-                outline: "none",
-              }}
+              className="min-w-0 flex-1 border-none bg-transparent font-mono text-xs text-ink-0 outline-none"
               disabled={scanning}
             />
           </div>
-          <button
+          <Button
             type="submit"
-            disabled={!path.trim() || scanning}
-            style={{
-              height: 40,
-              borderRadius: 8,
-              background: path.trim() && !scanning ? "var(--ink-0)" : "var(--paper-3)",
-              color: path.trim() && !scanning ? "var(--paper-1)" : "var(--ink-3)",
-              fontFamily: "var(--font-sans)",
-              fontWeight: 600,
-              fontSize: 13,
-              border: "none",
-              cursor: path.trim() && !scanning ? "pointer" : "not-allowed",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-            }}
+            variant="primary"
+            disabled={!canSubmit}
+            className="h-10 w-full justify-center gap-2 rounded-[8px] text-[13px] font-semibold disabled:bg-paper-3 disabled:text-ink-3"
           >
             {scanning ? (
               <>
@@ -180,38 +92,25 @@ export default function SetupScreen({ onComplete }: SetupScreenProps) {
                 <I.refresh size={14} /> スキャン開始
               </>
             )}
-          </button>
+          </Button>
           {scanning && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => void cancel()}
-              style={{
-                height: 36,
-                borderRadius: 8,
-                background: "var(--paper-1)",
-                color: "var(--ink-2)",
-                fontFamily: "var(--font-sans)",
-                fontWeight: 600,
-                fontSize: 12,
-                border: "1px solid var(--line)",
-                cursor: "pointer",
-              }}
+              className="h-9 w-full justify-center rounded-[8px] border border-line bg-paper-1 text-[12px] font-semibold text-ink-2 hover:bg-paper-1 hover:text-ink-2"
             >
               スキャンを中止
-            </button>
+            </Button>
           )}
           {alertMessage && (
-            <p
-              role="alert"
-              className="mll-selectable"
-              style={{ margin: 0, color: "var(--danger)", fontSize: 12 }}
-            >
+            <p role="alert" className="mll-selectable m-0 text-xs text-[var(--r-coral)]">
               {alertMessage}
             </p>
           )}
         </form>
 
-        <p style={{ fontSize: 11, color: "var(--ink-4)", textAlign: "center" }}>
+        <p className="text-center text-[11px] text-ink-4">
           フォルダーパスはあとから設定で変更できます
         </p>
       </div>

@@ -128,6 +128,9 @@ export function useAudioEngineLifecycle({
         controller.dispatch({ type: "audioFailed", error });
       },
     });
+    const prefs = controller.getState();
+    engine.setPlaybackRate(prefs.playbackRate);
+    engine.setChannelSwap(prefs.channelSwap);
     engineRef.current = engine;
 
     return () => {

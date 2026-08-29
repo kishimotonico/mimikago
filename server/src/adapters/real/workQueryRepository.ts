@@ -70,7 +70,7 @@ import {
   type WorkRow,
   PersistentDataError,
 } from "./workRowMapping.ts";
-import { coverDtoFromColumns, statCoverSource } from "./coverDto.ts";
+import { statCoverSource } from "./coverDto.ts";
 import { deriveCoverVersion } from "../../adapter/media.ts";
 
 const queryWorksLogger = getCategoryLogger("http");

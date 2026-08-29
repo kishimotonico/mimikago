@@ -147,6 +147,7 @@ export function executeSqliteMigrations(
   sqlite: Database,
   migrationsFolder: string,
   targetUserVersion: number,
+  onPendingMigration?: () => void,
 ): void {
   const migrations = readMigrationFiles({ migrationsFolder });
   sqlite.exec(`
@@ -160,6 +161,7 @@ export function executeSqliteMigrations(
 
   for (const migration of migrations) {
     if (isMigrationPending(migration, latestMigrationTime)) {
+      onPendingMigration?.();
       applyMigrationAtomically(sqlite, migration, targetUserVersion);
     }
   }

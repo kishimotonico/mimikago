@@ -111,6 +111,16 @@ test("AC1: user migration 0004までの旧スキーマはopenDbで0005まで適�
   }
 });
 
+async function waitForPath(path: string, timeoutMs = 5000): Promise<void> {
+  const startedAt = Date.now();
+  while (!existsSync(path)) {
+    if (Date.now() - startedAt > timeoutMs) {
+      throw new Error(`timed out waiting for ${path}`);
+    }
+    await Bun.sleep(10);
+  }
+}
+
 test("AC2: migration途中kill後の再openは完了境界のいずれかの一貫状態になる", async (t) => {
   const directory = makeTestDirectory("db-inplace-kill");
   t.after(directory.cleanup);
@@ -121,13 +131,18 @@ test("AC2: migration途中kill後の再openは完了境界のいずれかの一�
   buildUserMigrationsDirThrough(legacyMigrations, "0004_sparkling_masked_marvel");
   seedLegacyUserDb(userPath, legacyMigrations);
 
-  openDb({ kind: "files", catalogPath, userPath }, { backupDir }).close();
+  const catalogSeedUserPath = join(directory.path, "db", "catalog-seed-user.sqlite");
+  openDb({ kind: "files", catalogPath, userPath: catalogSeedUserPath }, { backupDir }).close();
 
-  const proc = Bun.spawn(["bun", OPEN_DB_HARNESS, catalogPath, userPath, backupDir], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  await Bun.sleep(30);
+  const startedMarker = join(directory.path, "user-migration-started");
+  const proc = Bun.spawn(
+    ["bun", OPEN_DB_HARNESS, catalogPath, userPath, backupDir, startedMarker],
+    {
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+  );
+  await waitForPath(startedMarker);
   proc.kill(9);
   await proc.exited;
 

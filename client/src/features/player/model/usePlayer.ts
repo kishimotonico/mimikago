@@ -23,11 +23,13 @@ import { usePlayerRuntimeContext } from "./PlayerRuntimeProvider";
 import { useAudioEngineLifecycle } from "./useAudioEngineLifecycle";
 import { useResumePersistenceController } from "./useResumePersistence";
 import {
+  formatSkippedTrackToast,
   isPlayerCoreStateEqual,
   toPlayerCoreState,
   type PlayerControllerState,
 } from "./playerController";
 import { usePlayerActions } from "./usePlayerActions";
+import { playerSkipToastAtom } from "./playerPresentationAtoms";
 
 export function usePlayerRuntime() {
   const queryClient = useQueryClient();
@@ -36,6 +38,7 @@ export function usePlayerRuntime() {
   const [coreState, setCoreState] = useAtom(playerCoreAtom);
   const setCurrentTime = useSetAtom(playerCurrentTimeAtom);
   const setDuration = useSetAtom(playerDurationAtom);
+  const setSkipToast = useSetAtom(playerSkipToastAtom);
   const lastCoreStateRef = useRef(coreState);
 
   useEffect(() => {
@@ -132,6 +135,9 @@ export function usePlayerRuntime() {
         case "loadTrack":
           loadTrack(command.item, command.autoplay);
           break;
+        case "notifyTrackSkipped":
+          setSkipToast(formatSkippedTrackToast(command.trackTitle));
+          break;
       }
     });
   }, [
@@ -142,6 +148,7 @@ export function usePlayerRuntime() {
     runtimeRefs,
     saveCurrentResume,
     setCurrentTime,
+    setSkipToast,
   ]);
 
   useEffect(() => {

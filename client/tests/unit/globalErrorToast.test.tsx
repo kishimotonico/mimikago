@@ -7,6 +7,7 @@ import type { DlsiteBulkResult } from "@mimimilli/shared";
 import GlobalToast from "../../src/app/ui/GlobalToast";
 import DlsiteBulkApplyRuntime from "../../src/features/dlsite/ui/DlsiteBulkApplyRuntime";
 import { errorToastAtom } from "../../src/shared/model/errorToastAtom";
+import { playerSkipToastAtom } from "../../src/features/player/model/playerPresentationAtoms";
 import { scanErrorAtom } from "../../src/entities/scan/model/atoms";
 import {
   dlsiteBulkCancelledResultAtom,
@@ -51,6 +52,15 @@ describe("GlobalToast", () => {
     renderGlobalToast(store);
 
     expect(screen.getByText("ライブラリのエクスポートに失敗しました")).toBeTruthy();
+  });
+
+  it("playerSkipToastAtom のメッセージを表示する", () => {
+    const store = createStore();
+    store.set(playerSkipToastAtom, "「Track 1」をスキップしました");
+
+    renderGlobalToast(store);
+
+    expect(screen.getByText("「Track 1」をスキップしました")).toBeTruthy();
   });
 
   it("scanErrorAtom のメッセージを表示する", () => {

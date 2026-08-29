@@ -12,11 +12,14 @@ import { useDlsiteBulkApplyActions } from "../../entities/dlsite/useDlsiteBulkAp
 import { errorToastAtom } from "../../shared/model/errorToastAtom";
 import { scanErrorAtom } from "../../entities/scan/model/atoms";
 import { useScanActions } from "../../entities/scan/useScanActions";
+import { playerSkipToastAtom } from "../../features/player/model/playerPresentationAtoms";
 
 export default function GlobalToast() {
   const scanError = useAtomValue(scanErrorAtom);
   const errorToast = useAtomValue(errorToastAtom);
   const setErrorToast = useSetAtom(errorToastAtom);
+  const playerSkipToast = useAtomValue(playerSkipToastAtom);
+  const setPlayerSkipToast = useSetAtom(playerSkipToastAtom);
   const dlsiteBulkApplyResult = useAtomValue(dlsiteBulkApplyResultAtom);
   const dlsiteResult = useAtomValue(dlsiteBulkResultAtom);
   const dlsiteCancelledResult = useAtomValue(dlsiteBulkCancelledResultAtom);
@@ -32,6 +35,10 @@ export default function GlobalToast() {
 
   if (errorToast) {
     return <Toast message={errorToast} onDismiss={() => setErrorToast(null)} />;
+  }
+
+  if (playerSkipToast) {
+    return <Toast message={playerSkipToast} onDismiss={() => setPlayerSkipToast(null)} />;
   }
 
   if (dlsiteBulkApplyResult) {

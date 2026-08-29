@@ -14,14 +14,15 @@ import { getWorkWithLiveProbe } from "../../src/adapters/real/workRefresh.ts";
 export function makeWork(overrides: Partial<Work> & Pick<Work, "id">): Work {
   const playlistId = crypto.randomUUID();
   const trackId = crypto.randomUUID();
+  const { id, ...rest } = overrides;
   return {
-    id: overrides.id,
-    title: `作品 ${overrides.id}`,
+    id,
+    title: `作品 ${id}`,
     cover: null,
     coverKind: "none",
     coverImage: null,
     status: "ok",
-    physicalPath: `/library/${overrides.id}`,
+    physicalPath: `/library/${id}`,
     totalDurationSec: 10,
     addedAt: "2026-07-19T00:00:00.000Z",
     errorMessage: null,
@@ -47,7 +48,7 @@ export function makeWork(overrides: Partial<Work> & Pick<Work, "id">): Work {
     lastPlayedAt: null,
     resume: null,
     dlsite: emptyDlsiteState(),
-    ...overrides,
+    ...rest,
   };
 }
 

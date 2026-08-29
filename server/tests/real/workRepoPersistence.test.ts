@@ -8,6 +8,7 @@ import { smartFolders } from "../../src/adapters/real/userSchema.ts";
 import { PersistentDataError } from "../../src/adapters/real/workRowMapping.ts";
 import {
   upsertTestWork,
+  makeWork,
   resolvedDuration,
   createWorkRepos,
   getTestWork,
@@ -20,21 +21,10 @@ function sampleWork(
   playlistId = crypto.randomUUID(),
   trackId = crypto.randomUUID(),
 ): Work {
-  return {
+  return makeWork({
     id,
     title: "永続データ検証用",
-    cover: null,
-    coverKind: "none",
-    coverImage: null,
-    status: "ok",
-    physicalPath: `/library/${id}`,
-    totalDurationSec: 10,
-    addedAt: "2026-07-19T00:00:00.000Z",
-    errorMessage: null,
-    urls: [],
-    tags: [],
     defaultPlaylistId: playlistId,
-    createdAt: null,
     playlists: [
       {
         id: playlistId,
@@ -49,18 +39,7 @@ function sampleWork(
         ],
       },
     ],
-    bookmarked: false,
-    lastPlayedAt: null,
-    resume: null,
-    dlsite: {
-      rjCode: null,
-      status: "none",
-      lastAttemptAt: null,
-      error: null,
-      errorKind: null,
-      appliedTags: [],
-    },
-  };
+  });
 }
 
 function assertPersistentDataErrorAsync(
@@ -91,6 +70,28 @@ test("works.status が不正なら listSummaries は当該作品を隔離して�
   assert.equal(result.skipped.length, 1);
   assert.equal(result.skipped[0]!.workId, bad.id);
   assert.match(result.skipped[0]!.reason, /status:/);
+});
+
+test("works.status が不正なら queryWorks は当該作品を隔離して続行する", (t) => {
+  const scope = makeTestScope();
+  t.after(scope.cleanup);
+  const db = scope.own(openDb({ kind: "memory" }));
+  const { query, catalog, user } = createWorkRepos(db);
+  const good = sampleWork("work-good-query");
+  const bad = sampleWork("work-bad-query");
+  upsertTestWork(catalog, user, good);
+  upsertTestWork(catalog, user, bad);
+  db.catalog.update(works).set({ status: "unknown" }).where(eq(works.id, bad.id)).run();
+
+  const page = query.queryWorks(
+    { q: "", tags: { tags: [], yearValue: null }, tagOp: "AND", sort: "id-asc" },
+    "/library",
+  );
+  assert.equal(page.items.length, 1);
+  assert.equal(page.items[0]!.id, good.id);
+  assert.equal(page.total, 2);
+  assert.equal(page.dataIntegrityWarning?.skippedCount, 1);
+  assert.deepEqual(page.dataIntegrityWarning?.skippedWorkIds, [bad.id]);
 });
 
 test("defaultPlaylistが関係表にない場合はgetWorkが不正データとして扱う", async (t) => {

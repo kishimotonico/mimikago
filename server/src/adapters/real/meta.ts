@@ -292,11 +292,6 @@ export function reassignMetaIdsOnDbCollision(
   return raw.id as string;
 }
 
-/** メタファイルのパスから作品ディレクトリを返す（どちらの形式でも親ディレクトリ） */
-export function workDirOf(metaPath: string): string {
-  return dirname(metaPath);
-}
-
 /** フォルダー名・タイトルから RJ コードを検出し、メタと異なる場合は書き戻す。 */
 export function syncDetectedRjCode(metaPath: string, workDirName: string): MetaFile["dlsite"] {
   const source = readMetaSource(metaPath);

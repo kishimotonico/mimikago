@@ -9,6 +9,7 @@ import { workDlsite, works } from "../../src/adapters/real/catalogSchema.ts";
 import type { WorkQueryRepository } from "../../src/adapters/real/workQueryRepository.ts";
 import {
   upsertTestWork,
+  makeWork,
   resolvedDuration,
   createWorkRepos,
   folderMetaPath,
@@ -29,41 +30,6 @@ function makePlaylist(trackCount: number, id = crypto.randomUUID()): ResolvedPla
   };
 }
 
-function sampleWork(
-  id: string,
-  playlists: ResolvedPlaylist[],
-  defaultPlaylistId: string | null,
-): Work {
-  return {
-    id,
-    title: `作品 ${id}`,
-    cover: null,
-    coverKind: "none",
-    coverImage: null,
-    status: "ok",
-    physicalPath: `/library/${id}`,
-    totalDurationSec: 10,
-    addedAt: "2026-07-19T00:00:00.000Z",
-    errorMessage: null,
-    urls: [],
-    tags: [],
-    defaultPlaylistId,
-    createdAt: null,
-    playlists,
-    bookmarked: false,
-    lastPlayedAt: null,
-    resume: null,
-    dlsite: {
-      rjCode: null,
-      status: "none",
-      lastAttemptAt: null,
-      error: null,
-      errorKind: null,
-      appliedTags: [],
-    },
-  };
-}
-
 function trackCountOf(query: WorkQueryRepository, id: string): number {
   const summary = query.listSummaries().summaries.find((s) => s.id === id);
   assert.ok(summary, `listSummaries に ${id} がありません`);
@@ -77,7 +43,11 @@ test("track_count はデフォルトプレイリスト指定ありなら指定PL
   const { query, catalog, user } = createWorkRepos(db);
   const first = makePlaylist(3);
   const second = makePlaylist(1);
-  upsertTestWork(catalog, user, sampleWork("w-1", [first, second], second.id));
+  upsertTestWork(
+    catalog,
+    user,
+    makeWork({ id: "w-1", playlists: [first, second], defaultPlaylistId: second.id }),
+  );
   assert.equal(trackCountOf(query, "w-1"), 1);
 });
 
@@ -86,7 +56,11 @@ test("track_count はデフォルトプレイリスト指定なしなら先頭PL
   t.after(scope.cleanup);
   const db = scope.own(openDb({ kind: "memory" }));
   const { query, catalog, user } = createWorkRepos(db);
-  upsertTestWork(catalog, user, sampleWork("w-1", [makePlaylist(3), makePlaylist(1)], null));
+  upsertTestWork(
+    catalog,
+    user,
+    makeWork({ id: "w-1", playlists: [makePlaylist(3), makePlaylist(1)], defaultPlaylistId: null }),
+  );
   assert.equal(trackCountOf(query, "w-1"), 3);
 });
 
@@ -95,7 +69,7 @@ test("track_count はプレイリストなしなら0", (t) => {
   t.after(scope.cleanup);
   const db = scope.own(openDb({ kind: "memory" }));
   const { query, catalog, user } = createWorkRepos(db);
-  upsertTestWork(catalog, user, sampleWork("w-1", [], null));
+  upsertTestWork(catalog, user, makeWork({ id: "w-1", playlists: [], defaultPlaylistId: null }));
   assert.equal(trackCountOf(query, "w-1"), 0);
 });
 
@@ -104,7 +78,7 @@ test("track_count は update でも再計算される", (t) => {
   t.after(scope.cleanup);
   const db = scope.own(openDb({ kind: "memory" }));
   const { query, catalog, user } = createWorkRepos(db);
-  const work = sampleWork("w-1", [makePlaylist(2)], null);
+  const work = makeWork({ id: "w-1", playlists: [makePlaylist(2)], defaultPlaylistId: null });
   upsertTestWork(catalog, user, work);
   assert.equal(trackCountOf(query, "w-1"), 2);
 
@@ -133,12 +107,20 @@ test("listSummaries の SQL 発行数は作品数に依存しない", (t) => {
     return count;
   };
 
-  upsertTestWork(catalog, user, sampleWork("w-1", [makePlaylist(1)], null));
+  upsertTestWork(
+    catalog,
+    user,
+    makeWork({ id: "w-1", playlists: [makePlaylist(1)], defaultPlaylistId: null }),
+  );
   const n1 = countQueries();
   assert.ok(n1 > 0, "計測対象のクエリが発行されていません");
 
   for (let i = 2; i <= 100; i++) {
-    upsertTestWork(catalog, user, sampleWork(`w-${i}`, [makePlaylist(1)], null));
+    upsertTestWork(
+      catalog,
+      user,
+      makeWork({ id: `w-${i}`, playlists: [makePlaylist(1)], defaultPlaylistId: null }),
+    );
   }
   const n100 = countQueries();
   assert.equal(n100, n1, `SQL 発行数が作品数に比例しています (N=1: ${n1}, N=100: ${n100})`);
@@ -149,7 +131,11 @@ test("work_dlsite 行がない作品は emptyDlsiteState() になる", (t) => {
   t.after(scope.cleanup);
   const db = scope.own(openDb({ kind: "memory" }));
   const { query, catalog, user } = createWorkRepos(db);
-  upsertTestWork(catalog, user, sampleWork("w-1", [makePlaylist(1)], null));
+  upsertTestWork(
+    catalog,
+    user,
+    makeWork({ id: "w-1", playlists: [makePlaylist(1)], defaultPlaylistId: null }),
+  );
   db.catalog.delete(workDlsite).where(eq(workDlsite.workId, "w-1")).run();
 
   const summary = query.listSummaries().summaries.find((s) => s.id === "w-1");
@@ -206,7 +192,11 @@ test("listSummaries: 寸法未計測カバーがないとき unmeasuredCovers �
   t.after(scope.cleanup);
   const db = scope.own(openDb({ kind: "memory" }));
   const { query, catalog, user } = createWorkRepos(db);
-  upsertTestWork(catalog, user, sampleWork("w-1", [makePlaylist(1)], null));
+  upsertTestWork(
+    catalog,
+    user,
+    makeWork({ id: "w-1", playlists: [makePlaylist(1)], defaultPlaylistId: null }),
+  );
   assert.deepEqual(query.listSummaries().unmeasuredCovers, []);
 });
 
@@ -215,7 +205,11 @@ test("listSummaries: 寸法未計測カバーの作品IDを返す", (t) => {
   t.after(scope.cleanup);
   const db = scope.own(openDb({ kind: "memory" }));
   const { query, catalog, user } = createWorkRepos(db);
-  upsertTestWork(catalog, user, sampleWork("w-none", [makePlaylist(1)], null));
+  upsertTestWork(
+    catalog,
+    user,
+    makeWork({ id: "w-none", playlists: [makePlaylist(1)], defaultPlaylistId: null }),
+  );
   const unmeasured = unmeasuredWork("w-unmeasured");
   user.upsertWorkUserState(unmeasured);
   catalog.upsertWorkCatalog(unmeasured, {

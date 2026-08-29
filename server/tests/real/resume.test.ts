@@ -9,6 +9,7 @@ import { probeDurationSec } from "../../src/adapters/real/probe.ts";
 import { workStates } from "../../src/adapters/real/userSchema.ts";
 import {
   upsertTestWork,
+  makeWork,
   resolvedDuration,
   createWorkRepos,
   getTestWork,
@@ -19,21 +20,11 @@ import { makeTestDirectory, writeWav } from "../helpers/sampleLibrary.ts";
 
 function sampleWork(id: string): Work {
   const playlistId = crypto.randomUUID();
-  return {
+  return makeWork({
     id,
     title: id,
-    cover: null,
-    coverKind: "none",
-    coverImage: null,
-    status: "ok",
-    physicalPath: `/library/${id}`,
     totalDurationSec: 90,
-    addedAt: "2026-07-19T00:00:00.000Z",
-    errorMessage: null,
-    urls: [],
-    tags: [],
     defaultPlaylistId: playlistId,
-    createdAt: null,
     playlists: [
       {
         id: playlistId,
@@ -58,18 +49,7 @@ function sampleWork(id: string): Work {
         ],
       },
     ],
-    bookmarked: false,
-    lastPlayedAt: null,
-    resume: null,
-    dlsite: {
-      rjCode: null,
-      status: "none",
-      lastAttemptAt: null,
-      error: null,
-      errorKind: null,
-      appliedTags: [],
-    },
-  };
+  });
 }
 
 test("レジュームは区間相対秒で保存され、並べ替え後もTrack IDで復元する", async (t) => {

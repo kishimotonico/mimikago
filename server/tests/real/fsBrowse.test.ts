@@ -9,7 +9,7 @@ import { createTestRealAdapter } from "../helpers/realAdapter.ts";
 import type { FsWorkRef } from "../../src/adapters/real/fsBrowse.ts";
 import { buildWorkPathIndex, findOwnerWork } from "../../src/adapters/real/fsBrowse.ts";
 import { openDb, type Db } from "../../src/adapters/real/db.ts";
-import { createWorkRepos } from "../helpers/workTestUtils.ts";
+import { createWorkRepos, makeWork } from "../helpers/workTestUtils.ts";
 import { createApp, type AppEnv } from "../../src/app.ts";
 import { scanAndRegisterCandidates } from "../helpers/scanLibrary.ts";
 import { makeSampleLibrary, writeWav } from "../helpers/sampleLibrary.ts";
@@ -17,34 +17,14 @@ import { makeTestScope } from "../helpers/sampleLibrary.ts";
 import { upsertTestWork } from "../helpers/workTestUtils.ts";
 
 function sampleWork(id: string, physicalPath: string): Work {
-  return {
+  return makeWork({
     id,
     title: id,
-    cover: null,
-    coverKind: "none",
-    coverImage: null,
-    status: "ok",
     physicalPath,
     totalDurationSec: 1,
-    addedAt: "2026-07-19T00:00:00.000Z",
-    errorMessage: null,
-    urls: [],
-    tags: [],
     defaultPlaylistId: null,
-    createdAt: null,
     playlists: [],
-    bookmarked: false,
-    lastPlayedAt: null,
-    resume: null,
-    dlsite: {
-      rjCode: null,
-      status: "none",
-      lastAttemptAt: null,
-      error: null,
-      errorKind: null,
-      appliedTags: [],
-    },
-  };
+  });
 }
 
 async function setup(t: TestContext, prepare?: (root: string) => void) {

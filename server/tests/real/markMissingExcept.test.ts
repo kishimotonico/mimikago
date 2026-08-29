@@ -2,64 +2,23 @@
 // SQLite パラメータ上限を超える seen ID でも動作し、一時テーブルを残さないことを確認する。
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { Work } from "@mimimilli/shared";
 import { openDb } from "../../src/adapters/real/db.ts";
 import {
   createWorkRepos,
   getTestWork,
-  resolvedDuration,
+  makeWork,
   upsertTestWork,
 } from "../helpers/workTestUtils.ts";
 import { makeTestScope } from "../helpers/sampleLibrary.ts";
-
-function sampleWork(id: string): Work {
-  const playlistId = crypto.randomUUID();
-  return {
-    id,
-    title: `作品 ${id}`,
-    cover: null,
-    coverKind: "none",
-    coverImage: null,
-    status: "ok",
-    physicalPath: `/library/${id}`,
-    totalDurationSec: 10,
-    addedAt: "2026-07-19T00:00:00.000Z",
-    errorMessage: null,
-    urls: [],
-    tags: [],
-    defaultPlaylistId: playlistId,
-    createdAt: null,
-    playlists: [
-      {
-        id: playlistId,
-        name: "default",
-        tracks: [
-          { id: crypto.randomUUID(), title: "track", file: "track.wav", ...resolvedDuration(60) },
-        ],
-      },
-    ],
-    bookmarked: false,
-    lastPlayedAt: null,
-    resume: null,
-    dlsite: {
-      rjCode: null,
-      status: "none",
-      lastAttemptAt: null,
-      error: null,
-      errorKind: null,
-      appliedTags: [],
-    },
-  };
-}
 
 test("foundIds 以外の作品だけが missing になる", async (t) => {
   const scope = makeTestScope();
   t.after(scope.cleanup);
   const db = scope.own(openDb({ kind: "memory" }));
   const { catalog, user } = createWorkRepos(db);
-  upsertTestWork(catalog, user, sampleWork("keep-1"));
-  upsertTestWork(catalog, user, sampleWork("keep-2"));
-  upsertTestWork(catalog, user, sampleWork("lost-1"));
+  upsertTestWork(catalog, user, makeWork({ id: "keep-1" }));
+  upsertTestWork(catalog, user, makeWork({ id: "keep-2" }));
+  upsertTestWork(catalog, user, makeWork({ id: "lost-1" }));
 
   catalog.markMissingExcept(["keep-1", "keep-2"]);
 
@@ -74,8 +33,8 @@ test("foundIds が空なら全件 missing になる", async (t) => {
   t.after(scope.cleanup);
   const db = scope.own(openDb({ kind: "memory" }));
   const { catalog, user } = createWorkRepos(db);
-  upsertTestWork(catalog, user, sampleWork("w-1"));
-  upsertTestWork(catalog, user, sampleWork("w-2"));
+  upsertTestWork(catalog, user, makeWork({ id: "w-1" }));
+  upsertTestWork(catalog, user, makeWork({ id: "w-2" }));
 
   catalog.markMissingExcept([]);
 
@@ -88,8 +47,8 @@ test("SQLiteパラメータ上限を超える大量IDでも動作し、一時テ
   t.after(scope.cleanup);
   const db = scope.own(openDb({ kind: "memory" }));
   const { catalog, user } = createWorkRepos(db);
-  upsertTestWork(catalog, user, sampleWork("keep-1"));
-  upsertTestWork(catalog, user, sampleWork("lost-1"));
+  upsertTestWork(catalog, user, makeWork({ id: "keep-1" }));
+  upsertTestWork(catalog, user, makeWork({ id: "lost-1" }));
 
   // SQLite のパラメータ上限（32766）を超える seen ID 数
   const manyIds = ["keep-1", ...Array.from({ length: 40_000 }, (_, i) => `seen-${i}`)];

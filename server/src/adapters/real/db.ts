@@ -40,6 +40,7 @@ export type DbLocation =
 export interface DbOpenOptions {
   /** 省略時は catalogPath の親の親（dataRoot）配下の backup/ を使う。 */
   backupDir?: string;
+  onPendingMigration?: (kind: DbBackupKind) => void;
 }
 
 export interface Db {
@@ -97,6 +98,7 @@ function openVersionedDatabase(
   migrationsFolder: string,
   kind: DbBackupKind,
   context?: VersionedDatabaseContext,
+  onPendingMigration?: () => void,
 ): { sqlite: Database } {
   const isMemory = path.startsWith("file:") && path.includes("mode=memory");
 
@@ -135,7 +137,7 @@ function openVersionedDatabase(
       verifyDatabaseBackup(backupPath);
       purgeOldBackups(context.backupDir, context.kind);
     }
-    executeSqliteMigrations(sqlite, migrationsFolder, version);
+    executeSqliteMigrations(sqlite, migrationsFolder, version, onPendingMigration);
   } catch (error) {
     sqlite.close();
     logDbOpenFailure(kind, path, "migrate", error);
@@ -168,12 +170,14 @@ export function openDb(location: DbLocation, options?: DbOpenOptions): Db {
   const catalogContext =
     backupDir === undefined ? undefined : { backupDir, kind: "catalog" as const };
   const userContext = backupDir === undefined ? undefined : { backupDir, kind: "user" as const };
+  const onPending = options?.onPendingMigration;
   const catalogOpened = openVersionedDatabase(
     catalogPath,
     CATALOG_SCHEMA_VERSION,
     CATALOG_MIGRATIONS,
     "catalog",
     catalogContext,
+    onPending ? () => onPending("catalog") : undefined,
   );
   let userOpened: { sqlite: Database };
   try {
@@ -183,6 +187,7 @@ export function openDb(location: DbLocation, options?: DbOpenOptions): Db {
       USER_MIGRATIONS,
       "user",
       userContext,
+      onPending ? () => onPending("user") : undefined,
     );
   } catch (error) {
     catalogOpened.sqlite.close();

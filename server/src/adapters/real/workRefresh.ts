@@ -38,14 +38,3 @@ export async function getWorkWithLiveProbe(
   if (!detail) return null;
   return resolveWorkWithLiveProbe(db, query, catalog, detail);
 }
-
-export async function getWorkByPhysicalPathWithLiveProbe(
-  db: Db,
-  query: WorkQueryRepository,
-  catalog: CatalogWorkRepository,
-  physicalPath: string,
-): Promise<Work | null> {
-  const detail = query.fetchWorkDetailByPhysicalPath(physicalPath);
-  if (!detail) return null;
-  return resolveWorkWithLiveProbe(db, query, catalog, detail);
-}

@@ -30,9 +30,3 @@ export function resolveFsDir(root: FsNode, rootAbs: string, target: string): FsN
   const node = resolveFsPath(root, rootAbs, target);
   return node?.isDir ? node : null;
 }
-
-export function isAudioFileType(fileType: string): boolean {
-  return ["mp3", "m4a", "aac", "wav", "ogg", "flac", "webm", "opus"].includes(
-    fileType.toLowerCase(),
-  );
-}

@@ -5,7 +5,12 @@ import { Database } from "bun:sqlite";
 import type { Work } from "@mimimilli/shared";
 import { openDb } from "../../src/adapters/real/db.ts";
 import { SQLITE_BUSY_TIMEOUT_MS } from "../../src/adapters/real/sqliteConnection.ts";
-import { createWorkRepos, upsertTestWork, resolvedDuration } from "../helpers/workTestUtils.ts";
+import {
+  createWorkRepos,
+  makeWork,
+  upsertTestWork,
+  resolvedDuration,
+} from "../helpers/workTestUtils.ts";
 import { makeTestDirectory } from "../helpers/sampleLibrary.ts";
 import type { BusyTimeoutWriteInput } from "./busyTimeoutWriteWorker.ts";
 
@@ -23,21 +28,11 @@ function workerFailureError(phase: string, event: Event): Error {
 
 function sampleWork(): Work {
   const playlistId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
-  return {
+  return makeWork({
     id: WORK_ID,
     title: "busy_timeout検証",
-    cover: null,
-    coverKind: "none",
-    coverImage: null,
-    status: "ok",
     physicalPath: "/library/busy-timeout",
-    totalDurationSec: 10,
-    addedAt: "2026-07-19T00:00:00.000Z",
-    errorMessage: null,
-    urls: [],
-    tags: [],
     defaultPlaylistId: playlistId,
-    createdAt: null,
     playlists: [
       {
         id: playlistId,
@@ -52,18 +47,7 @@ function sampleWork(): Work {
         ],
       },
     ],
-    bookmarked: false,
-    lastPlayedAt: null,
-    resume: null,
-    dlsite: {
-      rjCode: null,
-      status: "none",
-      lastAttemptAt: null,
-      error: null,
-      errorKind: null,
-      appliedTags: [],
-    },
-  };
+  });
 }
 
 function waitForWorkerMessage(

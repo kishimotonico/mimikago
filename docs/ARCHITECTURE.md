@@ -33,22 +33,26 @@ pnpm workspace のモノレポで、`client/` / `server/` / `shared/` の3パッ
 
 ## レイヤ境界の機械的検証
 
-依存方向は lint と境界スクリプトで固定する。`pnpm check` に含まれる。
+依存方向は `scripts/layer-boundary-rules.mjs` を正として固定する。`pnpm check` に含まれる。
 
-**client**（`.oxlintrc.json` + `scripts/check-layer-boundaries.mjs`）:
+- 境界スクリプト（`scripts/check-layer-boundaries.mjs`）は相対 import を解決して検査する（動的 import を含む）
+- oxlint の `no-restricted-imports` overrides は同じ定義から生成する（`node scripts/sync-oxlint-layer-overrides.mjs`）。feature を追加したらこのコマンドで `.oxlintrc.json` を更新する
+- App.tsx の Jotai read API 制限など、レイヤー境界以外のルールは手書きのまま `.oxlintrc.json` に残す
+
+**client**:
 
 - `features` 間の sibling import 禁止。複数 feature で共有する state・操作は `shared/model/` か `entities/` へ引き上げる
 - `features` → `app` の import 禁止（`app` → `feature` の composition は許可）
 - `entities`・`shared` への依存は許可。`shared` と `entities` は上位レイヤー（`features` / `app`）へ依存しない
 
-**server**（`.oxlintrc.json` + `scripts/check-layer-boundaries.mjs`）:
+**server**:
 
 - `routes/` → `adapters/`（`real` / `fixture` 含む）の直接 import 禁止。HTTP 層は `server/src/adapter/` の `DataAdapter` 境界を経由する
 - `adapters/` → `routes/` 禁止
 - `core/` → `routes/` / `adapters/` 禁止
 - `adapters/fixture/` ↔ `adapters/real/` の相互 import 禁止
 
-oxlint の `overrides[].files` は `**/…` 形式で書く（複数セグメントの相対パスは一致せず silent に無効化される）。
+oxlint の `overrides[].files` は `**/…` 形式で書く（複数セグメントの相対パスは一致せず silent に無効化される）。同じ `files` glob に当てはまる override は後勝ちになるため、1ファイルへ効かせる禁止則は1エントリにまとめる。
 
 ## サーバー内部の境界
 

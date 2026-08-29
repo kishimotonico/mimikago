@@ -16,6 +16,1021 @@
   },
   "overrides": [
     {
+      "files": ["**/client/src/shared/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/entities/**",
+                  "../entities/**",
+                  "../../entities/**",
+                  "../../../entities/**",
+                  "../../../../entities/**",
+                  "../../../../../entities/**"
+                ],
+                "message": "shared から entities/features/app への import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/**",
+                  "../features/**",
+                  "../../features/**",
+                  "../../../features/**",
+                  "../../../../features/**",
+                  "../../../../../features/**"
+                ],
+                "message": "shared から entities/features/app への import は禁止"
+              },
+              {
+                "group": [
+                  "**/app/**",
+                  "../app/**",
+                  "../../app/**",
+                  "../../../app/**",
+                  "../../../../app/**",
+                  "../../../../../app/**"
+                ],
+                "message": "shared から entities/features/app への import は禁止"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/client/src/entities/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/features/**",
+                  "../features/**",
+                  "../../features/**",
+                  "../../../features/**",
+                  "../../../../features/**",
+                  "../../../../../features/**"
+                ],
+                "message": "entities から features/app への import は禁止"
+              },
+              {
+                "group": [
+                  "**/app/**",
+                  "../app/**",
+                  "../../app/**",
+                  "../../../app/**",
+                  "../../../../app/**",
+                  "../../../../../app/**"
+                ],
+                "message": "entities から features/app への import は禁止"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/client/src/features/dlsite/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/app/**",
+                  "../app/**",
+                  "../../app/**",
+                  "../../../app/**",
+                  "../../../../app/**",
+                  "../../../../../app/**"
+                ],
+                "message": "features から app への import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/files/**",
+                  "../files/**",
+                  "../../files/**",
+                  "../../../files/**",
+                  "../../../../files/**",
+                  "../../../../../files/**"
+                ],
+                "message": "features/dlsite から features/files への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/library/**",
+                  "../library/**",
+                  "../../library/**",
+                  "../../../library/**",
+                  "../../../../library/**",
+                  "../../../../../library/**"
+                ],
+                "message": "features/dlsite から features/library への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/navigation/**",
+                  "../navigation/**",
+                  "../../navigation/**",
+                  "../../../navigation/**",
+                  "../../../../navigation/**",
+                  "../../../../../navigation/**"
+                ],
+                "message": "features/dlsite から features/navigation への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/player/**",
+                  "../player/**",
+                  "../../player/**",
+                  "../../../player/**",
+                  "../../../../player/**",
+                  "../../../../../player/**"
+                ],
+                "message": "features/dlsite から features/player への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/scan/**",
+                  "../scan/**",
+                  "../../scan/**",
+                  "../../../scan/**",
+                  "../../../../scan/**",
+                  "../../../../../scan/**"
+                ],
+                "message": "features/dlsite から features/scan への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/settings/**",
+                  "../settings/**",
+                  "../../settings/**",
+                  "../../../settings/**",
+                  "../../../../settings/**",
+                  "../../../../../settings/**"
+                ],
+                "message": "features/dlsite から features/settings への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/setup/**",
+                  "../setup/**",
+                  "../../setup/**",
+                  "../../../setup/**",
+                  "../../../../setup/**",
+                  "../../../../../setup/**"
+                ],
+                "message": "features/dlsite から features/setup への sibling import は禁止"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/client/src/features/files/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/app/**",
+                  "../app/**",
+                  "../../app/**",
+                  "../../../app/**",
+                  "../../../../app/**",
+                  "../../../../../app/**"
+                ],
+                "message": "features から app への import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/dlsite/**",
+                  "../dlsite/**",
+                  "../../dlsite/**",
+                  "../../../dlsite/**",
+                  "../../../../dlsite/**",
+                  "../../../../../dlsite/**"
+                ],
+                "message": "features/files から features/dlsite への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/library/**",
+                  "../library/**",
+                  "../../library/**",
+                  "../../../library/**",
+                  "../../../../library/**",
+                  "../../../../../library/**"
+                ],
+                "message": "features/files から features/library への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/navigation/**",
+                  "../navigation/**",
+                  "../../navigation/**",
+                  "../../../navigation/**",
+                  "../../../../navigation/**",
+                  "../../../../../navigation/**"
+                ],
+                "message": "features/files から features/navigation への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/player/**",
+                  "../player/**",
+                  "../../player/**",
+                  "../../../player/**",
+                  "../../../../player/**",
+                  "../../../../../player/**"
+                ],
+                "message": "features/files から features/player への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/scan/**",
+                  "../scan/**",
+                  "../../scan/**",
+                  "../../../scan/**",
+                  "../../../../scan/**",
+                  "../../../../../scan/**"
+                ],
+                "message": "features/files から features/scan への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/settings/**",
+                  "../settings/**",
+                  "../../settings/**",
+                  "../../../settings/**",
+                  "../../../../settings/**",
+                  "../../../../../settings/**"
+                ],
+                "message": "features/files から features/settings への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/setup/**",
+                  "../setup/**",
+                  "../../setup/**",
+                  "../../../setup/**",
+                  "../../../../setup/**",
+                  "../../../../../setup/**"
+                ],
+                "message": "features/files から features/setup への sibling import は禁止"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/client/src/features/library/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/app/**",
+                  "../app/**",
+                  "../../app/**",
+                  "../../../app/**",
+                  "../../../../app/**",
+                  "../../../../../app/**"
+                ],
+                "message": "features から app への import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/dlsite/**",
+                  "../dlsite/**",
+                  "../../dlsite/**",
+                  "../../../dlsite/**",
+                  "../../../../dlsite/**",
+                  "../../../../../dlsite/**"
+                ],
+                "message": "features/library から features/dlsite への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/files/**",
+                  "../files/**",
+                  "../../files/**",
+                  "../../../files/**",
+                  "../../../../files/**",
+                  "../../../../../files/**"
+                ],
+                "message": "features/library から features/files への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/navigation/**",
+                  "../navigation/**",
+                  "../../navigation/**",
+                  "../../../navigation/**",
+                  "../../../../navigation/**",
+                  "../../../../../navigation/**"
+                ],
+                "message": "features/library から features/navigation への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/player/**",
+                  "../player/**",
+                  "../../player/**",
+                  "../../../player/**",
+                  "../../../../player/**",
+                  "../../../../../player/**"
+                ],
+                "message": "features/library から features/player への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/scan/**",
+                  "../scan/**",
+                  "../../scan/**",
+                  "../../../scan/**",
+                  "../../../../scan/**",
+                  "../../../../../scan/**"
+                ],
+                "message": "features/library から features/scan への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/settings/**",
+                  "../settings/**",
+                  "../../settings/**",
+                  "../../../settings/**",
+                  "../../../../settings/**",
+                  "../../../../../settings/**"
+                ],
+                "message": "features/library から features/settings への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/setup/**",
+                  "../setup/**",
+                  "../../setup/**",
+                  "../../../setup/**",
+                  "../../../../setup/**",
+                  "../../../../../setup/**"
+                ],
+                "message": "features/library から features/setup への sibling import は禁止"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/client/src/features/navigation/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/app/**",
+                  "../app/**",
+                  "../../app/**",
+                  "../../../app/**",
+                  "../../../../app/**",
+                  "../../../../../app/**"
+                ],
+                "message": "features から app への import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/dlsite/**",
+                  "../dlsite/**",
+                  "../../dlsite/**",
+                  "../../../dlsite/**",
+                  "../../../../dlsite/**",
+                  "../../../../../dlsite/**"
+                ],
+                "message": "features/navigation から features/dlsite への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/files/**",
+                  "../files/**",
+                  "../../files/**",
+                  "../../../files/**",
+                  "../../../../files/**",
+                  "../../../../../files/**"
+                ],
+                "message": "features/navigation から features/files への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/library/**",
+                  "../library/**",
+                  "../../library/**",
+                  "../../../library/**",
+                  "../../../../library/**",
+                  "../../../../../library/**"
+                ],
+                "message": "features/navigation から features/library への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/player/**",
+                  "../player/**",
+                  "../../player/**",
+                  "../../../player/**",
+                  "../../../../player/**",
+                  "../../../../../player/**"
+                ],
+                "message": "features/navigation から features/player への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/scan/**",
+                  "../scan/**",
+                  "../../scan/**",
+                  "../../../scan/**",
+                  "../../../../scan/**",
+                  "../../../../../scan/**"
+                ],
+                "message": "features/navigation から features/scan への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/settings/**",
+                  "../settings/**",
+                  "../../settings/**",
+                  "../../../settings/**",
+                  "../../../../settings/**",
+                  "../../../../../settings/**"
+                ],
+                "message": "features/navigation から features/settings への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/setup/**",
+                  "../setup/**",
+                  "../../setup/**",
+                  "../../../setup/**",
+                  "../../../../setup/**",
+                  "../../../../../setup/**"
+                ],
+                "message": "features/navigation から features/setup への sibling import は禁止"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/client/src/features/player/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/app/**",
+                  "../app/**",
+                  "../../app/**",
+                  "../../../app/**",
+                  "../../../../app/**",
+                  "../../../../../app/**"
+                ],
+                "message": "features から app への import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/dlsite/**",
+                  "../dlsite/**",
+                  "../../dlsite/**",
+                  "../../../dlsite/**",
+                  "../../../../dlsite/**",
+                  "../../../../../dlsite/**"
+                ],
+                "message": "features/player から features/dlsite への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/files/**",
+                  "../files/**",
+                  "../../files/**",
+                  "../../../files/**",
+                  "../../../../files/**",
+                  "../../../../../files/**"
+                ],
+                "message": "features/player から features/files への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/library/**",
+                  "../library/**",
+                  "../../library/**",
+                  "../../../library/**",
+                  "../../../../library/**",
+                  "../../../../../library/**"
+                ],
+                "message": "features/player から features/library への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/navigation/**",
+                  "../navigation/**",
+                  "../../navigation/**",
+                  "../../../navigation/**",
+                  "../../../../navigation/**",
+                  "../../../../../navigation/**"
+                ],
+                "message": "features/player から features/navigation への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/scan/**",
+                  "../scan/**",
+                  "../../scan/**",
+                  "../../../scan/**",
+                  "../../../../scan/**",
+                  "../../../../../scan/**"
+                ],
+                "message": "features/player から features/scan への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/settings/**",
+                  "../settings/**",
+                  "../../settings/**",
+                  "../../../settings/**",
+                  "../../../../settings/**",
+                  "../../../../../settings/**"
+                ],
+                "message": "features/player から features/settings への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/setup/**",
+                  "../setup/**",
+                  "../../setup/**",
+                  "../../../setup/**",
+                  "../../../../setup/**",
+                  "../../../../../setup/**"
+                ],
+                "message": "features/player から features/setup への sibling import は禁止"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/client/src/features/scan/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/app/**",
+                  "../app/**",
+                  "../../app/**",
+                  "../../../app/**",
+                  "../../../../app/**",
+                  "../../../../../app/**"
+                ],
+                "message": "features から app への import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/dlsite/**",
+                  "../dlsite/**",
+                  "../../dlsite/**",
+                  "../../../dlsite/**",
+                  "../../../../dlsite/**",
+                  "../../../../../dlsite/**"
+                ],
+                "message": "features/scan から features/dlsite への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/files/**",
+                  "../files/**",
+                  "../../files/**",
+                  "../../../files/**",
+                  "../../../../files/**",
+                  "../../../../../files/**"
+                ],
+                "message": "features/scan から features/files への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/library/**",
+                  "../library/**",
+                  "../../library/**",
+                  "../../../library/**",
+                  "../../../../library/**",
+                  "../../../../../library/**"
+                ],
+                "message": "features/scan から features/library への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/navigation/**",
+                  "../navigation/**",
+                  "../../navigation/**",
+                  "../../../navigation/**",
+                  "../../../../navigation/**",
+                  "../../../../../navigation/**"
+                ],
+                "message": "features/scan から features/navigation への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/player/**",
+                  "../player/**",
+                  "../../player/**",
+                  "../../../player/**",
+                  "../../../../player/**",
+                  "../../../../../player/**"
+                ],
+                "message": "features/scan から features/player への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/settings/**",
+                  "../settings/**",
+                  "../../settings/**",
+                  "../../../settings/**",
+                  "../../../../settings/**",
+                  "../../../../../settings/**"
+                ],
+                "message": "features/scan から features/settings への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/setup/**",
+                  "../setup/**",
+                  "../../setup/**",
+                  "../../../setup/**",
+                  "../../../../setup/**",
+                  "../../../../../setup/**"
+                ],
+                "message": "features/scan から features/setup への sibling import は禁止"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/client/src/features/settings/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/app/**",
+                  "../app/**",
+                  "../../app/**",
+                  "../../../app/**",
+                  "../../../../app/**",
+                  "../../../../../app/**"
+                ],
+                "message": "features から app への import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/dlsite/**",
+                  "../dlsite/**",
+                  "../../dlsite/**",
+                  "../../../dlsite/**",
+                  "../../../../dlsite/**",
+                  "../../../../../dlsite/**"
+                ],
+                "message": "features/settings から features/dlsite への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/files/**",
+                  "../files/**",
+                  "../../files/**",
+                  "../../../files/**",
+                  "../../../../files/**",
+                  "../../../../../files/**"
+                ],
+                "message": "features/settings から features/files への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/library/**",
+                  "../library/**",
+                  "../../library/**",
+                  "../../../library/**",
+                  "../../../../library/**",
+                  "../../../../../library/**"
+                ],
+                "message": "features/settings から features/library への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/navigation/**",
+                  "../navigation/**",
+                  "../../navigation/**",
+                  "../../../navigation/**",
+                  "../../../../navigation/**",
+                  "../../../../../navigation/**"
+                ],
+                "message": "features/settings から features/navigation への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/player/**",
+                  "../player/**",
+                  "../../player/**",
+                  "../../../player/**",
+                  "../../../../player/**",
+                  "../../../../../player/**"
+                ],
+                "message": "features/settings から features/player への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/scan/**",
+                  "../scan/**",
+                  "../../scan/**",
+                  "../../../scan/**",
+                  "../../../../scan/**",
+                  "../../../../../scan/**"
+                ],
+                "message": "features/settings から features/scan への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/setup/**",
+                  "../setup/**",
+                  "../../setup/**",
+                  "../../../setup/**",
+                  "../../../../setup/**",
+                  "../../../../../setup/**"
+                ],
+                "message": "features/settings から features/setup への sibling import は禁止"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/client/src/features/setup/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/app/**",
+                  "../app/**",
+                  "../../app/**",
+                  "../../../app/**",
+                  "../../../../app/**",
+                  "../../../../../app/**"
+                ],
+                "message": "features から app への import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/dlsite/**",
+                  "../dlsite/**",
+                  "../../dlsite/**",
+                  "../../../dlsite/**",
+                  "../../../../dlsite/**",
+                  "../../../../../dlsite/**"
+                ],
+                "message": "features/setup から features/dlsite への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/files/**",
+                  "../files/**",
+                  "../../files/**",
+                  "../../../files/**",
+                  "../../../../files/**",
+                  "../../../../../files/**"
+                ],
+                "message": "features/setup から features/files への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/library/**",
+                  "../library/**",
+                  "../../library/**",
+                  "../../../library/**",
+                  "../../../../library/**",
+                  "../../../../../library/**"
+                ],
+                "message": "features/setup から features/library への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/navigation/**",
+                  "../navigation/**",
+                  "../../navigation/**",
+                  "../../../navigation/**",
+                  "../../../../navigation/**",
+                  "../../../../../navigation/**"
+                ],
+                "message": "features/setup から features/navigation への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/player/**",
+                  "../player/**",
+                  "../../player/**",
+                  "../../../player/**",
+                  "../../../../player/**",
+                  "../../../../../player/**"
+                ],
+                "message": "features/setup から features/player への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/scan/**",
+                  "../scan/**",
+                  "../../scan/**",
+                  "../../../scan/**",
+                  "../../../../scan/**",
+                  "../../../../../scan/**"
+                ],
+                "message": "features/setup から features/scan への sibling import は禁止"
+              },
+              {
+                "group": [
+                  "**/features/settings/**",
+                  "../settings/**",
+                  "../../settings/**",
+                  "../../../settings/**",
+                  "../../../../settings/**",
+                  "../../../../../settings/**"
+                ],
+                "message": "features/setup から features/settings への sibling import は禁止"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/server/src/routes/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/adapters/**",
+                  "../adapters/**",
+                  "../../adapters/**",
+                  "../../../adapters/**",
+                  "../../../../adapters/**",
+                  "../../../../../adapters/**"
+                ],
+                "message": "routes から adapters への直接 import は禁止"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/server/src/adapters/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/routes/**",
+                  "../routes/**",
+                  "../../routes/**",
+                  "../../../routes/**",
+                  "../../../../routes/**",
+                  "../../../../../routes/**"
+                ],
+                "message": "adapters から routes への import は禁止"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/server/src/core/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/routes/**",
+                  "../routes/**",
+                  "../../routes/**",
+                  "../../../routes/**",
+                  "../../../../routes/**",
+                  "../../../../../routes/**"
+                ],
+                "message": "core から routes への import は禁止"
+              },
+              {
+                "group": [
+                  "**/adapters/**",
+                  "../adapters/**",
+                  "../../adapters/**",
+                  "../../../adapters/**",
+                  "../../../../adapters/**",
+                  "../../../../../adapters/**"
+                ],
+                "message": "core から adapters への import は禁止"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/server/src/adapters/fixture/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/adapters/real/**",
+                  "../adapters/real/**",
+                  "../real/**",
+                  "../../adapters/real/**",
+                  "../../real/**",
+                  "../../../adapters/real/**",
+                  "../../../real/**",
+                  "../../../../adapters/real/**",
+                  "../../../../real/**",
+                  "../../../../../adapters/real/**",
+                  "../../../../../real/**"
+                ],
+                "message": "adapters/fixture から adapters/real への import は禁止"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/server/src/adapters/real/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/adapters/fixture/**",
+                  "../adapters/fixture/**",
+                  "../fixture/**",
+                  "../../adapters/fixture/**",
+                  "../../fixture/**",
+                  "../../../adapters/fixture/**",
+                  "../../../fixture/**",
+                  "../../../../adapters/fixture/**",
+                  "../../../../fixture/**",
+                  "../../../../../adapters/fixture/**",
+                  "../../../../../fixture/**"
+                ],
+                "message": "adapters/real から adapters/fixture への import は禁止"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["**/App.tsx"],
       "rules": {
         "no-restricted-imports": [
@@ -45,182 +1060,9 @@
       }
     },
     {
-      "files": ["**/client/src/shared/**"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "group": [
-                  "**/entities/**",
-                  "../entities/**",
-                  "../../entities/**",
-                  "../../../entities/**",
-                  "../../../../entities/**",
-                  "**/features/**",
-                  "../features/**",
-                  "../../features/**",
-                  "../../../features/**",
-                  "../../../../features/**",
-                  "**/app/**",
-                  "../app/**",
-                  "../../app/**",
-                  "../../../app/**",
-                  "../../../../app/**"
-                ],
-                "message": "shared から entities/features/app への import は禁止"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "files": ["**/client/src/entities/**"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "group": [
-                  "**/features/**",
-                  "../features/**",
-                  "../../features/**",
-                  "../../../features/**",
-                  "../../../../features/**",
-                  "**/app/**",
-                  "../app/**",
-                  "../../app/**",
-                  "../../../app/**",
-                  "../../../../app/**"
-                ],
-                "message": "entities から features/app への import は禁止"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "files": ["**/client/src/features/**"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "group": [
-                  "**/app/**",
-                  "../app/**",
-                  "../../app/**",
-                  "../../../app/**",
-                  "../../../../app/**"
-                ],
-                "message": "features から app への import は禁止"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "files": ["**/server/src/routes/**"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "group": ["**/adapters/real/**", "../adapters/real/**", "../../adapters/real/**"],
-                "message": "routes から adapters/real への直接 import は禁止"
-              },
-              {
-                "group": [
-                  "**/adapters/fixture/**",
-                  "../adapters/fixture/**",
-                  "../../adapters/fixture/**"
-                ],
-                "message": "routes から adapters/fixture への直接 import は禁止"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "files": ["**/server/src/adapters/**"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "group": ["**/routes/**", "../routes/**", "../../routes/**"],
-                "message": "adapters から routes への import は禁止"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "files": ["**/server/src/adapters/fixture/**"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "group": ["**/adapters/real/**", "../real/**", "../../real/**"],
-                "message": "adapters/fixture から adapters/real への import は禁止"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "files": ["**/server/src/adapters/real/**"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "group": ["**/adapters/fixture/**", "../fixture/**", "../../fixture/**"],
-                "message": "adapters/real から adapters/fixture への import は禁止"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
       "files": ["**/FilePreview.tsx"],
       "rules": {
         "jsx-a11y/media-has-caption": "off"
-      }
-    },
-    {
-      "files": ["**/server/src/core/**"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "group": ["**/routes/**", "../routes/**", "../../routes/**"],
-                "message": "core から routes への import は禁止"
-              },
-              {
-                "group": ["**/adapters/**", "../adapters/**", "../../adapters/**"],
-                "message": "core から adapters への import は禁止"
-              }
-            ]
-          }
-        ]
       }
     }
   ]

@@ -29,6 +29,7 @@ const inputClass =
 
 interface RegisterWorkDialogProps {
   folderPath: string;
+  targetKind?: "folder" | "file";
   preview: WorkRegisterPreview;
   onRegistered: () => void;
   onClose: () => void;
@@ -36,6 +37,7 @@ interface RegisterWorkDialogProps {
 
 export default function RegisterWorkDialog({
   folderPath,
+  targetKind = "folder",
   preview,
   onRegistered,
   onClose,
@@ -159,7 +161,9 @@ export default function RegisterWorkDialog({
             id="register-work-title"
             className="min-w-0 flex-1 font-sans text-[14px] font-semibold"
           >
-            このフォルダーを作品として登録
+            {targetKind === "file"
+              ? "このファイルを作品として登録"
+              : "このフォルダーを作品として登録"}
           </h2>
           <IconButton icon={I.x} label="閉じる" size="sm" disabled={submitBusy} onClick={close} />
         </header>
@@ -167,7 +171,9 @@ export default function RegisterWorkDialog({
         <div className="min-h-0 flex-1 overflow-y-auto px-[18px] py-3 text-[12px]">
           {preview.orphanedMeta && (
             <p className="mb-3 rounded-[6px] border border-line-soft bg-paper-0 px-3 py-2 text-[11px] leading-[1.6] text-ink-1">
-              このフォルダーには以前の登録情報が残っています。内容を引き継いで復元します。
+              {targetKind === "file"
+                ? "このファイルには以前の登録情報が残っています。内容を引き継いで復元します。"
+                : "このフォルダーには以前の登録情報が残っています。内容を引き継いで復元します。"}
             </p>
           )}
 

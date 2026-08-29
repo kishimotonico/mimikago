@@ -10,6 +10,7 @@ import {
   toTrackDurationFields,
   toWorkListItemDlsite,
   workListItemSchema,
+  workMediaRoot,
   workSchema,
   workSummarySchema,
 } from "@mimimilli/shared";
@@ -300,7 +301,9 @@ export function rowToWork(
     id: playlist.id,
     name: playlist.name,
     tracks: playlist.tracks.map((track) => {
-      const probe = liveFileProbes.get(join(row.physicalPath, track.file)) ?? { kind: "unprobed" };
+      const probe = liveFileProbes.get(join(workMediaRoot(row.physicalPath), track.file)) ?? {
+        kind: "unprobed",
+      };
       return { ...track, ...toTrackDurationFields(resolveTrackDuration(track, probe)) };
     }),
   }));

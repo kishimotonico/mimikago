@@ -1,4 +1,8 @@
-import { coverFieldsFromColumns, toTrackDurationFieldsFromSec } from "@mimimilli/shared";
+import {
+  coverFieldsFromColumns,
+  isAudioWorkPath,
+  toTrackDurationFieldsFromSec,
+} from "@mimimilli/shared";
 import type {
   ResolvedPlaylist,
   ResolvedTrack,
@@ -82,7 +86,10 @@ export function buildFullWork(
               return {
                 id: ids.playlists[0]!.trackIds[i]!,
                 title: namedTracks?.[i] ?? `Track ${i + 1}`,
-                file: `track${String(i + 1).padStart(2, "0")}.mp3`,
+                file: isAudioWorkPath(summary.physicalPath)
+                  ? (summary.physicalPath.split("/").pop() ??
+                    `track${String(i + 1).padStart(2, "0")}.mp3`)
+                  : `track${String(i + 1).padStart(2, "0")}.mp3`,
                 ...toTrackDurationFieldsFromSec(durationSec),
               };
             }),

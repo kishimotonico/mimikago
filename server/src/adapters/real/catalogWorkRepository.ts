@@ -1,6 +1,11 @@
 import { join } from "node:path";
 import { eq, inArray } from "drizzle-orm";
-import { parseTag, probeResultFromCache, resolveTrackDurationSec } from "@mimimilli/shared";
+import {
+  parseTag,
+  probeResultFromCache,
+  resolveTrackDurationSec,
+  workMediaRoot,
+} from "@mimimilli/shared";
 import type { NormalizedTag, DlsiteState, ScanDiagnostic, UrlEntry, Work } from "@mimimilli/shared";
 import { japaneseSortKey } from "../../core/japaneseSortKey.ts";
 import type { Db } from "./db.ts";
@@ -338,7 +343,7 @@ export class CatalogWorkRepository {
     const cacheRow = this.db.catalog
       .select({ durationSec: audioProbeCache.durationSec })
       .from(audioProbeCache)
-      .where(eq(audioProbeCache.path, join(track.physicalPath, track.file)))
+      .where(eq(audioProbeCache.path, join(workMediaRoot(track.physicalPath), track.file)))
       .get();
     const probe =
       track.end !== null ? ({ kind: "unprobed" } as const) : probeResultFromCache(cacheRow);

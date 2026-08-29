@@ -12,7 +12,13 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
-import { META_FILE_NAME, emptyDlsiteState, type MetaFile, workspacePath } from "@mimimilli/shared";
+import {
+  META_FILE_NAME,
+  emptyDlsiteState,
+  sidecarMetaFileName,
+  type MetaFile,
+  workspacePath,
+} from "@mimimilli/shared";
 import { createApp } from "../../src/app.ts";
 import { writeMetaFile } from "../../src/adapters/real/meta.ts";
 import { createTestRealAdapter } from "../helpers/realAdapter.ts";
@@ -737,4 +743,153 @@ test("POST /works: 孤立メタ復元時も defaultPlaylist キーを保持す�
   assert.equal(restoredMeta.id, restored.id);
   assert.equal(restoredMeta.defaultPlaylist, "default");
   assert.equal(restoredMeta.defaultPlaylistId, playlistId);
+});
+
+async function setupFileLibrary(t: TestContext) {
+  const directory = makeTestDirectory("work-register-file");
+  t.after(directory.cleanup);
+  const root = join(directory.path, "lib");
+  const fanza = join(root, "fanza");
+  mkdirSync(fanza, { recursive: true });
+  const audio = join(fanza, "d00001.wav");
+  writeWav(audio, 2);
+  const adapter = directory.own(createTestRealAdapter({ database: { kind: "memory" } }));
+  const app = createApp(adapter);
+  await adapter.updateSettings({ rootFolder: root });
+  return { app, adapter, root, fanza, audio };
+}
+
+test("GET /works/register-preview: 単一音声ファイルのタイトル候補を返す", async (t) => {
+  const { app, root, audio } = await setupFileLibrary(t);
+  const res = await app.request(
+    `/api/works/register-preview?path=${encodeURIComponent(workspace(root, audio))}`,
+  );
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.suggestedTitle, "d00001");
+  assert.equal(body.descendantWorkCount, 0);
+  assert.equal(body.alreadyRegistered, false);
+  assert.equal(body.orphanedMeta, false);
+});
+
+test("POST /works: 未登録の音声ファイルを単一ファイル作品として登録できる", async (t) => {
+  const { app, root, fanza, audio } = await setupFileLibrary(t);
+  const before = snapshotFiles(fanza, true);
+
+  const res = await app.request("/api/works", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: workspace(root, audio), title: "単一ファイル作品" }),
+  });
+  assert.equal(res.status, 201);
+  const body = await res.json();
+  assert.equal(body.title, "単一ファイル作品");
+  assert.equal(body.physicalPath, audio);
+  assert.equal(body.playlists.length, 1);
+  assert.equal(body.playlists[0].tracks.length, 1);
+  const track = body.playlists[0].tracks[0];
+  assert.equal(track.file, "d00001.wav");
+  assert.equal(track.title, "d00001");
+  assert.equal(track.start, undefined);
+  assert.equal(track.end, undefined);
+
+  const sidecar = join(fanza, sidecarMetaFileName("d00001.wav"));
+  assert.ok(existsSync(sidecar));
+  const meta = JSON.parse(readFileSync(sidecar, "utf-8")) as MetaFile;
+  assert.equal(meta.id, body.id);
+  assert.equal(meta.coverImage, null);
+  assert.equal(meta.playlists[0]?.tracks[0]?.file, "d00001.wav");
+  assert.equal(meta.playlists[0]?.tracks[0]?.start, undefined);
+  assert.equal(meta.playlists[0]?.tracks[0]?.end, undefined);
+
+  const listing = await app.request(`/api/fs?path=${encodeURIComponent("fanza")}`);
+  assert.equal(listing.status, 200);
+  const fsBody = await listing.json();
+  const fileEntry = fsBody.entries.find((entry: { name: string }) => entry.name === "d00001.wav");
+  assert.equal(fileEntry?.workId, body.id);
+  assert.equal(fileEntry?.workRelPath, "");
+  assert.ok(
+    !fsBody.entries.some((entry: { name: string }) => entry.name.endsWith(".mimimilli.json")),
+  );
+
+  const after = snapshotFiles(fanza, true);
+  assert.deepEqual(after, before);
+});
+
+test("POST /works: 既に登録済みの音声ファイルへ再実行すると 409 (already_registered)", async (t) => {
+  const { app, root, audio } = await setupFileLibrary(t);
+  const first = await app.request("/api/works", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: workspace(root, audio), title: "単一ファイル作品" }),
+  });
+  assert.equal(first.status, 201);
+
+  const second = await app.request("/api/works", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: workspace(root, audio), title: "再登録" }),
+  });
+  assert.equal(second.status, 409);
+
+  const preview = await app.request(
+    `/api/works/register-preview?path=${encodeURIComponent(workspace(root, audio))}`,
+  );
+  assert.equal(preview.status, 200);
+  assert.equal((await preview.json()).alreadyRegistered, true);
+});
+
+test("POST /works: 登録済みフォルダー配下の音声ファイルは 409", async (t) => {
+  const { app, root, parent } = await setupPlainLibrary(t);
+  const folderRes = await app.request("/api/works", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: workspace(root, parent), title: "親作品" }),
+  });
+  assert.equal(folderRes.status, 201);
+
+  const fileRes = await app.request("/api/works", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      path: workspace(root, join(parent, "intro.wav")),
+      title: "ファイル登録",
+    }),
+  });
+  assert.equal(fileRes.status, 409);
+});
+
+test("GET /works/register-preview: 非音声ファイルは 404", async (t) => {
+  const { app, root, fanza } = await setupFileLibrary(t);
+  const notes = join(fanza, "notes.txt");
+  writeFileSync(notes, "memo");
+  const preview = await app.request(
+    `/api/works/register-preview?path=${encodeURIComponent(workspace(root, notes))}`,
+  );
+  assert.equal(preview.status, 404);
+
+  const created = await app.request("/api/works", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: workspace(root, notes), title: "メモ" }),
+  });
+  assert.equal(created.status, 404);
+});
+
+test("DELETE /works: 単一ファイル作品の解除はサイドカーだけ消し音声は残す", async (t) => {
+  const { app, root, fanza, audio } = await setupFileLibrary(t);
+  const created = await app.request("/api/works", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: workspace(root, audio), title: "単一ファイル作品" }),
+  });
+  assert.equal(created.status, 201);
+  const work = await created.json();
+  const sidecar = join(fanza, sidecarMetaFileName("d00001.wav"));
+  assert.ok(existsSync(sidecar));
+
+  const deleted = await app.request(`/api/works/${work.id}`, { method: "DELETE" });
+  assert.equal(deleted.status, 204);
+  assert.ok(!existsSync(sidecar));
+  assert.ok(existsSync(audio));
 });

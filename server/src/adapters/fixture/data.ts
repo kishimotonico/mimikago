@@ -3,6 +3,7 @@
 import {
   dedupeTags,
   emptyDlsiteState,
+  isAudioWorkPath,
   normalizeTags,
   TEXT_PREVIEW_LIMIT_BYTES,
 } from "@mimimilli/shared";
@@ -492,8 +493,10 @@ export function buildFsRoot(
   works: WorkSummary[],
   coverColumns: ReadonlyMap<string, FixtureCoverColumns>,
 ): FsNode {
+  const folderWorks = works.filter((work) => !isAudioWorkPath(work.physicalPath));
+  const fileWorks = works.filter((work) => isAudioWorkPath(work.physicalPath));
   const byCircle = new Map<string, WorkSummary[]>();
-  for (const work of works) {
+  for (const work of folderWorks) {
     const circle = circleFromPhysicalPath(work.physicalPath);
     const list = byCircle.get(circle) ?? [];
     list.push(work);
@@ -511,8 +514,15 @@ export function buildFsRoot(
       ),
     );
 
+  const fanzaAudio = fsFile("d00001.mp3", "mp3", 1024 * 1024);
+  const fanzaWork = fileWorks.find((work) => work.physicalPath.endsWith("/fanza/d00001.mp3"));
+  const fanzaNode = fanzaWork
+    ? { ...fanzaAudio, workId: fanzaWork.id, workRelPath: "" }
+    : fanzaAudio;
+
   return fsDir("library", [
     fsDir("dlsite", circleDirs),
+    fsDir("fanza", [fanzaNode]),
     fsDir("viewer", [
       fsFile("sample.png", "image", 64 * 1024),
       fsFile("sample.pdf", "pdf", 64 * 1024),

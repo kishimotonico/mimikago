@@ -1,5 +1,5 @@
 import { statSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import type {
   DataIntegrityWarning,
   DlsiteNotificationKind,
@@ -16,6 +16,7 @@ import type {
   WorksPage,
   WorksQuery,
 } from "@mimimilli/shared";
+import { isAudioFileName } from "@mimimilli/shared";
 import { type Db } from "./db.ts";
 import { MetaParseError, patchMetaFileCas, readMetaSource } from "./meta.ts";
 import { SourceChangedError } from "../../errors.ts";
@@ -27,7 +28,12 @@ import type { CatalogWorkRepository } from "./catalogWorkRepository.ts";
 import type { UserWorkStateRepository } from "./userWorkStateRepository.ts";
 import type { WorkQueryRepository } from "./workQueryRepository.ts";
 import { getWorkWithLiveProbe } from "./workRefresh.ts";
-import { buildWorkRegisterPreview, createWorkFromFolder, unregisterWork } from "./workRegister.ts";
+import {
+  buildFileWorkRegisterPreview,
+  buildWorkRegisterPreview,
+  createWorkFromPath,
+  unregisterWork,
+} from "./workRegister.ts";
 
 const scanLogger = getCategoryLogger("scan");
 
@@ -73,19 +79,23 @@ export function createWorkMethods(deps: {
 
     async getWorkRegisterPreview(path: WorkspacePath): Promise<WorkRegisterPreview | null> {
       const root = requireRoot();
-      const workDir = resolveWithin(root, join(root, path));
-      if (!workDir) return null;
+      const target = resolveWithin(root, join(root, path));
+      if (!target) return null;
       try {
-        if (!statSync(workDir).isDirectory()) return null;
+        const stat = statSync(target);
+        if (stat.isDirectory()) return buildWorkRegisterPreview(query, target);
+        if (stat.isFile() && isAudioFileName(basename(target))) {
+          return buildFileWorkRegisterPreview(query, target, root);
+        }
+        return null;
       } catch {
         return null;
       }
-      return buildWorkRegisterPreview(query, workDir);
     },
 
     async createWork(body: WorkCreateBody): Promise<Work | null> {
       const root = requireRoot();
-      return await createWorkFromFolder(
+      return await createWorkFromPath(
         { query, catalog, user },
         scanner,
         root,

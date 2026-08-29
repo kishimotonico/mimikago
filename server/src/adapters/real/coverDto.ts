@@ -1,6 +1,6 @@
 import { statSync } from "node:fs";
 import { join } from "node:path";
-import { coverFieldsFromColumns, type Cover } from "@mimimilli/shared";
+import { coverFieldsFromColumns, workMediaRoot, type Cover } from "@mimimilli/shared";
 import { deriveCoverVersion } from "../../adapter/media.ts";
 
 export function statCoverSource(
@@ -8,7 +8,7 @@ export function statCoverSource(
   coverImage: string,
 ): { size: number; mtimeMs: number } | null {
   try {
-    const stats = statSync(join(physicalPath, coverImage));
+    const stats = statSync(join(workMediaRoot(physicalPath), coverImage));
     if (!stats.isFile()) return null;
     return { size: stats.size, mtimeMs: stats.mtimeMs };
   } catch {

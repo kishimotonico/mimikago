@@ -3,6 +3,7 @@ import {
   isInvalidTrackStart,
   resolveTrackDuration,
   toTrackDurationFields,
+  workMediaRoot,
   type MetaFile,
   type ProbeDurationResult,
   type ResolvedPlaylist,
@@ -37,8 +38,9 @@ export async function liveFileProbeMap(
   playlists: Array<{ tracks: Array<{ file: string }> }>,
   fetchProbeCache: (paths: string[]) => Map<string, ProbeCacheEntry>,
 ): Promise<Map<string, ProbeDurationResult>> {
+  const mediaRoot = workMediaRoot(physicalPath);
   const paths = [
-    ...new Set(playlists.flatMap((p) => p.tracks).map((t) => join(physicalPath, t.file))),
+    ...new Set(playlists.flatMap((p) => p.tracks).map((t) => join(mediaRoot, t.file))),
   ];
   const map = new Map<string, ProbeDurationResult>();
   if (paths.length === 0) return map;

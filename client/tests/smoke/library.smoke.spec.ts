@@ -428,3 +428,27 @@ test("Files: Workspace viewerで画像・PDF・text・videoをプレビューで
 
   assertNoErrors(tracker);
 });
+
+test("Files: 未登録の音声ファイルを作品として登録できる", async ({ page }) => {
+  const tracker = trackErrors(page);
+  await openApp(page);
+
+  await page.getByRole("button", { name: "ファイル", exact: true }).click();
+  await page.getByTitle("fanza").dblclick();
+  await expect(page.getByTitle("d00001.mp3")).toBeVisible();
+  await page.getByTitle("d00001.mp3").click();
+
+  const preview = page.locator(".mle-prv.is-files");
+  await preview.getByRole("button", { name: "このファイルを作品として登録" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "このファイルを作品として登録" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "登録" }).click();
+  await expect(preview.getByRole("button", { name: "作品登録を解除" })).toBeVisible();
+
+  await page.getByRole("button", { name: "ライブラリ", exact: true }).click();
+  await page.getByPlaceholder("ライブラリを検索（タイトル · CV · タグ · RJ ...）").fill("d00001");
+  await expect(page.getByRole("button", { name: /FANZA単一ファイル|d00001/ })).toBeVisible();
+
+  assertNoErrors(tracker);
+});

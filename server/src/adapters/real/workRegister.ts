@@ -1,6 +1,6 @@
 // ファイルモードからの手動作品登録。メタファイル生成と子作品の登録解除のみ行い、物理ファイルは移動しない。
 import { existsSync, renameSync, statSync, unlinkSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import type {
   DlsiteRegistrationBody,
   MetaFile,
@@ -8,7 +8,12 @@ import type {
   WorkCreateBody,
   WorkRegisterPreview,
 } from "@mimimilli/shared";
-import { emptyDlsiteState } from "@mimimilli/shared";
+import {
+  emptyDlsiteState,
+  isAudioFileName,
+  isAudioWorkPath,
+  sidecarMetaFileName,
+} from "@mimimilli/shared";
 import { detectRjCode } from "./dlsite.ts";
 import { toMetaDlsiteState } from "./dlsiteProjection.ts";
 import { META_FILE_NAME, MetaParseError, readMetaFile, readMetaFileRaw } from "./meta.ts";
@@ -26,6 +31,34 @@ function isDirectory(path: string): boolean {
   } catch {
     return false;
   }
+}
+
+function isFile(path: string): boolean {
+  try {
+    return statSync(path).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function sidecarPathForAudio(audioPath: string): string {
+  return join(dirname(audioPath), sidecarMetaFileName(basename(audioPath)));
+}
+
+function ancestorFolderIsRegistered(
+  query: WorkQueryRepository,
+  audioPath: string,
+  root: string,
+): boolean {
+  let current = dirname(audioPath);
+  while (true) {
+    if (query.getWorkByPhysicalPathSync(current) !== null) return true;
+    if (current === root) break;
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return false;
 }
 
 export class MetaUnregisterError extends Error {
@@ -83,11 +116,13 @@ function resolveMetaDeletionPlan(
   }
 
   if (physicalPath) {
-    const folderMeta = folderMetaPathOf(physicalPath);
-    const stagedAtFolder = findStagedMetaPlan(workId, folderMeta);
-    if (stagedAtFolder) return stagedAtFolder;
-    if (existsSync(folderMeta) && metaFileIdMatches(folderMeta, workId)) {
-      return { canonicalPath: folderMeta, stagedPath: metaStagingPath(folderMeta) };
+    const canonicalPath = isAudioWorkPath(physicalPath)
+      ? sidecarPathForAudio(physicalPath)
+      : folderMetaPathOf(physicalPath);
+    const stagedAtFallback = findStagedMetaPlan(workId, canonicalPath);
+    if (stagedAtFallback) return stagedAtFallback;
+    if (existsSync(canonicalPath) && metaFileIdMatches(canonicalPath, workId)) {
+      return { canonicalPath, stagedPath: metaStagingPath(canonicalPath) };
     }
   }
 
@@ -211,6 +246,39 @@ export function buildWorkRegisterPreview(
   };
 }
 
+export function buildFileWorkRegisterPreview(
+  query: WorkQueryRepository,
+  audioPath: string,
+  root: string,
+): WorkRegisterPreview {
+  const fileName = basename(audioPath);
+  const stem = fileName.replace(/\.[^.]+$/, "");
+  const metaPath = sidecarPathForAudio(audioPath);
+  const dbWork = query.getWorkByPhysicalPathSync(audioPath);
+  const orphanedMeta = existsSync(metaPath) && dbWork === null;
+
+  let suggestedTitle = stem;
+  let tags: string[] = [];
+  if (orphanedMeta) {
+    try {
+      const meta = readMetaFile(metaPath);
+      suggestedTitle = meta.title;
+      tags = meta.tags;
+    } catch {
+      // メタ不正は preview では隠蔽せずファイル名へフォールバック。POST で invalid_meta を返す。
+    }
+  }
+
+  return {
+    suggestedTitle,
+    tags,
+    detectedRjCode: detectRjCode([fileName, stem]),
+    descendantWorkCount: 0,
+    alreadyRegistered: dbWork !== null || ancestorFolderIsRegistered(query, audioPath, root),
+    orphanedMeta,
+  };
+}
+
 /** DLsite適用結果のうち、フォーム由来の title/tags を上書きしない部分だけを表す */
 interface DlsiteAppliedMeta {
   urls: Work["urls"];
@@ -323,6 +391,122 @@ export async function createWorkFromFolder(
   });
   unregisterDescendantWorks(query, catalog, user, descendants);
   return work;
+}
+
+export async function createWorkFromPath(
+  repos: {
+    query: WorkQueryRepository;
+    catalog: CatalogWorkRepository;
+    user: UserWorkStateRepository;
+  },
+  scanner: Scanner,
+  root: string,
+  body: WorkCreateBody,
+  applyDlsiteCover?: (coverUrl: string, workDir: string) => Promise<string | null>,
+): Promise<Work> {
+  const target = resolveWithin(root, join(root, body.path));
+  if (!target) {
+    throw new WorkRegisterError(
+      "not_configured",
+      "指定されたパスは存在しないか、ルート配下ではありません",
+    );
+  }
+  if (isDirectory(target)) {
+    return createWorkFromFolder(repos, scanner, root, body, applyDlsiteCover);
+  }
+  if (isFile(target) && isAudioFileName(basename(target))) {
+    return createWorkFromAudioFile(repos, scanner, root, target, body, applyDlsiteCover);
+  }
+  throw new WorkRegisterError(
+    "not_configured",
+    "指定されたパスは存在しないか、ルート配下ではありません",
+  );
+}
+
+async function createWorkFromAudioFile(
+  repos: {
+    query: WorkQueryRepository;
+    catalog: CatalogWorkRepository;
+    user: UserWorkStateRepository;
+  },
+  scanner: Scanner,
+  root: string,
+  audioPath: string,
+  body: WorkCreateBody,
+  applyDlsiteCover?: (coverUrl: string, workDir: string) => Promise<string | null>,
+): Promise<Work> {
+  const { query } = repos;
+  const dbWork = query.getWorkByPhysicalPathSync(audioPath);
+  if (dbWork !== null || ancestorFolderIsRegistered(query, audioPath, root)) {
+    throw new WorkRegisterError(
+      "already_registered",
+      "このファイルは既に作品として登録されています",
+    );
+  }
+
+  const metaPath = sidecarPathForAudio(audioPath);
+  const parentDir = dirname(audioPath);
+  const orphanedMeta = existsSync(metaPath);
+  if (orphanedMeta) {
+    let meta: MetaFile;
+    try {
+      meta = readMetaFile(metaPath);
+    } catch (error) {
+      if (error instanceof MetaParseError) {
+        throw new WorkRegisterError("invalid_meta", "メタファイルが不正なため復元できません");
+      }
+      throw error;
+    }
+
+    const metaPatch: {
+      title?: string;
+      tags?: string[];
+      urls?: Work["urls"];
+      coverImage?: string | null;
+      dlsite?: Work["dlsite"];
+    } = {};
+
+    if (body.title !== meta.title) metaPatch.title = body.title;
+    metaPatch.tags = body.tags;
+
+    if (body.dlsite) {
+      const applied = await buildMetaFromDlsiteApply(body.dlsite, parentDir, applyDlsiteCover);
+      if (body.dlsite.applyUrl) {
+        metaPatch.urls = [
+          ...meta.urls.filter((entry) => !entry.url.includes("dlsite.com")),
+          ...applied.urls,
+        ];
+      }
+      if (applied.coverImage !== undefined) metaPatch.coverImage = applied.coverImage;
+      metaPatch.dlsite = applied.dlsite;
+    }
+
+    return await scanner.restoreSidecarWork(audioPath, metaPatch);
+  }
+
+  const title = body.title;
+  const tags = body.tags;
+  let urls: Work["urls"] = [];
+  let coverImage: string | null | undefined;
+  let dlsite = emptyDlsiteState();
+
+  if (body.dlsite) {
+    const applied = await buildMetaFromDlsiteApply(body.dlsite, parentDir, applyDlsiteCover);
+    urls = applied.urls;
+    coverImage = applied.coverImage;
+    dlsite = applied.dlsite;
+  } else {
+    const detectedRjCode = detectRjCode([basename(audioPath), title]);
+    if (detectedRjCode) dlsite = { ...emptyDlsiteState(), rjCode: detectedRjCode };
+  }
+
+  return await scanner.registerFileWork(audioPath, {
+    title,
+    tags,
+    urls,
+    coverImage,
+    dlsite,
+  });
 }
 
 async function buildMetaFromDlsiteApply(

@@ -1,6 +1,7 @@
 import {
   applyDlsiteStatePatch,
   dedupeTags,
+  workMediaRoot,
   type DlsiteStatePatch,
   type NormalizedTag,
   type Work,
@@ -57,9 +58,10 @@ export function createDlsiteApply(deps: DlsiteApplyDeps) {
       }
       let coverImage: string | undefined;
       if (body.applyCover && body.info.coverUrl) {
-        coverImage = await cachedCover(body.info.coverUrl, work.physicalPath, signal);
+        const mediaRoot = workMediaRoot(work.physicalPath);
+        coverImage = await cachedCover(body.info.coverUrl, mediaRoot, signal);
         throwIfAborted(signal, "DLsite一括取得はキャンセルされました");
-        const cover = await measureDownloadedCover(work.physicalPath, coverImage);
+        const cover = await measureDownloadedCover(mediaRoot, coverImage);
         if (!cover) return false;
         throwIfAborted(signal, "DLsite一括取得はキャンセルされました");
         patch.cover = cover;

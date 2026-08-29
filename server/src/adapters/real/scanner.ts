@@ -10,7 +10,12 @@ import type {
   UrlEntry,
   Work,
 } from "@mimimilli/shared";
-import { emptyDlsiteState, isRjCodeMissing, workspacePath } from "@mimimilli/shared";
+import {
+  emptyDlsiteState,
+  isRjCodeMissing,
+  sidecarMetaFileName,
+  workspacePath,
+} from "@mimimilli/shared";
 import type { Db } from "./db.ts";
 import type { ScanOptions } from "../../adapter/index.ts";
 import {
@@ -568,6 +573,87 @@ export class Scanner {
     const workId = reassignMetaIdsOnDbCollision(metaPath, (id) => {
       const existing = this.query.getScanWorkMap().get(id);
       return existing !== undefined && existing.physicalPath !== workDir;
+    });
+    const prepared = prepareSingleMeta(metaPath);
+    return this.registerSingleWorkFromPrepared(
+      prepared,
+      workId,
+      "復元した作品の取得に失敗しました",
+    );
+  }
+
+  async registerFileWork(
+    audioPath: string,
+    options: {
+      title: string;
+      tags?: NormalizedTag[];
+      urls?: UrlEntry[];
+      coverImage?: string | null;
+      dlsite?: MetaFile["dlsite"];
+    },
+  ): Promise<Work> {
+    const audioName = basename(audioPath);
+    const metaPath = join(dirname(audioPath), sidecarMetaFileName(audioName));
+    if (existsSync(metaPath)) {
+      throw new Error("このファイルには既にメタファイルがあります");
+    }
+
+    const stem = audioName.replace(/\.[^.]+$/, "");
+    const dlsite =
+      options.dlsite ??
+      (() => {
+        const detected = detectRjCode([audioName, options.title]);
+        return detected ? { ...emptyDlsiteState(), rjCode: detected } : emptyDlsiteState();
+      })();
+
+    const meta = createDraftMetaFile(dirname(audioPath), {
+      id: crypto.randomUUID(),
+      title: options.title,
+      tags: options.tags,
+      urls: options.urls,
+      coverImage: options.coverImage ?? null,
+      dlsite,
+      tracks: [{ id: crypto.randomUUID(), title: stem, file: audioName }],
+    });
+    writeMetaFile(metaPath, meta);
+
+    const prepared = prepareSingleMeta(metaPath);
+    return this.registerSingleWorkFromPrepared(
+      prepared,
+      meta.id,
+      "登録した作品の取得に失敗しました",
+    );
+  }
+
+  async restoreSidecarWork(
+    audioPath: string,
+    patch: {
+      title?: string;
+      tags?: string[];
+      urls?: UrlEntry[];
+      coverImage?: string | null;
+      dlsite?: MetaFile["dlsite"];
+    },
+  ): Promise<Work> {
+    const metaPath = join(dirname(audioPath), sidecarMetaFileName(basename(audioPath)));
+    if (!existsSync(metaPath)) {
+      throw new Error("復元対象のメタファイルがありません");
+    }
+
+    const metaPatch: typeof patch = {};
+    if (patch.title !== undefined) metaPatch.title = patch.title;
+    if (patch.tags !== undefined) metaPatch.tags = patch.tags;
+    if (patch.urls !== undefined) metaPatch.urls = patch.urls;
+    if (patch.coverImage !== undefined) metaPatch.coverImage = patch.coverImage;
+    if (patch.dlsite !== undefined) metaPatch.dlsite = patch.dlsite;
+    if (Object.keys(metaPatch).length > 0) {
+      const source = readMetaSource(metaPath);
+      patchMetaFileCas(metaPath, source.sourceRevision, metaPatch);
+    }
+
+    const workId = reassignMetaIdsOnDbCollision(metaPath, (id) => {
+      const existing = this.query.getScanWorkMap().get(id);
+      return existing !== undefined && existing.physicalPath !== audioPath;
     });
     const prepared = prepareSingleMeta(metaPath);
     return this.registerSingleWorkFromPrepared(

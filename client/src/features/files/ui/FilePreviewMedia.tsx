@@ -169,7 +169,12 @@ function VideoMedia({ entry, src }: { entry: FsEntry; src: string }) {
       {(onError) => (
         <>
           <div className="mle-fprev__media is-video">
-            <video className="mle-fprev__video" controls src={src} onError={onError}>
+            <video // oxlint-disable-line jsx-a11y/media-has-caption -- ローカル作品プレビューに字幕は無い
+              className="mle-fprev__video"
+              controls
+              src={src}
+              onError={onError}
+            >
               このブラウザは動画再生に対応していません。
             </video>
           </div>

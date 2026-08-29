@@ -2,12 +2,10 @@ import { sep } from "node:path";
 import { asc, eq } from "drizzle-orm";
 import {
   createRandomSeed,
+  dlsiteNotificationItemSchema,
   evaluateParseErrorAlert,
-  extractCircleName,
   isCoverUnmeasured,
   projectCoverKind,
-  relativeToRoot,
-  toWorkListItemDlsite,
   withNormalizeTagBatchCache,
 } from "@mimimilli/shared";
 import type {
@@ -23,6 +21,8 @@ import type {
 } from "@mimimilli/shared";
 import type { AxisFacetsQuery } from "@mimimilli/shared";
 import { japaneseSortKey } from "../../core/japaneseSortKey.ts";
+import { getCategoryLogger } from "../../lib/logger.ts";
+import { logDataIntegritySkips, toDataIntegrityWarning } from "./dataIntegrity.ts";
 import type { Db } from "./db.ts";
 import { tags, workDlsite, workTags, works } from "./catalogSchema.ts";
 import {
@@ -58,18 +58,22 @@ import {
   type ListSummariesResult,
   mapRawWorkRows,
   parseDlsiteStateJson,
+  parseRecord,
   type RawPlaylistRow,
   type RawSummaryListRow,
   type RawWorkListRow,
   type RawWorkRow,
   type SummaryRow,
   rowToSummary,
+  rowToWorkListItem,
   type WorkDetailParts,
   type WorkRow,
   PersistentDataError,
 } from "./workRowMapping.ts";
 import { coverDtoFromColumns, statCoverSource } from "./coverDto.ts";
 import { deriveCoverVersion } from "../../adapter/media.ts";
+
+const queryWorksLogger = getCategoryLogger("http");
 
 export class WorkQueryRepository {
   private readonly db: Db;
@@ -396,29 +400,34 @@ export class WorkQueryRepository {
         .all(...bindings, ...orderBindings, ...paginationBindings) as RawWorkListRow[];
       const workIds = rows.map((row) => row.id);
       const tagsByWork = this.tagMap(workIds);
-      const items = rows.map((row) => ({
-        id: row.id,
-        title: row.title,
-        cover: coverDtoFromColumns(
-          row.id,
-          row.physicalPath,
-          row.coverImage,
-          row.coverWidth,
-          row.coverHeight,
-        ),
-        status: row.status,
-        totalDurationSec: row.totalDurationSec,
-        trackCount: row.trackCount,
-        bookmarked: row.bookmarked !== 0,
-        lastPlayedAt: row.lastPlayedAt,
-        circleName: extractCircleName(tagsByWork.get(row.id) ?? []),
-        relativePath: relativeToRoot(row.physicalPath, root),
-        dlsite: toWorkListItemDlsite(parseDlsiteStateJson(row.id, row.dlsiteStateJson)),
-      }));
+      const items: WorksPage["items"] = [];
+      const skipped: ListSummariesResult["skipped"] = [];
+      for (const row of rows) {
+        try {
+          items.push(
+            rowToWorkListItem(
+              row,
+              tagsByWork.get(row.id) ?? [],
+              parseDlsiteStateJson(row.id, row.dlsiteStateJson),
+              root,
+            ),
+          );
+        } catch (error) {
+          if (error instanceof PersistentDataError) {
+            skipped.push({ workId: row.id, reason: error.message });
+            continue;
+          }
+          throw error;
+        }
+      }
+      logDataIntegritySkips(queryWorksLogger, "query-works", skipped);
+      const dataIntegrityWarning = toDataIntegrityWarning(skipped);
       const stats = { trackCount: statsRow.trackCount, durationSec: statsRow.durationSec };
-      return seed === undefined
-        ? { items, total: statsRow.total, stats }
-        : { items, total: statsRow.total, stats, seed };
+      const page: WorksPage =
+        seed === undefined
+          ? { items, total: statsRow.total, stats }
+          : { items, total: statsRow.total, stats, seed };
+      return dataIntegrityWarning ? { ...page, dataIntegrityWarning } : page;
     });
   }
 
@@ -473,9 +482,12 @@ export class WorkQueryRepository {
       id: string;
       title: string;
       rjCode: string | null;
-      status: "none" | "applied" | "not_found" | "error" | "skipped";
+      status: unknown;
     }>;
-    return { items: rows, total: count.total };
+    const items = rows.map((row) =>
+      parseRecord(dlsiteNotificationItemSchema, row, "works", row.id),
+    );
+    return { items, total: count.total };
   }
 
   getScanWorkMap() {

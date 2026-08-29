@@ -7,7 +7,7 @@ import type { Work } from "@mimimilli/shared";
 import { createApp } from "../../src/app.ts";
 import { createRealAdapter } from "../../src/adapters/real/index.ts";
 import { openDb } from "../../src/adapters/real/db.ts";
-import { tags } from "../../src/adapters/real/catalogSchema.ts";
+import { tags, works } from "../../src/adapters/real/catalogSchema.ts";
 import { Scanner } from "../../src/adapters/real/scanner.ts";
 import { querySmartFolderWorks } from "../../src/adapters/real/smartFolderWorks.ts";
 import { createWorkRepos, upsertTestWork, resolvedDuration } from "../helpers/workTestUtils.ts";
@@ -230,6 +230,35 @@ test("HTTP smart folder は dataIntegrityWarning を返す", async (t) => {
     body.items.map((item) => item.id),
     [goodId],
   );
+  assert.equal(body.dataIntegrityWarning?.skippedCount, 1);
+  assert.deepEqual(body.dataIntegrityWarning?.skippedWorkIds, [badId]);
+});
+
+test("GET /api/works は不正な status の作品を除外し dataIntegrityWarning を返す", async (t) => {
+  const directory = makeTestDirectory("works-query-integrity");
+  t.after(directory.cleanup);
+  const db = directory.own(openFileDb(directory.path));
+  const { catalog, user } = createWorkRepos(db);
+  const goodId = "work-good";
+  const badId = "work-bad";
+  upsertTestWork(catalog, user, sampleWork(goodId, "cv/正常"));
+  upsertTestWork(catalog, user, sampleWork(badId, "cv/正常"));
+  db.catalog.update(works).set({ status: "unknown" }).where(eq(works.id, badId)).run();
+  user.setUserSetting("root_folder", "/library");
+  const adapter = fileAdapter(directory);
+  const app = createApp(adapter);
+  const res = await app.request("/api/works");
+  assert.equal(res.status, 200);
+  const body = (await res.json()) as {
+    items: Array<{ id: string }>;
+    total: number;
+    dataIntegrityWarning?: { skippedCount: number; skippedWorkIds: string[] };
+  };
+  assert.deepEqual(
+    body.items.map((item) => item.id),
+    [goodId],
+  );
+  assert.equal(body.total, 2);
   assert.equal(body.dataIntegrityWarning?.skippedCount, 1);
   assert.deepEqual(body.dataIntegrityWarning?.skippedWorkIds, [badId]);
 });

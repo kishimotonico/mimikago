@@ -93,6 +93,28 @@ test("works.status が不正なら listSummaries は当該作品を隔離して�
   assert.match(result.skipped[0]!.reason, /status:/);
 });
 
+test("works.status が不正なら queryWorks は当該作品を隔離して続行する", (t) => {
+  const scope = makeTestScope();
+  t.after(scope.cleanup);
+  const db = scope.own(openDb({ kind: "memory" }));
+  const { query, catalog, user } = createWorkRepos(db);
+  const good = sampleWork("work-good-query");
+  const bad = sampleWork("work-bad-query");
+  upsertTestWork(catalog, user, good);
+  upsertTestWork(catalog, user, bad);
+  db.catalog.update(works).set({ status: "unknown" }).where(eq(works.id, bad.id)).run();
+
+  const page = query.queryWorks(
+    { q: "", tags: { tags: [], yearValue: null }, tagOp: "AND", sort: "id-asc" },
+    "/library",
+  );
+  assert.equal(page.items.length, 1);
+  assert.equal(page.items[0]!.id, good.id);
+  assert.equal(page.total, 2);
+  assert.equal(page.dataIntegrityWarning?.skippedCount, 1);
+  assert.deepEqual(page.dataIntegrityWarning?.skippedWorkIds, [bad.id]);
+});
+
 test("defaultPlaylistが関係表にない場合はgetWorkが不正データとして扱う", async (t) => {
   const scope = makeTestScope();
   t.after(scope.cleanup);

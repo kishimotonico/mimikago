@@ -3,9 +3,13 @@ import {
   coverFieldsFromColumns,
   dlsiteStateSchema,
   emptyDlsiteState,
+  extractCircleName,
+  relativeToRoot,
   resolveTrackDuration,
   selectDefaultPlaylist,
   toTrackDurationFields,
+  toWorkListItemDlsite,
+  workListItemSchema,
   workSchema,
   workSummarySchema,
 } from "@mimimilli/shared";
@@ -14,6 +18,7 @@ import type {
   ProbeDurationResult,
   ResolvedPlaylist,
   Work,
+  WorkListItem,
   WorkSummary,
 } from "@mimimilli/shared";
 import { z } from "zod";
@@ -206,6 +211,38 @@ export function rowToSummary(
       bookmarked: row.bookmarked,
       lastPlayedAt: row.lastPlayedAt,
       dlsite,
+    },
+    "works",
+    row.id,
+  );
+}
+
+export function rowToWorkListItem(
+  row: RawWorkListRow,
+  tagNames: string[],
+  dlsite: DlsiteState,
+  root: string,
+): WorkListItem {
+  return parseRecord(
+    workListItemSchema,
+    {
+      id: row.id,
+      title: row.title,
+      cover: coverDtoFromColumns(
+        row.id,
+        row.physicalPath,
+        row.coverImage,
+        row.coverWidth,
+        row.coverHeight,
+      ),
+      status: row.status,
+      totalDurationSec: row.totalDurationSec,
+      trackCount: row.trackCount,
+      bookmarked: row.bookmarked !== 0,
+      lastPlayedAt: row.lastPlayedAt,
+      circleName: extractCircleName(tagNames),
+      relativePath: relativeToRoot(row.physicalPath, root),
+      dlsite: toWorkListItemDlsite(dlsite),
     },
     "works",
     row.id,

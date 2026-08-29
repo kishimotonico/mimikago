@@ -202,17 +202,6 @@ export class WorkQueryRepository {
     };
   }
 
-  fetchWorkDetailByPhysicalPath(physicalPath: string): WorkDetailParts | null {
-    const row = this.joinedWorks("WHERE works.physical_path = ?", physicalPath)[0];
-    if (!row) return null;
-    return {
-      row,
-      rawPlaylists: this.playlistsForWork(row.id),
-      tagNames: this.tagMap([row.id]).get(row.id) ?? [],
-      dlsite: this.dlsiteState(row.id),
-    };
-  }
-
   listSummaries(workIds?: string[]): ListSummariesResult {
     return withNormalizeTagBatchCache(() => {
       if (workIds !== undefined && workIds.length === 0) {

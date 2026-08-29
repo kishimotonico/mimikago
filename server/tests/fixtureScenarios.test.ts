@@ -291,3 +291,40 @@ test("fixture: RJコード変更で旧状態をリセットし一括取得対象
   assert.equal(bulk.fetched, 1);
   assert.equal(bulk.skipped, 0);
 });
+
+test("fixture: 単一音声ファイルのregister-previewと登録ができる", async () => {
+  const app = buildApp();
+  const previewRes = await app.request("/api/works/register-preview?path=fanza/d00001.mp3");
+  assert.equal(previewRes.status, 200);
+  const preview = await previewRes.json();
+  assert.equal(preview.suggestedTitle, "d00001");
+  assert.equal(preview.alreadyRegistered, false);
+  assert.equal(preview.descendantWorkCount, 0);
+
+  const created = await app.request("/api/works", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: "fanza/d00001.mp3", title: "FANZA単一ファイル" }),
+  });
+  assert.equal(created.status, 201);
+  const work = await created.json();
+  assert.equal(work.title, "FANZA単一ファイル");
+  assert.ok(work.physicalPath.endsWith("/fanza/d00001.mp3"));
+  assert.equal(work.playlists[0].tracks.length, 1);
+  assert.equal(work.playlists[0].tracks[0].file, "d00001.mp3");
+
+  const listing = await app.request("/api/fs?path=fanza");
+  assert.equal(listing.status, 200);
+  const file = (await listing.json()).entries.find(
+    (entry: { name: string }) => entry.name === "d00001.mp3",
+  );
+  assert.equal(file?.workId, work.id);
+  assert.equal(file?.workRelPath, "");
+
+  const again = await app.request("/api/works", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path: "fanza/d00001.mp3", title: "再登録" }),
+  });
+  assert.equal(again.status, 409);
+});

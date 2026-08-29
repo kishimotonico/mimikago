@@ -212,6 +212,38 @@ test("PATCH /api/works/:id でタグ更新が反映される", async () => {
   assert.deepEqual(fetched.tags, ["テスト用タグ"]);
 });
 
+test("PATCH /api/works/:id でurls更新が反映される", async () => {
+  const app = buildApp();
+  const listRes = await app.request("/api/works");
+  const { items } = await listRes.json();
+  const targetId = items[0].id;
+  const detail = await (await app.request(`/api/works/${targetId}`)).json();
+  const urls = [{ label: "公式", url: "https://example.com/work" }];
+  const patchRes = await app.request(`/api/works/${targetId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ urls, sourceRevision: detail.sourceRevision }),
+  });
+  assert.equal(patchRes.status, 200);
+  assert.deepEqual((await patchRes.json()).urls, urls);
+});
+
+test("PATCH /api/works/:id は危険スキームのurlsを400で拒否する", async () => {
+  const app = buildApp();
+  const listRes = await app.request("/api/works");
+  const { items } = await listRes.json();
+  const detail = await (await app.request(`/api/works/${items[0].id}`)).json();
+  const patchRes = await app.request(`/api/works/${items[0].id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      urls: [{ label: "evil", url: "javascript:alert(1)" }],
+      sourceRevision: detail.sourceRevision,
+    }),
+  });
+  assert.equal(patchRes.status, 400);
+});
+
 test("PATCH /api/works/:id はsourceRevisionなしを400で拒否する", async () => {
   const app = buildApp();
   const list = await app.request("/api/works");

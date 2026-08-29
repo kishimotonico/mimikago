@@ -17,6 +17,7 @@ import {
   type SmartFolder,
   type SmartFolderCreate,
   type UnregisterMissingWorksResult,
+  type UrlEntry,
   type Work,
   type WorkPatchInput,
   type WorksPage,
@@ -43,6 +44,7 @@ type LibraryBookmarkPatchVariables = {
   sourceRevision: string;
 };
 type LibraryTagsPatchVariables = { workId: string; tags: NormalizedTag[]; sourceRevision: string };
+type LibraryUrlsPatchVariables = { workId: string; urls: UrlEntry[]; sourceRevision: string };
 
 export type LibraryTitlePatchMutation = UseMutationResult<Work, Error, LibraryTitlePatchVariables>;
 
@@ -53,6 +55,7 @@ export type LibraryBookmarkPatchMutation = UseMutationResult<
 >;
 
 export type LibraryTagsPatchMutation = UseMutationResult<Work, Error, LibraryTagsPatchVariables>;
+export type LibraryUrlsPatchMutation = UseMutationResult<Work, Error, LibraryUrlsPatchVariables>;
 import {
   buildSmartFolderFilterParams,
   buildWorksParams,
@@ -303,7 +306,7 @@ function useWorkPatchMutationContext(nav: LibraryViewState, searchQuery: string)
   return { applyPatchSuccess, queryClient };
 }
 
-/** タイトル・ブックマーク・タグ編集を独立した mutation として提供する */
+/** タイトル・ブックマーク・タグ・関連URL編集を独立した mutation として提供する */
 export function useLibraryWorkPatchMutations(nav: LibraryViewState, searchQuery: string) {
   const { applyPatchSuccess, queryClient } = useWorkPatchMutationContext(nav, searchQuery);
   const refetchAfterPatchError = (_error: unknown, variables: { workId: string }) =>
@@ -336,7 +339,15 @@ export function useLibraryWorkPatchMutations(nav: LibraryViewState, searchQuery:
     onError: refetchAfterPatchError,
   });
 
-  return { titleMutation, bookmarkMutation, tagsMutation };
+  const urlsMutation = useMutation<Work, Error, LibraryUrlsPatchVariables>({
+    mutationFn: ({ workId, urls, sourceRevision }) =>
+      patchWork(workId, { urls, sourceRevision: assertWorkSourceRevision(sourceRevision) }),
+    onSuccess: (updatedWork, { workId, urls, sourceRevision }) =>
+      applyPatchSuccess(updatedWork, workId, { urls, sourceRevision }),
+    onError: refetchAfterPatchError,
+  });
+
+  return { titleMutation, bookmarkMutation, tagsMutation, urlsMutation };
 }
 
 /** 作品登録の解除（削除）mutation。成功時に一覧系クエリを無効化し、詳細キャッシュを

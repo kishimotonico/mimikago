@@ -90,7 +90,7 @@ export default function FilePreview({
     mutationFn: (path: WorkspacePath) => getWorkRegisterPreview(path),
     onSuccess: async (preview) => {
       if (preview.alreadyRegistered) {
-        setErrorToast("このフォルダーは既に作品として登録されています");
+        setErrorToast("この場所は既に作品として登録されています");
         await refreshFsState();
         return;
       }
@@ -113,7 +113,10 @@ export default function FilePreview({
   const firstAudioFile = audioFiles[0];
   const breakdown = isDir && folderEntries ? summarizeKinds(folderEntries) : [];
   const isWorkFolder = isDir && !!entry?.workId;
+  const isSingleFileWork =
+    !isDir && !!entry?.workId && (entry.workRelPath === "" || entry.workRelPath === ".");
   const canRegisterFolder = isDir && entry && !entry.workId;
+  const canRegisterFile = kind === "audio" && entry && !entry.workId;
 
   const playActions =
     kind === "audio" ? (
@@ -130,30 +133,31 @@ export default function FilePreview({
       </Button>
     ) : null;
 
-  const workActions = canRegisterFolder ? (
-    <Button
-      variant="primary"
-      icon={I.add}
-      disabled={registerPreviewMutation.isPending}
-      onClick={() => {
-        setErrorToast(null);
-        if (entry) registerPreviewMutation.mutate(entry.path);
-      }}
-    >
-      このフォルダーを作品として登録
-    </Button>
-  ) : isWorkFolder && entry?.workId ? (
-    <Button
-      variant="ghost"
-      disabled={unregisterMutation.isPending}
-      onClick={() => {
-        setErrorToast(null);
-        setShowUnregisterConfirm(true);
-      }}
-    >
-      作品登録を解除
-    </Button>
-  ) : null;
+  const workActions =
+    canRegisterFolder || canRegisterFile ? (
+      <Button
+        variant="primary"
+        icon={I.add}
+        disabled={registerPreviewMutation.isPending}
+        onClick={() => {
+          setErrorToast(null);
+          if (entry) registerPreviewMutation.mutate(entry.path);
+        }}
+      >
+        {isDir ? "このフォルダーを作品として登録" : "このファイルを作品として登録"}
+      </Button>
+    ) : (isWorkFolder || isSingleFileWork) && entry?.workId ? (
+      <Button
+        variant="ghost"
+        disabled={unregisterMutation.isPending}
+        onClick={() => {
+          setErrorToast(null);
+          setShowUnregisterConfirm(true);
+        }}
+      >
+        作品登録を解除
+      </Button>
+    ) : null;
 
   const hasActions = playActions != null || workActions != null;
   const conflictingPaths = identityConflict?.paths.filter((path) => path !== entry?.path) ?? [];
@@ -180,7 +184,7 @@ export default function FilePreview({
               <Hero
                 kind={kind!}
                 entry={entry}
-                isWorkFolder={isWorkFolder}
+                isWorkFolder={isWorkFolder || isSingleFileWork}
                 breakdown={isDir ? breakdown : undefined}
               />
             )}
@@ -216,6 +220,7 @@ export default function FilePreview({
       {showRegisterDialog && registerPreview && entry && (
         <RegisterWorkDialog
           folderPath={entry.path}
+          targetKind={isDir ? "folder" : "file"}
           preview={registerPreview}
           onRegistered={refreshFsState}
           onClose={() => {
@@ -228,7 +233,11 @@ export default function FilePreview({
       {showUnregisterConfirm && (
         <ConfirmDialog
           title="作品登録を解除"
-          message="このフォルダーの作品データ（再生履歴・タグを含む）と管理ファイル（mimimilli.json）を削除します。音声などの物理ファイルは削除されません。"
+          message={
+            isSingleFileWork
+              ? "このファイルの作品データ（再生履歴・タグを含む）と管理ファイル（.mimimilli.json）を削除します。音声ファイル自体は削除されません。"
+              : "このフォルダーの作品データ（再生履歴・タグを含む）と管理ファイル（mimimilli.json）を削除します。音声などの物理ファイルは削除されません。"
+          }
           confirmLabel="解除する"
           onConfirm={() => {
             if (entry?.workId) unregisterMutation.mutate(entry.workId);

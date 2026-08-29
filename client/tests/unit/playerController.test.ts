@@ -177,13 +177,78 @@ describe("PlayerController scenarios", () => {
   it("Audioエラーをerror状態にして直近位置の保存を指示する", () => {
     const error = { source: "media" as const, code: 4, message: "unsupported" };
     const result = scenario([
-      { type: "startRequested", item: item() },
+      { type: "startRequested", item: { ...item(), trackIndex: 1 } },
       { type: "audioFailed", error },
     ]);
 
     expect(result.state.status).toBe("error");
     expect(result.state.playbackError).toEqual(error);
     expect(result.commands).toEqual([{ type: "persistResume", reason: "error" }]);
+  });
+
+  it("途中トラックのデコード失敗は次トラックへ進みスキップを通知する", () => {
+    const error = { source: "media" as const, code: 4, message: "unsupported" };
+    const result = scenario([
+      { type: "startRequested", item: item() },
+      { type: "audioFailed", error },
+    ]);
+
+    expect(result.state.status).toBe("loading");
+    expect(result.state.item?.trackIndex).toBe(1);
+    expect(result.state.playbackError).toBeNull();
+    expect(result.state.consecutiveTrackFailures).toBe(1);
+    expect(result.commands).toEqual([
+      { type: "persistResume", reason: "track-change" },
+      {
+        type: "loadTrack",
+        item: { ...item(), trackIndex: 1 },
+        autoplay: true,
+      },
+      { type: "notifyTrackSkipped", trackTitle: "Track 1" },
+    ]);
+  });
+
+  it("連続してデコード失敗すると次があっても停止する", () => {
+    const error = { source: "media" as const, code: 4, message: "unsupported" };
+    const threeTracks = [
+      ...tracks,
+      { id: "track-3", title: "Track 3", file: "audio.wav", start: 60, end: 90 },
+    ];
+    const started = { ...item(), tracks: threeTracks };
+    const result = scenario([
+      { type: "startRequested", item: started },
+      { type: "audioFailed", error },
+      { type: "audioFailed", error },
+    ]);
+
+    expect(result.state.status).toBe("error");
+    expect(result.state.item?.trackIndex).toBe(1);
+    expect(result.state.playbackError).toEqual(error);
+    expect(result.state.consecutiveTrackFailures).toBe(2);
+    expect(result.commands).toEqual([{ type: "persistResume", reason: "error" }]);
+  });
+
+  it("スキップ後に再生が始まれば次の失敗は再びスキップする", () => {
+    const error = { source: "media" as const, code: 4, message: "unsupported" };
+    const threeTracks = [
+      ...tracks,
+      { id: "track-3", title: "Track 3", file: "audio.wav", start: 60, end: 90 },
+    ];
+    const started = { ...item(), tracks: threeTracks };
+    const result = scenario([
+      { type: "startRequested", item: started },
+      { type: "audioFailed", error },
+      { type: "audioPlaying" },
+      { type: "audioFailed", error },
+    ]);
+
+    expect(result.state.status).toBe("playing");
+    expect(result.state.item?.trackIndex).toBe(2);
+    expect(result.state.playbackError).toBeNull();
+    expect(result.commands.at(-1)).toEqual({
+      type: "notifyTrackSkipped",
+      trackTitle: "Track 2",
+    });
   });
 
   it("停止時は resume保存・pause・先頭シーク・ロード済みトラック解放の順でコマンドを発行する", () => {

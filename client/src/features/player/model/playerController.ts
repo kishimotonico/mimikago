@@ -31,6 +31,7 @@ export interface PlayerControllerState {
   channelSwap: boolean;
   abRepeat: AbRepeatRange;
   playbackError: AudioEngineError | null;
+  consecutiveTrackFailures: number;
 }
 
 export const PLAYER_CONTROLLER_INITIAL: PlayerControllerState = {
@@ -44,7 +45,15 @@ export const PLAYER_CONTROLLER_INITIAL: PlayerControllerState = {
   channelSwap: false,
   abRepeat: { a: null, b: null },
   playbackError: null,
+  consecutiveTrackFailures: 0,
 };
+
+/** 連続デコード失敗で停止する件数。全滅時の無限スキップを防ぐ。 */
+export const MAX_CONSECUTIVE_TRACK_FAILURES = 2;
+
+export function formatSkippedTrackToast(trackTitle: string): string {
+  return `「${trackTitle}」をスキップしました`;
+}
 
 const EMPTY_TRACKS: PlaybackTrack[] = [];
 
@@ -126,7 +135,8 @@ export type PlayerControllerCommand =
   | { type: "setAudioChannelSwap"; enabled: boolean }
   | { type: "persistResume"; reason: "track-change" | "pause" | "stop" | "interval" | "error" }
   | { type: "workCompleted"; item: PlaybackItem }
-  | { type: "releaseLoadedTrack" };
+  | { type: "releaseLoadedTrack" }
+  | { type: "notifyTrackSkipped"; trackTitle: string };
 
 export interface PlayerTransition {
   state: PlayerControllerState;
@@ -173,6 +183,7 @@ function withTrackIndex(
       durationSec: selectedTrackDurationSec(item, trackIndex),
       abRepeat: { a: null, b: null },
       playbackError: null,
+      consecutiveTrackFailures: 0,
     },
     commands: [
       { type: "persistResume", reason: "track-change" },
@@ -196,6 +207,7 @@ export function reducePlayer(
           durationSec: selectedTrackDurationSec(input.item, input.item.trackIndex),
           abRepeat: { a: null, b: null },
           playbackError: null,
+          consecutiveTrackFailures: 0,
         },
         commands: [
           ...(state.item ? ([{ type: "persistResume", reason: "track-change" }] as const) : []),
@@ -222,6 +234,7 @@ export function reducePlayer(
           positionSec: 0,
           durationSec: 0,
           playbackError: null,
+          consecutiveTrackFailures: 0,
           abRepeat: { a: null, b: null },
         },
         commands: state.item
@@ -278,7 +291,12 @@ export function reducePlayer(
       return { state: { ...state, abRepeat: { a: null, b: null } }, commands: [] };
     case "audioPlaying":
       return {
-        state: { ...state, status: "playing", playbackError: null },
+        state: {
+          ...state,
+          status: "playing",
+          playbackError: null,
+          consecutiveTrackFailures: 0,
+        },
         commands: [],
       };
     case "audioPaused":
@@ -316,15 +334,46 @@ export function reducePlayer(
       if (item.completionScope === "work") commands.push({ type: "workCompleted", item });
       return { state: { ...state, status: "ended" }, commands };
     }
-    case "audioFailed":
+    case "audioFailed": {
       // engine 世代防御のセーフティネット: 再生対象がない／既に終了した項目への遅延失敗は無視する。
       if (!state.item || state.status === "idle" || state.status === "ended") {
         return { state, commands: [] };
       }
+      const failedItem = state.item;
+      const consecutiveTrackFailures = state.consecutiveTrackFailures + 1;
+      const isLastTrack = failedItem.trackIndex >= failedItem.tracks.length - 1;
+      if (isLastTrack || consecutiveTrackFailures >= MAX_CONSECUTIVE_TRACK_FAILURES) {
+        return {
+          state: {
+            ...state,
+            status: "error",
+            playbackError: input.error,
+            consecutiveTrackFailures,
+          },
+          commands: [{ type: "persistResume", reason: "error" }],
+        };
+      }
+      const skipped = withTrackIndex(state, failedItem.trackIndex + 1, "preserve");
+      if (skipped.state === state) {
+        return {
+          state: {
+            ...state,
+            status: "error",
+            playbackError: input.error,
+            consecutiveTrackFailures,
+          },
+          commands: [{ type: "persistResume", reason: "error" }],
+        };
+      }
+      const failedTrack = failedItem.tracks[failedItem.trackIndex];
       return {
-        state: { ...state, status: "error", playbackError: input.error },
-        commands: [{ type: "persistResume", reason: "error" }],
+        state: { ...skipped.state, consecutiveTrackFailures },
+        commands: [
+          ...skipped.commands,
+          { type: "notifyTrackSkipped", trackTitle: failedTrack?.title ?? "" },
+        ],
       };
+    }
     case "persistTick":
       return state.status === "playing" && state.item
         ? { state, commands: [{ type: "persistResume", reason: "interval" }] }

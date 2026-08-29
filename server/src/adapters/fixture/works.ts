@@ -1,6 +1,7 @@
 import { posix } from "node:path";
 import {
   emptyDlsiteState,
+  isAudioWorkPath,
   isDlsiteFetchFailed,
   isDlsiteParseFailed,
   isRjCodeMissing,
@@ -33,19 +34,28 @@ import { type FixtureState } from "./state.ts";
 export function createWorkMethods(state: FixtureState): WorkAdapter {
   async function getWorkRegisterPreview(path: WorkspacePath): Promise<WorkRegisterPreview | null> {
     const rootAbs = normalizeFsPath(state.rootFolder ?? "/library");
-    const workDir = normalizeFsPath(`${rootAbs}/${path}`);
-    if (!isPathWithin(rootAbs, workDir, posix)) return null;
-    const folderName = workDir.split("/").filter(Boolean).pop() ?? workDir;
-    const descendants = state.works.filter(
-      (work) => work.physicalPath.startsWith(`${workDir}/`) && work.physicalPath !== workDir,
-    );
-    const rjMatch = folderName.match(/RJ\d{6,8}/i);
+    const target = normalizeFsPath(`${rootAbs}/${path}`);
+    if (!isPathWithin(rootAbs, target, posix)) return null;
+    const name = target.split("/").filter(Boolean).pop() ?? target;
+    const isFile = isAudioWorkPath(target);
+    const descendants = isFile
+      ? []
+      : state.works.filter(
+          (work) => work.physicalPath.startsWith(`${target}/`) && work.physicalPath !== target,
+        );
+    const ancestorRegistered = state.works.some((work) => {
+      if (isAudioWorkPath(work.physicalPath)) return false;
+      return target === work.physicalPath || target.startsWith(`${work.physicalPath}/`);
+    });
+    const rjMatch = name.match(/RJ\d{6,8}/i);
+    const suggestedTitle = isFile ? name.replace(/\.[^.]+$/, "") : name;
     return {
-      suggestedTitle: folderName,
+      suggestedTitle,
       tags: [],
       detectedRjCode: rjMatch ? rjMatch[0]!.toUpperCase() : null,
       descendantWorkCount: descendants.length,
-      alreadyRegistered: state.works.some((work) => work.physicalPath === workDir),
+      alreadyRegistered:
+        state.works.some((work) => work.physicalPath === target) || (isFile && ancestorRegistered),
       orphanedMeta: false,
     };
   }
@@ -101,7 +111,7 @@ export function createWorkMethods(state: FixtureState): WorkAdapter {
       if (preview.alreadyRegistered) {
         throw new WorkRegisterError(
           "already_registered",
-          "このフォルダーは既に作品として登録されています",
+          "この場所は既に作品として登録されています",
         );
       }
       if (preview.descendantWorkCount > 0 && !body.mergeDescendantWorks) {
@@ -125,7 +135,7 @@ export function createWorkMethods(state: FixtureState): WorkAdapter {
         status: "ok",
         physicalPath: workDir,
         totalDurationSec: 0,
-        trackCount: 0,
+        trackCount: isAudioWorkPath(workDir) ? 1 : 0,
         addedAt: now,
         errorMessage: null,
         urls:
@@ -196,6 +206,7 @@ export function createWorkMethods(state: FixtureState): WorkAdapter {
       if (patch.title !== undefined) work.title = patch.title;
       if (patch.tags !== undefined) work.tags = patch.tags;
       if (patch.bookmarked !== undefined) work.bookmarked = patch.bookmarked;
+      if (patch.urls !== undefined) work.urls = patch.urls;
       return buildFullWorkFromState(state, work);
     },
 

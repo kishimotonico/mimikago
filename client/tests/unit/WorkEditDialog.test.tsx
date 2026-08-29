@@ -71,6 +71,7 @@ describe("WorkEditDialog", () => {
         workPatchMutations={{
           titleMutation: makeTitleMutation({ mutate }),
           tagsMutation: { mutateAsync: vi.fn() } as never,
+          urlsMutation: { mutate: vi.fn(), isPending: false, error: null } as never,
         }}
         onClose={vi.fn()}
       />,
@@ -82,5 +83,58 @@ describe("WorkEditDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "タイトルを保存" }));
     expect(mutate).not.toHaveBeenCalled();
     expect(screen.getByRole("alert")).toHaveTextContent(WORK_SOURCE_PATCH_BLOCKED_MESSAGE);
+  });
+
+  it("javascript: のURLは保存せずバリデーション文言を出す", () => {
+    const mutate = vi.fn();
+    render(
+      <WorkEditDialog
+        work={makeWork()}
+        tagSuggestions={[]}
+        workPatchMutations={{
+          titleMutation: makeTitleMutation(),
+          tagsMutation: { mutateAsync: vi.fn() } as never,
+          urlsMutation: { mutate, isPending: false, error: null } as never,
+        }}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "URLを追加" }));
+    fireEvent.change(screen.getByLabelText("URLラベル 1"), { target: { value: "公式" } });
+    fireEvent.change(screen.getByLabelText("URL 1"), { target: { value: "javascript:alert(1)" } });
+    fireEvent.click(screen.getByRole("button", { name: "関連URLを保存" }));
+
+    expect(mutate).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("httpまたはhttpsのURLだけを登録できます");
+  });
+
+  it("http(s)のURLを保存できる", () => {
+    const mutate = vi.fn();
+    render(
+      <WorkEditDialog
+        work={makeWork()}
+        tagSuggestions={[]}
+        workPatchMutations={{
+          titleMutation: makeTitleMutation(),
+          tagsMutation: { mutateAsync: vi.fn() } as never,
+          urlsMutation: { mutate, isPending: false, error: null } as never,
+        }}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "URLを追加" }));
+    fireEvent.change(screen.getByLabelText("URLラベル 1"), { target: { value: "公式" } });
+    fireEvent.change(screen.getByLabelText("URL 1"), {
+      target: { value: "https://example.com/work" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "関連URLを保存" }));
+
+    expect(mutate).toHaveBeenCalledWith({
+      workId: "w1",
+      sourceRevision: "revision-1",
+      urls: [{ label: "公式", url: "https://example.com/work" }],
+    });
   });
 });

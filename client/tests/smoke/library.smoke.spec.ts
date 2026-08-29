@@ -223,6 +223,30 @@ test("詳細パネル: 「全画面へ展開」で全画面詳細へ遷移し、
   assertNoErrors(tracker);
 });
 
+test("作品編集: 関連URLを追加できる", async ({ page }) => {
+  const tracker = trackErrors(page);
+  await openApp(page);
+
+  await page.getByText("夜更けの図書室で囁き朗読", { exact: false }).click();
+  const panel = page.locator(".mle-prv");
+  await panel.getByRole("button", { name: "作品を編集" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "作品を編集" });
+  await dialog.getByRole("button", { name: "URLを追加" }).click();
+  await dialog.getByLabel("URLラベル").last().fill("公式");
+  await dialog
+    .getByLabel(/^URL \d+$/)
+    .last()
+    .fill("https://example.com/work");
+  await dialog.getByRole("button", { name: "関連URLを保存" }).click();
+  await dialog.locator("footer").getByRole("button", { name: "閉じる" }).click();
+
+  await panel.getByRole("button", { name: "その他" }).click();
+  await expect(panel.getByRole("menuitem", { name: "公式を開く" })).toBeVisible();
+
+  assertNoErrors(tracker);
+});
+
 test("スキャンダイアログが開いて完了し、閉じられる", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "desktop scenario only");
 
@@ -425,6 +449,30 @@ test("Files: Workspace viewerで画像・PDF・text・videoをプレビューで
 
   await page.getByTitle("archive.zip").click();
   await expect(page.getByText("ファイル（.zip）のプレビューは利用できません")).toBeVisible();
+
+  assertNoErrors(tracker);
+});
+
+test("Files: 未登録の音声ファイルを作品として登録できる", async ({ page }) => {
+  const tracker = trackErrors(page);
+  await openApp(page);
+
+  await page.getByRole("button", { name: "ファイル", exact: true }).click();
+  await page.getByTitle("fanza").dblclick();
+  await expect(page.getByTitle("d00001.mp3")).toBeVisible();
+  await page.getByTitle("d00001.mp3").click();
+
+  const preview = page.locator(".mle-prv.is-files");
+  await preview.getByRole("button", { name: "このファイルを作品として登録" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "このファイルを作品として登録" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "登録" }).click();
+  await expect(preview.getByRole("button", { name: "作品登録を解除" })).toBeVisible();
+
+  await page.getByRole("button", { name: "ライブラリ", exact: true }).click();
+  await page.getByPlaceholder("ライブラリを検索（タイトル · CV · タグ · RJ ...）").fill("d00001");
+  await expect(page.getByRole("button", { name: /FANZA単一ファイル|d00001/ })).toBeVisible();
 
   assertNoErrors(tracker);
 });

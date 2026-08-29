@@ -117,6 +117,7 @@ const WORK_PATCH_KEYS = [
   "title",
   "tags",
   "bookmarked",
+  "urls",
 ] as const satisfies readonly (keyof WorkPatch)[];
 
 /** 2つの型が完全に一致するかを判定する型（distributive条件型の罠を避けるため

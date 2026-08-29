@@ -1,6 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { coverFieldsFromColumns, metaFileSchema, selectDefaultPlaylist } from "@mimimilli/shared";
+import {
+  coverFieldsFromColumns,
+  isSidecarMetaFileName,
+  metaFileSchema,
+  selectDefaultPlaylist,
+} from "@mimimilli/shared";
 import type { Cover, MetaFile, ScanDiagnostic, ScanResult, Work } from "@mimimilli/shared";
 import type { Db } from "./db.ts";
 import { computeWorkRevisions } from "./fingerprint.ts";
@@ -30,6 +35,14 @@ const scanLogger = getCategoryLogger("scan");
 
 type ScanUpsertTracking = Pick<ScanResult, "coverErrors" | "insertedWorkIds" | "updatedWorkIds">;
 type ScanErrorTracking = ScanUpsertTracking & Pick<ScanResult, "errors">;
+
+export function physicalPathForMeta(metaPath: string, meta: MetaFile): string {
+  const dir = dirname(metaPath);
+  if (!isSidecarMetaFileName(basename(metaPath))) return dir;
+  const playlist = selectDefaultPlaylist(meta.playlists, meta.defaultPlaylistId);
+  const file = playlist?.tracks[0]?.file;
+  return file ? join(dir, file) : dir;
+}
 
 function extractCandidateIdFromMetaContent(content: string): string | null {
   const match = content.match(/"id"\s*:\s*"([^"\\]+)"/);
@@ -94,8 +107,9 @@ async function assembleWorkForUpsert(
 ): Promise<{ assembled: AssembledWork; coverErrors: number }> {
   const { metaPath } = prepared;
   const workDir = dirname(metaPath);
+  const physicalPath = physicalPathForMeta(metaPath, prepared.meta);
 
-  syncDetectedRjCode(metaPath, basename(workDir));
+  syncDetectedRjCode(metaPath, basename(physicalPath));
   const source = readMetaSource(metaPath);
   const meta = source.meta;
   const id = meta.id;
@@ -132,7 +146,7 @@ async function assembleWorkForUpsert(
     defaultPlaylistId: meta.defaultPlaylistId,
     createdAt: meta.createdAt ?? null,
     status: "ok",
-    physicalPath: workDir,
+    physicalPath,
     totalDurationSec: null,
     addedAt: existing?.addedAt ?? new Date().toISOString(),
     errorMessage: null,
@@ -226,7 +240,7 @@ export function prepareMetaEntries(
       const coverSatisfied = coverSatisfiedForState(meta, state);
       if (
         canSkipIncremental(full, cachedRevisions, revisions, coverSatisfied, state?.status) &&
-        state?.physicalPath === dirname(metaPath)
+        state?.physicalPath === physicalPathForMeta(metaPath, meta)
       ) {
         prepared.push({ kind: "skip", metaPath, id: meta.id });
         continue;

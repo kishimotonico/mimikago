@@ -1,5 +1,6 @@
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
+import { workMediaRoot } from "@mimimilli/shared";
 import { resolveWithin } from "./paths.ts";
 import { thumbnailCacheNames } from "./thumbnailCache.ts";
 import type { ListSummariesResult } from "./workRowMapping.ts";
@@ -54,7 +55,8 @@ export async function buildCoverSnapshot(
   for (const work of result.summaries) {
     checkpoint();
     if (!work.cover) continue;
-    const resolved = resolveWithin(work.physicalPath, join(work.physicalPath, work.cover.image));
+    const mediaRoot = workMediaRoot(work.physicalPath);
+    const resolved = resolveWithin(mediaRoot, join(mediaRoot, work.cover.image));
     if (!resolved) {
       gaps.push({ workId: work.id, reason: "cover-path-unresolved" });
       continue;

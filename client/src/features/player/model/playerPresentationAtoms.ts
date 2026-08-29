@@ -48,3 +48,6 @@ export const nowPlayingViewModeAtom = atomWithStorage<NowPlayingViewMode>(
   "mimimilli:nowPlayingViewMode",
   "normal",
 );
+
+/** 壊れたトラックをスキップしたときの一時通知。GlobalToast が表示する。 */
+export const playerSkipToastAtom = atom<string | null>(null);

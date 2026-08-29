@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { metaFileSchema, tagSchema, trackSchema, urlEntrySchema } from "@mimimilli/shared";
+import {
+  metaFileSchema,
+  tagSchema,
+  trackSchema,
+  urlEntrySchema,
+  workPatchSchema,
+} from "@mimimilli/shared";
 
 const PLAYLIST_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const TRACK_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -170,4 +176,19 @@ test("metaFileSchema.urlsでも危険スキームを拒否する", () => {
     urls: [{ label: "evil", url: "javascript:alert(1)" }],
   };
   assert.equal(metaFileSchema.safeParse(meta).success, false);
+});
+
+test("workPatchSchemaはurlsを受け付け、危険スキームを拒否する", () => {
+  assert.equal(
+    workPatchSchema.safeParse({
+      urls: [{ label: "公式", url: "https://example.com" }],
+    }).success,
+    true,
+  );
+  assert.equal(
+    workPatchSchema.safeParse({
+      urls: [{ label: "evil", url: "javascript:alert(1)" }],
+    }).success,
+    false,
+  );
 });

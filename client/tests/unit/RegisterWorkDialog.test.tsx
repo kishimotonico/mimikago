@@ -66,6 +66,25 @@ describe("RegisterWorkDialog", () => {
     vi.unstubAllGlobals();
   });
 
+  it("targetKind=file のとき見出しをファイル向けにする", () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+    render(
+      <RegisterWorkDialog
+        folderPath="fanza/d00001.mp3"
+        targetKind="file"
+        preview={preview}
+        onRegistered={vi.fn()}
+        onClose={vi.fn()}
+      />,
+      { wrapper },
+    );
+    expect(screen.getByRole("heading", { name: "このファイルを作品として登録" })).toBeTruthy();
+  });
+
   it("RJ/VJコード未入力で取得を押すとバリデーション文言を表示する", () => {
     renderDialog();
 

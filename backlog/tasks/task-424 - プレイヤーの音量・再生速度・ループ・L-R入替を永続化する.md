@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@omp'
 created_date: '2026-08-28 14:57'
-updated_date: '2026-08-29 17:20'
+updated_date: '2026-08-29 17:24'
 labels: []
 dependencies: []
 priority: medium
@@ -35,6 +35,8 @@ client/src/features/player/model/playerController.ts:36-47 の初期値（volume
 
 <!-- SECTION:NOTES:BEGIN -->
 playerPlaybackPrefs で localStorage に mimimilli:playerPlaybackPrefs を保存。不正値はフィールド単位で既定値。PlayerRuntimeProvider が起動時に復元し変更時に保存。エンジン生成時に volume/rate/channelSwap を適用。playerCoreAtom は起動時にコントローラ状態を投影。
+
+usePlayer の setLoop が localStorage に残ると同一ファイルの後続テストが ended をループと誤認するため、beforeEach/afterEach でキーを消す。
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

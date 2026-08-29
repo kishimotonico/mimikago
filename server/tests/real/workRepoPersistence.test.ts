@@ -8,6 +8,7 @@ import { smartFolders } from "../../src/adapters/real/userSchema.ts";
 import { PersistentDataError } from "../../src/adapters/real/workRowMapping.ts";
 import {
   upsertTestWork,
+  makeWork,
   resolvedDuration,
   createWorkRepos,
   getTestWork,
@@ -20,21 +21,10 @@ function sampleWork(
   playlistId = crypto.randomUUID(),
   trackId = crypto.randomUUID(),
 ): Work {
-  return {
+  return makeWork({
     id,
     title: "永続データ検証用",
-    cover: null,
-    coverKind: "none",
-    coverImage: null,
-    status: "ok",
-    physicalPath: `/library/${id}`,
-    totalDurationSec: 10,
-    addedAt: "2026-07-19T00:00:00.000Z",
-    errorMessage: null,
-    urls: [],
-    tags: [],
     defaultPlaylistId: playlistId,
-    createdAt: null,
     playlists: [
       {
         id: playlistId,
@@ -49,18 +39,7 @@ function sampleWork(
         ],
       },
     ],
-    bookmarked: false,
-    lastPlayedAt: null,
-    resume: null,
-    dlsite: {
-      rjCode: null,
-      status: "none",
-      lastAttemptAt: null,
-      error: null,
-      errorKind: null,
-      appliedTags: [],
-    },
-  };
+  });
 }
 
 function assertPersistentDataErrorAsync(

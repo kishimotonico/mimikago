@@ -3,62 +3,15 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { test } from "node:test";
 import { eq } from "drizzle-orm";
-import type { Work } from "@mimimilli/shared";
 import { createApp } from "../../src/app.ts";
 import { createRealAdapter } from "../../src/adapters/real/index.ts";
 import { openDb } from "../../src/adapters/real/db.ts";
 import { tags, works } from "../../src/adapters/real/catalogSchema.ts";
 import { Scanner } from "../../src/adapters/real/scanner.ts";
 import { querySmartFolderWorks } from "../../src/adapters/real/smartFolderWorks.ts";
-import { createWorkRepos, upsertTestWork, resolvedDuration } from "../helpers/workTestUtils.ts";
+import { createWorkRepos, makeWork, upsertTestWork } from "../helpers/workTestUtils.ts";
 import { makeTestDirectory, makeTestScope } from "../helpers/sampleLibrary.ts";
 import { nts } from "../helpers/tag.ts";
-
-function sampleWork(id: string, tag: string): Work {
-  const playlistId = `${id}-playlist`;
-  const trackId = `${id}-track`;
-  return {
-    id,
-    title: `作品 ${id}`,
-    cover: null,
-    coverKind: "none",
-    coverImage: null,
-    status: "ok",
-    physicalPath: `/library/${id}`,
-    totalDurationSec: 10,
-    addedAt: "2026-07-19T00:00:00.000Z",
-    errorMessage: null,
-    urls: [],
-    tags: nts([tag]),
-    defaultPlaylistId: playlistId,
-    createdAt: null,
-    playlists: [
-      {
-        id: playlistId,
-        name: "default",
-        tracks: [
-          {
-            id: trackId,
-            title: "track",
-            file: "track.wav",
-            ...resolvedDuration(60),
-          },
-        ],
-      },
-    ],
-    bookmarked: false,
-    lastPlayedAt: null,
-    resume: null,
-    dlsite: {
-      rjCode: null,
-      status: "none",
-      lastAttemptAt: null,
-      error: null,
-      errorKind: null,
-      appliedTags: [],
-    },
-  };
-}
 
 function seedCorruptedPair(
   catalog: ReturnType<typeof createWorkRepos>["catalog"],
@@ -67,9 +20,9 @@ function seedCorruptedPair(
 ): { goodId: string; badId: string } {
   const goodId = "work-good";
   const badId = "work-bad";
-  upsertTestWork(catalog, user, sampleWork(goodId, "cv/正常"));
+  upsertTestWork(catalog, user, makeWork({ id: goodId, tags: nts(["cv/正常"]) }));
   upsertTestWork(catalog, user, {
-    ...sampleWork(badId, "cv/正常"),
+    ...makeWork({ id: badId, tags: nts(["cv/正常"]) }),
     tags: nts(["cv/正常", "cv/壊れ対象"]),
   });
   db.catalog.update(tags).set({ name: " CV/壊れ " }).where(eq(tags.name, "cv/壊れ対象")).run();
@@ -241,8 +194,8 @@ test("GET /api/works は不正な status の作品を除外し dataIntegrityWarn
   const { catalog, user } = createWorkRepos(db);
   const goodId = "work-good";
   const badId = "work-bad";
-  upsertTestWork(catalog, user, sampleWork(goodId, "cv/正常"));
-  upsertTestWork(catalog, user, sampleWork(badId, "cv/正常"));
+  upsertTestWork(catalog, user, makeWork({ id: goodId, tags: nts(["cv/正常"]) }));
+  upsertTestWork(catalog, user, makeWork({ id: badId, tags: nts(["cv/正常"]) }));
   db.catalog.update(works).set({ status: "unknown" }).where(eq(works.id, badId)).run();
   user.setUserSetting("root_folder", "/library");
   const adapter = fileAdapter(directory);

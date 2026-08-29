@@ -11,6 +11,46 @@ import { UserWorkStateRepository } from "../../src/adapters/real/userWorkStateRe
 import { WorkQueryRepository } from "../../src/adapters/real/workQueryRepository.ts";
 import { getWorkWithLiveProbe } from "../../src/adapters/real/workRefresh.ts";
 
+export function makeWork(overrides: Partial<Work> & Pick<Work, "id">): Work {
+  const playlistId = crypto.randomUUID();
+  const trackId = crypto.randomUUID();
+  return {
+    id: overrides.id,
+    title: `作品 ${overrides.id}`,
+    cover: null,
+    coverKind: "none",
+    coverImage: null,
+    status: "ok",
+    physicalPath: `/library/${overrides.id}`,
+    totalDurationSec: 10,
+    addedAt: "2026-07-19T00:00:00.000Z",
+    errorMessage: null,
+    urls: [],
+    tags: [],
+    defaultPlaylistId: playlistId,
+    createdAt: null,
+    playlists: [
+      {
+        id: playlistId,
+        name: "default",
+        tracks: [
+          {
+            id: trackId,
+            title: "track",
+            file: "track.wav",
+            ...resolvedDuration(60),
+          },
+        ],
+      },
+    ],
+    bookmarked: false,
+    lastPlayedAt: null,
+    resume: null,
+    dlsite: emptyDlsiteState(),
+    ...overrides,
+  };
+}
+
 export function makeWorkSummary(overrides: Partial<WorkSummary> = {}): WorkSummary {
   return {
     id: "work-1",

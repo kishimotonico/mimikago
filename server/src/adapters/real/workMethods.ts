@@ -163,13 +163,14 @@ export function createWorkMethods(deps: {
       if (patch.bookmarked !== undefined) {
         user.patchBookmarked(id, patch.bookmarked);
       }
-      if (patch.title === undefined && patch.tags === undefined) {
+      if (patch.title === undefined && patch.tags === undefined && patch.urls === undefined) {
         const work = await getWorkWithLiveProbe(db, query, catalog, id);
         return work ? { ...work, sourceRevision: source.sourceRevision } : null;
       }
       const updated = patchMetaFileCas(metaPath, patch.sourceRevision ?? source.sourceRevision, {
         title: patch.title,
         tags: patch.tags,
+        urls: patch.urls,
       });
       const work = await scanner.projectMetaFile(metaPath, updated.meta);
       return { ...work, sourceRevision: updated.sourceRevision };

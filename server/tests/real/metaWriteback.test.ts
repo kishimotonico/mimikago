@@ -104,6 +104,16 @@ test("catalog再投影に失敗しても確定済みmimimilli.jsonは残り、sc
   assert.equal((await adapter.getWork(existingWorkId))?.title, "mimimilli.jsonだけは確定する");
 });
 
+test("patchWork の urls がメタファイルへ反映される", async (t) => {
+  const { adapter, existingWorkId, metaPath } = await setup(t);
+  const urls = [{ label: "公式", url: "https://example.com/work" }];
+  const updated = await adapter.patchWork(existingWorkId, { urls });
+  assert.deepEqual(updated?.urls, urls);
+  const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
+  assert.deepEqual(meta.urls, urls);
+  assert.equal(meta.myNote, "ユーザーの手書きメモ");
+});
+
 test("bookmarked の PATCH はメタファイルを変更しない（DB 固有情報）", async (t) => {
   const { adapter, existingWorkId, metaPath } = await setup(t);
   const before = readFileSync(metaPath, "utf-8");

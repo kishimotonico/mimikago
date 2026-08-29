@@ -163,6 +163,21 @@ describe("getWorkPatchInvalidationTargets", () => {
       staleInactiveListCaches: false,
     });
   });
+
+  it("urls変更は一覧キャッシュに影響しない", () => {
+    expect(
+      getWorkPatchInvalidationTargets(
+        { urls: [{ label: "公式", url: "https://example.com" }] },
+        baseCtx,
+      ),
+    ).toEqual({
+      facets: false,
+      tags: false,
+      resetActiveWorksList: false,
+      patchActiveListCache: false,
+      staleInactiveListCaches: false,
+    });
+  });
 });
 
 function makeWork(overrides: Partial<Work> = {}): Work {
@@ -217,6 +232,22 @@ describe("mergeWorkPatchResponse", () => {
     const response = makeWork({ tags: ["新タグ"] });
     const merged = mergeWorkPatchResponse(prev, { tags: ["新タグ"] }, response);
     expect(merged.tags).toEqual(["新タグ"]);
+    expect(merged.resume).toEqual(prev.resume);
+  });
+
+  it("urlsを指定したPATCHではurlsのみレスポンスの値を取り込む", () => {
+    const prev = makeWork({ urls: [{ label: "旧", url: "https://old.example" }] });
+    const response = makeWork({
+      urls: [{ label: "公式", url: "https://example.com" }],
+      title: "サーバー側タイトル",
+    });
+    const merged = mergeWorkPatchResponse(
+      prev,
+      { urls: [{ label: "公式", url: "https://example.com" }] },
+      response,
+    );
+    expect(merged.urls).toEqual([{ label: "公式", url: "https://example.com" }]);
+    expect(merged.title).toBe(prev.title);
     expect(merged.resume).toEqual(prev.resume);
   });
 

@@ -68,6 +68,7 @@ function makeWorkPatchMutationsStub() {
     titleMutation: noopMutation,
     bookmarkMutation: noopMutation,
     tagsMutation: noopMutation,
+    urlsMutation: noopMutation,
   };
 }
 

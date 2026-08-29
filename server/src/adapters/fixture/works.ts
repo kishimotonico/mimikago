@@ -206,6 +206,7 @@ export function createWorkMethods(state: FixtureState): WorkAdapter {
       if (patch.title !== undefined) work.title = patch.title;
       if (patch.tags !== undefined) work.tags = patch.tags;
       if (patch.bookmarked !== undefined) work.bookmarked = patch.bookmarked;
+      if (patch.urls !== undefined) work.urls = patch.urls;
       return buildFullWorkFromState(state, work);
     },
 

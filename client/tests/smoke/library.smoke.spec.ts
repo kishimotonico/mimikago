@@ -223,6 +223,30 @@ test("詳細パネル: 「全画面へ展開」で全画面詳細へ遷移し、
   assertNoErrors(tracker);
 });
 
+test("作品編集: 関連URLを追加できる", async ({ page }) => {
+  const tracker = trackErrors(page);
+  await openApp(page);
+
+  await page.getByText("夜更けの図書室で囁き朗読", { exact: false }).click();
+  const panel = page.locator(".mle-prv");
+  await panel.getByRole("button", { name: "作品を編集" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "作品を編集" });
+  await dialog.getByRole("button", { name: "URLを追加" }).click();
+  await dialog.getByLabel("URLラベル").last().fill("公式");
+  await dialog
+    .getByLabel(/^URL \d+$/)
+    .last()
+    .fill("https://example.com/work");
+  await dialog.getByRole("button", { name: "関連URLを保存" }).click();
+  await dialog.locator("footer").getByRole("button", { name: "閉じる" }).click();
+
+  await panel.getByRole("button", { name: "その他" }).click();
+  await expect(panel.getByRole("menuitem", { name: "公式を開く" })).toBeVisible();
+
+  assertNoErrors(tracker);
+});
+
 test("スキャンダイアログが開いて完了し、閉じられる", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium", "desktop scenario only");
 

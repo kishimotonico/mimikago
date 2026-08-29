@@ -7,6 +7,7 @@ import {
   normalizeTags,
   resumeSchema,
   tagSchema,
+  urlEntrySchema,
   workListItemSchema,
   workSchema,
 } from "./work.ts";
@@ -167,10 +168,14 @@ export const workPatchSchema = z
       .transform((tags) => dedupeTags(normalizeTags(tags)))
       .optional(),
     bookmarked: z.boolean().optional(),
+    urls: z.array(urlEntrySchema).optional(),
   })
   .refine(
     (patch) =>
-      patch.title !== undefined || patch.tags !== undefined || patch.bookmarked !== undefined,
+      patch.title !== undefined ||
+      patch.tags !== undefined ||
+      patch.bookmarked !== undefined ||
+      patch.urls !== undefined,
   );
 /** クライアントが送信するリクエストボディ（tags は正規化前の生 string[]） */
 export type WorkPatchInput = z.input<typeof workPatchSchema>;

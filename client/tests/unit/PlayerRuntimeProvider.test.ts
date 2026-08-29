@@ -1,6 +1,6 @@
 import { createElement, type ReactNode } from "react";
 import { renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   NOT_REGISTERED_ERROR,
   PlayerRuntimeProvider,
@@ -14,6 +14,10 @@ import {
 function wrapper({ children }: { children: ReactNode }) {
   return createElement(PlayerRuntimeProvider, null, children);
 }
+
+afterEach(() => {
+  localStorage.removeItem(PLAYER_PLAYBACK_PREFS_KEY);
+});
 
 const capabilities = {
   loadResume: () => null,

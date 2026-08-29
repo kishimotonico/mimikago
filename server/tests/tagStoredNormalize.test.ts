@@ -158,7 +158,7 @@ function buildTagValidationCorpus(): string[] {
     }
   }
 
-  for (const seed of [...corpus]) {
+  for (const seed of Array.from(corpus)) {
     const normalized = normalizeTag(seed);
     if (normalized !== null) corpus.add(normalized);
     corpus.add(seed.toUpperCase());

@@ -22,7 +22,11 @@ import {
 import { usePlayerRuntimeContext } from "./PlayerRuntimeProvider";
 import { useAudioEngineLifecycle } from "./useAudioEngineLifecycle";
 import { useResumePersistenceController } from "./useResumePersistence";
-import { isPlayerCoreStateEqual, toPlayerCoreState } from "./playerController";
+import {
+  isPlayerCoreStateEqual,
+  toPlayerCoreState,
+  type PlayerControllerState,
+} from "./playerController";
 import { usePlayerActions } from "./usePlayerActions";
 
 export function usePlayerRuntime() {
@@ -34,19 +38,19 @@ export function usePlayerRuntime() {
   const setDuration = useSetAtom(playerDurationAtom);
   const lastCoreStateRef = useRef(coreState);
 
-  useEffect(
-    () =>
-      controller.subscribeState((state) => {
-        const nextCoreState = toPlayerCoreState(state);
-        if (!isPlayerCoreStateEqual(lastCoreStateRef.current, nextCoreState)) {
-          lastCoreStateRef.current = nextCoreState;
-          setCoreState(nextCoreState);
-        }
-        setCurrentTime(state.positionSec);
-        setDuration(state.durationSec);
-      }),
-    [controller, setCoreState, setCurrentTime, setDuration],
-  );
+  useEffect(() => {
+    const applyState = (state: PlayerControllerState) => {
+      const nextCoreState = toPlayerCoreState(state);
+      if (!isPlayerCoreStateEqual(lastCoreStateRef.current, nextCoreState)) {
+        lastCoreStateRef.current = nextCoreState;
+        setCoreState(nextCoreState);
+      }
+      setCurrentTime(state.positionSec);
+      setDuration(state.durationSec);
+    };
+    applyState(controller.getState());
+    return controller.subscribeState(applyState);
+  }, [controller, setCoreState, setCurrentTime, setDuration]);
 
   const { consumePendingResume, enqueueResumeSave, saveCurrentResume, loadResume } =
     useResumePersistenceController({

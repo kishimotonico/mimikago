@@ -1,9 +1,22 @@
-import { createContext, useCallback, useContext, useMemo, useRef, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  type ReactNode,
+} from "react";
 import type { Work } from "../../../entities/work/model";
 import type { PlaybackContext } from "./playerRuntime";
-import { PlayerController } from "./playerController";
+import { PLAYER_CONTROLLER_INITIAL, PlayerController } from "./playerController";
 import type { MutableRef, PendingResume, PlayerRuntimeRefs } from "./playerRuntime";
 import type { PlaybackTrack } from "./trackTime";
+import {
+  loadPlayerPlaybackPrefs,
+  persistPlaybackPrefsOnChange,
+  withPlaybackPrefs,
+} from "./playerPlaybackPrefs";
 
 export interface LoadedResumePlayback {
   playlistId: string;
@@ -34,8 +47,14 @@ const PlayerRuntimeContext = createContext<PlayerRuntimeContextValue | null>(nul
 
 export function PlayerRuntimeProvider({ children }: { children: ReactNode }) {
   const controllerRef = useRef<PlayerController | null>(null);
-  if (controllerRef.current === null) controllerRef.current = new PlayerController();
+  if (controllerRef.current === null) {
+    controllerRef.current = new PlayerController(
+      withPlaybackPrefs(PLAYER_CONTROLLER_INITIAL, loadPlayerPlaybackPrefs()),
+    );
+  }
   const controller = controllerRef.current;
+
+  useEffect(() => persistPlaybackPrefsOnChange(controller), [controller]);
 
   const engineRef = useRef<PlayerRuntimeRefs["engine"]["current"]>(null);
   const loadedTrackRef = useRef<PlayerRuntimeRefs["loadedTrack"]["current"]>(null);

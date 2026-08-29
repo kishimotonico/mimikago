@@ -16,6 +16,7 @@ import {
 import { saveResumePosition } from "../../src/features/player/api";
 import { WORK_QUERY_KEYS } from "../../src/entities/work/queryKeys";
 import type { ResolvedTrack, Track, Work, WorkSummary } from "../../src/entities/work/model";
+import { PLAYER_PLAYBACK_PREFS_KEY } from "../../src/features/player/model/playerPlaybackPrefs";
 
 vi.mock("../../src/features/player/api", () => ({
   saveResumePosition: vi.fn(() => Promise.resolve()),
@@ -133,6 +134,7 @@ const work: WorkSummary = {
 };
 
 beforeEach(() => {
+  localStorage.removeItem(PLAYER_PLAYBACK_PREFS_KEY);
   audioInstances.length = 0;
   vi.mocked(saveResumePosition).mockReset();
   vi.mocked(saveResumePosition).mockResolvedValue(undefined);

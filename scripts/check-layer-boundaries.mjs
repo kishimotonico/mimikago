@@ -2,6 +2,11 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  CLIENT_LAYER_RULES,
+  FEATURE_SIBLING_MESSAGE,
+  SERVER_LAYER_RULES,
+} from "./layer-boundary-rules.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sourceExtensions = new Set([".ts", ".tsx"]);
@@ -59,22 +64,11 @@ async function checkClientLayerBoundaries() {
   const clientSrc = path.join(repoRoot, "client/src");
   const violations = [];
 
-  const denyRules = [
-    {
-      from: layerRoot(clientSrc, "shared"),
-      to: [
-        layerRoot(clientSrc, "entities"),
-        layerRoot(clientSrc, "features"),
-        layerRoot(clientSrc, "app"),
-      ],
-      message: "shared から entities/features/app への import は禁止",
-    },
-    {
-      from: layerRoot(clientSrc, "entities"),
-      to: [layerRoot(clientSrc, "features"), layerRoot(clientSrc, "app")],
-      message: "entities から features/app への import は禁止",
-    },
-  ];
+  const denyRules = CLIENT_LAYER_RULES.map((rule) => ({
+    from: layerRoot(clientSrc, rule.from),
+    to: rule.to.map((to) => layerRoot(clientSrc, to)),
+    message: rule.message,
+  }));
 
   for (const file of await walk(clientSrc)) {
     const source = await readFile(file, "utf8");
@@ -119,16 +113,6 @@ async function checkClientFeatureBoundaries() {
         continue;
       }
 
-      const appRoot = path.join(repoRoot, "client/src/app");
-      if (isUnder(resolved, appRoot)) {
-        violations.push({
-          file,
-          specifier,
-          message: "features から app への import は禁止",
-        });
-        continue;
-      }
-
       if (!isUnder(resolved, featuresRoot)) {
         continue;
       }
@@ -138,7 +122,7 @@ async function checkClientFeatureBoundaries() {
         violations.push({
           file,
           specifier,
-          message: `features/${sourceFeature} から features/${targetFeature} への sibling import は禁止`,
+          message: FEATURE_SIBLING_MESSAGE(sourceFeature, targetFeature),
         });
       }
     }
@@ -151,38 +135,11 @@ async function checkServerLayerBoundaries() {
   const serverRoot = path.join(repoRoot, "server/src");
   const violations = [];
 
-  const denyRules = [
-    {
-      fromPrefix: path.join(serverRoot, "routes"),
-      toPrefix: path.join(serverRoot, "adapters"),
-      message: "routes から adapters への直接 import は禁止",
-    },
-    {
-      fromPrefix: path.join(serverRoot, "adapters"),
-      toPrefix: path.join(serverRoot, "routes"),
-      message: "adapters から routes への import は禁止",
-    },
-    {
-      fromPrefix: path.join(serverRoot, "core"),
-      toPrefix: path.join(serverRoot, "routes"),
-      message: "core から routes への import は禁止",
-    },
-    {
-      fromPrefix: path.join(serverRoot, "core"),
-      toPrefix: path.join(serverRoot, "adapters"),
-      message: "core から adapters への import は禁止",
-    },
-    {
-      fromPrefix: path.join(serverRoot, "adapters", "fixture"),
-      toPrefix: path.join(serverRoot, "adapters", "real"),
-      message: "adapters/fixture から adapters/real への import は禁止",
-    },
-    {
-      fromPrefix: path.join(serverRoot, "adapters", "real"),
-      toPrefix: path.join(serverRoot, "adapters", "fixture"),
-      message: "adapters/real から adapters/fixture への import は禁止",
-    },
-  ];
+  const denyRules = SERVER_LAYER_RULES.map((rule) => ({
+    fromPrefix: path.join(serverRoot, ...rule.from.split("/")),
+    toPrefix: path.join(serverRoot, ...rule.to.split("/")),
+    message: rule.message,
+  }));
 
   for (const file of await walk(serverRoot)) {
     const source = await readFile(file, "utf8");

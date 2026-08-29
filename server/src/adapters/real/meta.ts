@@ -8,6 +8,7 @@ import {
   openSync,
   readFileSync,
   renameSync,
+  statSync,
   unlinkSync,
   writeSync,
 } from "node:fs";
@@ -106,6 +107,61 @@ export interface AtomicReplaceOps {
   unlink(path: string): void;
 }
 
+function waitMs(ms: number): void {
+  if (ms <= 0) return;
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function waitAtomicWriteCasDelay(): void {
+  const ms = Number(process.env.MIMIMILLI_ATOMIC_WRITE_CAS_DELAY_MS);
+  if (!Number.isFinite(ms) || ms <= 0) return;
+  waitMs(ms);
+}
+
+const META_WRITE_LOCK_TIMEOUT_MS = 5_000;
+const META_WRITE_LOCK_STALE_MS = 10_000;
+
+function stealStaleMetaLock(lockPath: string): boolean {
+  try {
+    const { mtimeMs } = statSync(lockPath);
+    if (Date.now() - mtimeMs < META_WRITE_LOCK_STALE_MS) return false;
+    unlinkSync(lockPath);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return true;
+    throw error;
+  }
+}
+
+function withMetaPathLock(filePath: string, fn: () => void): void {
+  const lockPath = join(dirname(filePath), `.${basename(filePath)}.lock`);
+  let lockFd: number | undefined;
+  const deadline = Date.now() + META_WRITE_LOCK_TIMEOUT_MS;
+  while (true) {
+    try {
+      lockFd = openSync(lockPath, "wx", 0o600);
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      if (stealStaleMetaLock(lockPath)) continue;
+      if (Date.now() >= deadline) {
+        throw new Error(`作品情報の書き込みロックを取得できません（${basename(filePath)}）`);
+      }
+      waitMs(10);
+    }
+  }
+  try {
+    fn();
+  } finally {
+    if (lockFd !== undefined) closeSync(lockFd);
+    try {
+      unlinkSync(lockPath);
+    } catch {
+      /* lock cleanup */
+    }
+  }
+}
+
 export function replaceWithRollback(
   filePath: string,
   tmp: string,
@@ -146,13 +202,16 @@ function writeBytesAtomic(filePath: string, bytes: Buffer, expectedBytes?: Buffe
     fsyncSync(fd);
     closeSync(fd);
     fd = undefined;
-    if (expectedBytes !== undefined && !readFileSync(filePath).equals(expectedBytes)) {
-      throw new SourceChangedError();
-    }
-    rollbackCanBeRemoved = replaceWithRollback(filePath, tmp, rollback, {
-      exists: existsSync,
-      rename: renameSync,
-      unlink: unlinkSync,
+    withMetaPathLock(filePath, () => {
+      if (expectedBytes !== undefined && !readFileSync(filePath).equals(expectedBytes)) {
+        throw new SourceChangedError();
+      }
+      waitAtomicWriteCasDelay();
+      rollbackCanBeRemoved = replaceWithRollback(filePath, tmp, rollback, {
+        exists: existsSync,
+        rename: renameSync,
+        unlink: unlinkSync,
+      });
     });
   } finally {
     if (fd !== undefined) closeSync(fd);

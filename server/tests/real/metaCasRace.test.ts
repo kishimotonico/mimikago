@@ -92,7 +92,9 @@ async function runConcurrentPatches(
     }
     Atomics.store(flags, 0, 1);
     Atomics.notify(flags, 0, 2);
-    return (await Promise.all(done)) as [WorkerDone, WorkerDone];
+    const results = await Promise.all(done);
+    assert.equal(results.length, 2);
+    return [results[0]!, results[1]!];
   } finally {
     for (const worker of workers) worker.terminate();
   }

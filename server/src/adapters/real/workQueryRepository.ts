@@ -570,10 +570,10 @@ export class WorkQueryRepository {
       durationSec: row.durationSec,
       covers: (
         JSON.parse(row.coversJson) as Array<Omit<AxisFacetItem["covers"][number], "version">>
-      ).map((cover) => ({
-        ...cover,
-        version: versions.get(cover.workId)!,
-      })),
+      ).flatMap((cover) => {
+        const version = versions.get(cover.workId);
+        return version === undefined ? [] : [{ ...cover, version }];
+      }),
     }));
   }
 

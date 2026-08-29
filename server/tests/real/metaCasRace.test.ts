@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { test } from "node:test";
 import { emptyDlsiteState } from "@mimimilli/shared";
-import { sourceRevision } from "../../src/adapters/real/meta.ts";
+import { patchMetaFileCas, sourceRevision } from "../../src/adapters/real/meta.ts";
 import { makeTestDirectory } from "../helpers/sampleLibrary.ts";
 import type { MetaCasRaceInput, MetaCasRacePatch } from "./metaCasRaceWorker.ts";
 
@@ -151,4 +151,30 @@ test("CASとrenameの間に並行書き込みがあっても後勝ち消失し�
       assertSingleCompleteWrite(metaPath, results);
     }
   });
+});
+
+function lockPathFor(metaPath: string): string {
+  return join(dirname(metaPath), `.${basename(metaPath)}.lock`);
+}
+
+test("mtimeが閾値より古いstale lockは奪取して書き込める", (t) => {
+  const directory = makeTestDirectory("meta-cas-stale-lock");
+  t.after(directory.cleanup);
+  const workDir = join(directory.path, "work");
+  mkdirSync(workDir);
+  const metaPath = join(workDir, "mimimilli.json");
+  const bytes = writeSampleMeta(metaPath);
+  const lockPath = lockPathFor(metaPath);
+  writeFileSync(lockPath, "");
+  const staleAt = Date.now() / 1000 - 15;
+  utimesSync(lockPath, staleAt, staleAt);
+
+  const started = performance.now();
+  patchMetaFileCas(metaPath, sourceRevision(bytes), { title: "stale-lock奪取" });
+  const elapsedMs = performance.now() - started;
+
+  const meta = JSON.parse(readFileSync(metaPath, "utf-8")) as { title: string };
+  assert.equal(meta.title, "stale-lock奪取");
+  assert.equal(existsSync(lockPath), false);
+  assert.ok(elapsedMs < 1_000, `stale lock 奪取が遅すぎる: ${elapsedMs}ms`);
 });

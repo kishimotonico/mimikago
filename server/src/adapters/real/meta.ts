@@ -8,6 +8,7 @@ import {
   openSync,
   readFileSync,
   renameSync,
+  statSync,
   unlinkSync,
   writeSync,
 } from "node:fs";
@@ -118,6 +119,19 @@ function waitAtomicWriteCasDelay(): void {
 }
 
 const META_WRITE_LOCK_TIMEOUT_MS = 5_000;
+const META_WRITE_LOCK_STALE_MS = 10_000;
+
+function stealStaleMetaLock(lockPath: string): boolean {
+  try {
+    const { mtimeMs } = statSync(lockPath);
+    if (Date.now() - mtimeMs < META_WRITE_LOCK_STALE_MS) return false;
+    unlinkSync(lockPath);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return true;
+    throw error;
+  }
+}
 
 function withMetaPathLock(filePath: string, fn: () => void): void {
   const lockPath = join(dirname(filePath), `.${basename(filePath)}.lock`);
@@ -129,6 +143,7 @@ function withMetaPathLock(filePath: string, fn: () => void): void {
       break;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      if (stealStaleMetaLock(lockPath)) continue;
       if (Date.now() >= deadline) {
         throw new Error(`作品情報の書き込みロックを取得できません（${basename(filePath)}）`);
       }

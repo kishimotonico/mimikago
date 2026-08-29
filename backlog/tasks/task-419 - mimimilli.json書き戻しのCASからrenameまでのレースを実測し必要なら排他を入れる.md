@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@omp'
 created_date: '2026-08-28 14:56'
-updated_date: '2026-08-29 18:16'
+updated_date: '2026-08-29 18:21'
 labels: []
 dependencies: []
 priority: medium
@@ -34,6 +34,8 @@ server/src/adapters/real/meta.ts の writeBytesAtomic は、replace直前のbyte
 - 遅延 30ms 40回: lostUpdate 40 / bothSuccess 40
 再現したので compare+rename を .mimimilli.json.lock（open wx）で直列化。遅延はテスト用に残置。
 排他後: 遅延 30ms 10回 + 遅延なし 20回、いずれも oneSuccess 1 + SourceChangedError 1、ファイルは片方の完全な書き込み。
+
+レビュー指摘: クラッシュ後の stale lock で以降の書き込みが5秒待ち失敗していた。mtime が 10 秒より古ければ unlink して取得を再試行する。正常保持はミリ秒オーダー。回帰: mtime を 15 秒過去にした lock を置いて patchMetaFileCas が 1 秒以内に成功し lock が残らないこと。
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

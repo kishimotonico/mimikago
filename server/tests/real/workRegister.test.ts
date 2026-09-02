@@ -450,6 +450,7 @@ test("POST /works: 孤立メタ復元でDLsite URLの選択外は保持し、選
             circle: null,
             cvs: [],
             genreTags: [],
+            ageRating: null,
             coverUrl: null,
             url: "https://www.dlsite.com/maniax/work/=/product_id/RJ900020.html",
           },

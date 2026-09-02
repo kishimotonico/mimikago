@@ -17,19 +17,20 @@ https://www.dlsite.com/pro/work/=/product_id/VJ000000.html
 
 ## 取得する情報
 
-`parseDlsiteHtml` が作品ページのHTMLから抽出するのは、タイトル、サークル名、CV（声優）一覧、ジャンルタグ一覧、カバー画像URL、作品URLの6つ（`DlsiteWorkInfo`、`shared/src/dlsite.ts`）。タイトルが取得できない場合は `parse_error` として扱う。ジャンルタグはリンク先が `/fs/=/genre/` または `/fsr/=/genre/` のものだけを対象にし、特集・キャンペーンへの通常リンクを除外する。
+`parseDlsiteHtml` が作品ページのHTMLから抽出するのは、タイトル、サークル名、CV（声優）一覧、ジャンルタグ一覧、年齢指定、カバー画像URL、作品URL（`DlsiteWorkInfo`、`shared/src/dlsite.ts`）。タイトルが取得できない場合は `parse_error` として扱う。ジャンルタグはリンク先が `/fs/=/genre/` または `/fsr/=/genre/` のものだけを対象にし、特集・キャンペーンへの通常リンクを除外する。年齢指定は作品概要テーブルの「年齢指定」行から取り、表示を `全年齢` / `R15` / `R18` に正規化する（`R-15` → `R15`、`18禁` → `R18`）。取れないときは `null` で、パース失敗にはしない。
 
 セレクタとフィクスチャテストは `dlsite.ts` を正典とする。DLsite側のHTML構造変更で `parse_error` が増えたら、セレクタとテストを同時に更新する。
 
 ## タグの変換規則
 
-`mergeDlsiteTags` が取得情報を既存タグへ統合する際、prefixを付けて変換する。
+`dlsiteInfoTags` / `mergeDlsiteTags`（`shared/src/dlsite.ts`）が取得情報を既存タグへ統合する際、prefixを付けて変換する。
 
 - サークル名 → `サークル/<サークル名>`
 - CV → `cv/<CV名>`
 - ジャンルタグ → `genre/<ジャンル名>`
+- 年齢指定 → `販売区分/全年齢` または `販売区分/R15` または `販売区分/R18`
 
-変換後は `normalizeTags` で正規形にし、正規化後に重複するタグは追加しない。
+変換後は `normalizeTags` で正規形にし、正規化後に重複するタグは追加しない。既存作品へ後から販売区分タグを足す場合は、キャッシュ済みHTMLを再パースする `POST /dlsite/apply-missing` を使う。prefix定義 `販売区分` は初回起動のseedに含まれる。すでにseed済みのライブラリには自動追加しないので、軸表示が必要ならタグ設定の候補から登録する。
 
 ## 適用の流れ
 

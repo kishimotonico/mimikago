@@ -1,7 +1,13 @@
 // DLsite 連携（POST /api/dlsite/:id/fetch | apply）の契約。
 import { z } from "zod";
 import { dataIntegrityWarningSchema } from "./dataIntegrity.ts";
-import { normalizedTagArraySchema, normalizedTagInputArraySchema } from "./tagNormalize.ts";
+import {
+  dedupeTags,
+  normalizeTags,
+  normalizedTagArraySchema,
+  normalizedTagInputArraySchema,
+  type NormalizedTag,
+} from "./tagNormalize.ts";
 
 export const dlsiteStatusSchema = z.enum(["none", "applied", "not_found", "error", "skipped"]);
 export type DlsiteStatus = z.infer<typeof dlsiteStatusSchema>;
@@ -101,16 +107,45 @@ export function isDlsiteUnlinked(state: DlsiteState): boolean {
   return hasRjCode(state) && state.status === "none";
 }
 
+export const DLSITE_AGE_RATINGS = ["全年齢", "R15", "R18"] as const;
+export const dlsiteAgeRatingSchema = z.enum(DLSITE_AGE_RATINGS);
+export type DlsiteAgeRating = z.infer<typeof dlsiteAgeRatingSchema>;
+
+/** DLsiteの年齢指定表示を販売区分タグの値へ正規化する。未知表記は捨てる。 */
+export function normalizeDlsiteAgeRating(raw: string): DlsiteAgeRating | null {
+  const value = raw.trim();
+  if (value === "全年齢" || value === "全年齢向け") return "全年齢";
+  if (/^R-?15$/i.test(value)) return "R15";
+  if (/^R-?18$/i.test(value) || value === "18禁") return "R18";
+  return null;
+}
+
 export const dlsiteWorkInfoSchema = z.object({
   rjCode: z.string(),
   title: z.string(),
   circle: z.string().nullable(),
   cvs: z.array(z.string()),
   genreTags: z.array(z.string()),
+  ageRating: dlsiteAgeRatingSchema.nullable(),
   coverUrl: z.string().nullable(),
   url: z.string(),
 });
 export type DlsiteWorkInfo = z.infer<typeof dlsiteWorkInfoSchema>;
+
+/** 取得情報を作品タグへ変換する（要件 v4 §4.4）。結果は正規形。 */
+export function dlsiteInfoTags(info: DlsiteWorkInfo): NormalizedTag[] {
+  const tags: string[] = [];
+  if (info.circle) tags.push(`サークル/${info.circle}`);
+  for (const cv of info.cvs) tags.push(`cv/${cv}`);
+  for (const genre of info.genreTags) tags.push(`genre/${genre}`);
+  if (info.ageRating) tags.push(`販売区分/${info.ageRating}`);
+  return dedupeTags(normalizeTags(tags));
+}
+
+/** 取得情報を既存タグへ合流する。正規化後の重複は追加しない。 */
+export function mergeDlsiteTags(existing: NormalizedTag[], info: DlsiteWorkInfo): NormalizedTag[] {
+  return dedupeTags([...existing, ...dlsiteInfoTags(info)]);
+}
 
 /** 作品ごとの取得結果確認に使う。sourceRevision は適用時のCASトークン。 */
 export const dlsitePreviewSchema = z.object({

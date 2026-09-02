@@ -1,15 +1,7 @@
-import { dedupeTags, normalizeTags } from "@mimimilli/shared";
+import { dedupeTags, dlsiteInfoTags, normalizeTags } from "@mimimilli/shared";
 import type { DlsiteApplyBody, DlsiteWorkInfo, NormalizedTag, Work } from "@mimimilli/shared";
 
-export function dlsiteInfoTags(info: DlsiteWorkInfo): NormalizedTag[] {
-  return dedupeTags(
-    normalizeTags([
-      ...(info.circle ? [`サークル/${info.circle}`] : []),
-      ...info.cvs.map((cv) => `cv/${cv}`),
-      ...info.genreTags.map((genre) => `genre/${genre}`),
-    ]),
-  );
-}
+export { dlsiteInfoTags };
 
 export function buildDlsiteApplyBody(
   info: DlsiteWorkInfo,

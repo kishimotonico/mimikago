@@ -6,7 +6,12 @@ import { join } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { test } from "node:test";
 import { Database } from "bun:sqlite";
-import { dlsiteStatePatchSchema, type DlsiteWorkInfo } from "@mimimilli/shared";
+import {
+  dlsiteStatePatchSchema,
+  dlsiteInfoTags,
+  normalizeDlsiteAgeRating,
+  type DlsiteWorkInfo,
+} from "@mimimilli/shared";
 import {
   detectRjCode,
   fetchDlsiteCover,
@@ -47,6 +52,7 @@ const SAMPLE_HTML = `
   <table>
     <tr><th>販売日</th><td>2026年01月01日</td></tr>
     <tr><th>声優</th><td><a href="#">水瀬なずな</a> / <a href="#">早乙女しおん</a></td></tr>
+    <tr><th>年齢指定</th><td><div class="work_genre"><span class="icon_GEN">全年齢</span></div></td></tr>
   </table>
   <div class="main_genre">
     <a href="https://www.dlsite.com/maniax/fs/=/genre/123/from/work.genre">耳かき</a>
@@ -68,6 +74,7 @@ test("parseDlsiteHtml: 正常HTMLフィクスチャから各情報を抽出す�
   assert.equal(info.circle, "夜想曲");
   assert.deepEqual(info.cvs, ["水瀬なずな", "早乙女しおん"]);
   assert.deepEqual(info.genreTags, ["耳かき", "バイノーラル"]);
+  assert.equal(info.ageRating, "全年齢");
   assert.equal(
     info.coverUrl,
     "https://img.dlsite.jp/modpub/images2/work/doujin/RJ900000/RJ899999_img_main.jpg",
@@ -84,6 +91,67 @@ test("parseDlsiteHtml: タイトルが空のHTMLはparse_error", () => {
   });
 });
 
+function htmlWithAgeRating(raw: string): string {
+  return `<html><body>
+  <h1 id="work_name">タイトル</h1>
+  <table>
+    <tr><th>年齢指定</th><td><div class="work_genre">${raw}</div></td></tr>
+  </table>
+</body></html>`;
+}
+
+test("normalizeDlsiteAgeRating: DLsiteの表記を全年齢/R15/R18へ寄せ、未知は捨てる", () => {
+  assert.equal(normalizeDlsiteAgeRating("全年齢"), "全年齢");
+  assert.equal(normalizeDlsiteAgeRating(" 全年齢向け "), "全年齢");
+  assert.equal(normalizeDlsiteAgeRating("R-15"), "R15");
+  assert.equal(normalizeDlsiteAgeRating("R15"), "R15");
+  assert.equal(normalizeDlsiteAgeRating("R18"), "R18");
+  assert.equal(normalizeDlsiteAgeRating("R-18"), "R18");
+  assert.equal(normalizeDlsiteAgeRating("18禁"), "R18");
+  assert.equal(normalizeDlsiteAgeRating("PG12"), null);
+  assert.equal(normalizeDlsiteAgeRating(" "), null);
+});
+
+test("parseDlsiteHtml: 年齢指定のR-15・R18・18禁を正規化する", () => {
+  const r15 = parseDlsiteHtml(
+    htmlWithAgeRating(
+      '<a href="/maniax/fsr/=/age_category/2/"><span class="icon_R15" title="R-15">R-15</span></a>',
+    ),
+    "RJ000015",
+  );
+  assert.equal(r15.ok, true);
+  if (r15.ok) assert.equal(r15.info.ageRating, "R15");
+
+  const r18 = parseDlsiteHtml(
+    htmlWithAgeRating(
+      '<a href="/girls/fsr/=/age_category/3/"><span class="icon_ADL" title="R18">R18</span></a>',
+    ),
+    "RJ000018",
+  );
+  assert.equal(r18.ok, true);
+  if (r18.ok) assert.equal(r18.info.ageRating, "R18");
+
+  const adult = parseDlsiteHtml(
+    htmlWithAgeRating('<span class="icon_ADO">18禁</span>'),
+    "RJ000019",
+  );
+  assert.equal(adult.ok, true);
+  if (adult.ok) assert.equal(adult.info.ageRating, "R18");
+});
+
+test("parseDlsiteHtml: 年齢指定が無い・未知の表記はnullでparse_errorにしない", () => {
+  const missing = parseDlsiteHtml(
+    '<html><body><h1 id="work_name">タイトル</h1></body></html>',
+    "RJ000020",
+  );
+  assert.equal(missing.ok, true);
+  if (missing.ok) assert.equal(missing.info.ageRating, null);
+
+  const unknown = parseDlsiteHtml(htmlWithAgeRating("指定なし"), "RJ000021");
+  assert.equal(unknown.ok, true);
+  if (unknown.ok) assert.equal(unknown.info.ageRating, null);
+});
+
 test("listDlsiteMissingFields: 任意フィールドの欠落を検出する", () => {
   assert.deepEqual(
     listDlsiteMissingFields({
@@ -92,10 +160,11 @@ test("listDlsiteMissingFields: 任意フィールドの欠落を検出する", (
       circle: null,
       cvs: [],
       genreTags: [],
+      ageRating: null,
       coverUrl: null,
       url: "",
     }),
-    ["circle", "cvs", "genreTags", "coverUrl"],
+    ["circle", "cvs", "genreTags", "ageRating", "coverUrl"],
   );
   assert.deepEqual(
     listDlsiteMissingFields({
@@ -104,6 +173,7 @@ test("listDlsiteMissingFields: 任意フィールドの欠落を検出する", (
       circle: "夜想曲",
       cvs: ["cv"],
       genreTags: ["genre"],
+      ageRating: "R18",
       coverUrl: "https://img.dlsite.jp/a.jpg",
       url: "",
     }),
@@ -137,7 +207,13 @@ test("DLsite: パース成功時の欠落フィールドをwarnイベントと�
   assert.equal(result.ok, true);
   const missing = logs.filter((event) => event.event === "dlsite_parse_fields_missing");
   assert.equal(missing.length, 1);
-  assert.deepEqual(missing[0]?.missingFields, ["circle", "cvs", "genreTags", "coverUrl"]);
+  assert.deepEqual(missing[0]?.missingFields, [
+    "circle",
+    "cvs",
+    "genreTags",
+    "ageRating",
+    "coverUrl",
+  ]);
   assert.equal(missing[0]?.productCode, "RJ900002");
 });
 
@@ -307,6 +383,7 @@ test("mergeDlsiteTags: prefix 変換と重複排除", () => {
     circle: "夜想曲",
     cvs: ["水瀬なずな", "新CV"],
     genreTags: ["耳かき"],
+    ageRating: null,
     coverUrl: null,
     url: "",
   };
@@ -318,6 +395,24 @@ test("mergeDlsiteTags: prefix 変換と重複排除", () => {
     "cv/新CV",
     "genre/耳かき",
   ]);
+});
+
+test("mergeDlsiteTags: 販売区分タグを追加する", () => {
+  const info: DlsiteWorkInfo = {
+    rjCode: "RJ900002",
+    title: "x",
+    circle: null,
+    cvs: [],
+    genreTags: [],
+    ageRating: "R18",
+    coverUrl: null,
+    url: "",
+  };
+  assert.deepEqual(dlsiteInfoTags(info), nts(["販売区分/R18"]));
+  assert.deepEqual(
+    mergeDlsiteTags(nts(["genre/耳かき"]), info),
+    nts(["genre/耳かき", "販売区分/R18"]),
+  );
 });
 
 test("dlsiteApply: タグマージとメタ書き戻し（カバー DL なし）", async (t) => {
@@ -333,6 +428,7 @@ test("dlsiteApply: タグマージとメタ書き戻し（カバー DL なし）
     circle: "夜想曲",
     cvs: ["水瀬なずな"],
     genreTags: ["耳かき", "睡眠"],
+    ageRating: null,
     coverUrl: null,
     url: "https://www.dlsite.com/maniax/work/=/product_id/RJ900002.html",
   };
@@ -969,6 +1065,7 @@ test("dlsiteApply: abort済みsignalではDB・メタを更新しない", async 
     circle: null,
     cvs: [],
     genreTags: [],
+    ageRating: null,
     coverUrl: null,
     url: "https://www.dlsite.com/maniax/work/=/product_id/RJ900002.html",
   };
@@ -1113,6 +1210,7 @@ test("DLsiteカバー: キャッシュから各作品フォルダーへコピー
     circle: null,
     cvs: [],
     genreTags: [],
+    ageRating: null,
     coverUrl: "https://img.dlsite.jp/modpub/images2/work/RJ900002_cover.jpg",
     url: "https://www.dlsite.com/maniax/work/=/product_id/RJ900002.html",
   };
@@ -1367,6 +1465,7 @@ test("DLsiteカバー: 同じURLを2作品へ同時適用してもHTTPは1回で
     circle: null,
     cvs: [],
     genreTags: [],
+    ageRating: null,
     coverUrl,
     url: `https://www.dlsite.com/maniax/work/=/product_id/${rjCode}.html`,
   });
@@ -1547,6 +1646,7 @@ test("DLsite apply: カバーはcache transportを通る", async (t) => {
       circle: null,
       cvs: [],
       genreTags: [],
+      ageRating: null,
       coverUrl: "https://img.dlsite.jp/modpub/images2/work/a.jpg",
       url: "https://www.dlsite.com/maniax/work/=/product_id/RJ900002.html",
     },
@@ -1815,6 +1915,7 @@ test("DLsite通知: 適用後は未連携件数から外れる", async (t) => {
       circle: "夜想曲",
       cvs: ["水瀬なずな"],
       genreTags: ["耳かき"],
+      ageRating: null,
       coverUrl: null,
       url: "https://www.dlsite.com/maniax/work/=/product_id/RJ900002.html",
     },

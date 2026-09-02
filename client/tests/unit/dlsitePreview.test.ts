@@ -12,6 +12,7 @@ const info: DlsiteWorkInfo = {
   circle: "夜想曲",
   cvs: ["水瀬なずな"],
   genreTags: ["耳かき", "睡眠"],
+  ageRating: "R15",
   coverUrl: "https://example.test/cover.jpg",
   url: "https://example.test/RJ123456",
 };
@@ -45,11 +46,13 @@ describe("DLsite適用プレビュー", () => {
       "cv/水瀬なずな",
       "genre/耳かき",
       "genre/睡眠",
+      "販売区分/R15",
     ]);
     expect(unappliedDlsiteTags(work, info)).toEqual([
       "cv/水瀬なずな",
       "genre/耳かき",
       "genre/睡眠",
+      "販売区分/R15",
     ]);
   });
 

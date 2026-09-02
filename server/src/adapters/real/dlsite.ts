@@ -3,13 +3,13 @@
 // HTML パースは pure 関数に分離し、ネットワークなしでテストできるようにする。
 import { load } from "cheerio";
 import {
-  dedupeTags,
-  normalizeTags,
+  normalizeDlsiteAgeRating,
   type DlsiteFetchResult,
   type DlsiteWorkInfo,
-  type NormalizedTag,
 } from "@mimimilli/shared";
 import { DEFAULT_DLSITE_USER_AGENT } from "./dlsiteConfig.ts";
+
+export { mergeDlsiteTags } from "@mimimilli/shared";
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 export interface DlsiteHtmlResponse {
@@ -85,7 +85,13 @@ export function detectRjCode(candidates: string[]): string | null {
   return null;
 }
 
-export const DLSITE_OPTIONAL_FIELDS = ["circle", "cvs", "genreTags", "coverUrl"] as const;
+export const DLSITE_OPTIONAL_FIELDS = [
+  "circle",
+  "cvs",
+  "genreTags",
+  "ageRating",
+  "coverUrl",
+] as const;
 export type DlsiteOptionalField = (typeof DLSITE_OPTIONAL_FIELDS)[number];
 
 /** パース成功時に取得できなかった任意フィールド名を返す（pure）。 */
@@ -94,6 +100,7 @@ export function listDlsiteMissingFields(info: DlsiteWorkInfo): DlsiteOptionalFie
   if (!info.circle) missing.push("circle");
   if (info.cvs.length === 0) missing.push("cvs");
   if (info.genreTags.length === 0) missing.push("genreTags");
+  if (!info.ageRating) missing.push("ageRating");
   if (!info.coverUrl) missing.push("coverUrl");
   return missing;
 }
@@ -113,15 +120,21 @@ export function parseDlsiteHtml(html: string, rjCode: string): DlsiteFetchResult
   const circle = $("span.maker_name a").first().text().trim() || null;
 
   const cvs: string[] = [];
+  let ageRatingRaw = "";
   $("th").each((_, th) => {
-    if ($(th).text().trim() !== "声優") return;
-    $(th)
-      .parent()
-      .find("td a")
-      .each((_, a) => {
-        const name = $(a).text().trim();
-        if (name) cvs.push(name);
-      });
+    const label = $(th).text().trim();
+    if (label === "声優") {
+      $(th)
+        .parent()
+        .find("td a")
+        .each((_, a) => {
+          const name = $(a).text().trim();
+          if (name) cvs.push(name);
+        });
+      return;
+    }
+    if (label !== "年齢指定") return;
+    ageRatingRaw = $(th).parent().find("td").first().text().trim();
   });
 
   // 作品ジャンルのリンク先は `/fs/=/genre/` または `/fsr/=/genre/` 形式。
@@ -137,7 +150,16 @@ export function parseDlsiteHtml(html: string, rjCode: string): DlsiteFetchResult
 
   return {
     ok: true,
-    info: { rjCode, title, circle, cvs, genreTags, coverUrl, url: dlsiteWorkUrl(rjCode) },
+    info: {
+      rjCode,
+      title,
+      circle,
+      cvs,
+      genreTags,
+      ageRating: normalizeDlsiteAgeRating(ageRatingRaw),
+      coverUrl,
+      url: dlsiteWorkUrl(rjCode),
+    },
   };
 }
 
@@ -205,17 +227,4 @@ export async function fetchDlsiteCover(
     body: (await readLimitedBody(res, maximumBytes, maximumBytes)).body,
     finalUrl: currentUrl,
   };
-}
-
-/**
- * 取得情報を既存タグへマージする（要件 v4 §4.4 の prefix 変換）。
- * circle → `サークル/`, cvs → `cv/`, genreTags → `genre/`
- * 結果は正規形（ADR-0005 決定5）で返し、正規化後の重複は追加しない
- */
-export function mergeDlsiteTags(existing: NormalizedTag[], info: DlsiteWorkInfo): NormalizedTag[] {
-  const newTags: string[] = [];
-  if (info.circle) newTags.push(`サークル/${info.circle}`);
-  for (const cv of info.cvs) newTags.push(`cv/${cv}`);
-  for (const genre of info.genreTags) newTags.push(`genre/${genre}`);
-  return dedupeTags([...existing, ...normalizeTags(newTags)]);
 }

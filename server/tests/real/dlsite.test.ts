@@ -11,6 +11,7 @@ import {
   dlsiteInfoTags,
   normalizeDlsiteAgeRating,
   type DlsiteWorkInfo,
+  mergeDlsiteTags,
 } from "@mimimilli/shared";
 import {
   detectRjCode,
@@ -18,7 +19,6 @@ import {
   fetchDlsiteHtml,
   dlsiteWorkUrl,
   listDlsiteMissingFields,
-  mergeDlsiteTags,
   normalizeDlsiteCoverUrl,
   parseDlsiteHtml,
 } from "../../src/adapters/real/dlsite.ts";

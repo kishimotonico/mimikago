@@ -1,8 +1,6 @@
 import { dedupeTags, dlsiteInfoTags, normalizeTags } from "@mimimilli/shared";
 import type { DlsiteApplyBody, DlsiteWorkInfo, NormalizedTag, Work } from "@mimimilli/shared";
 
-export { dlsiteInfoTags };
-
 export function buildDlsiteApplyBody(
   info: DlsiteWorkInfo,
   selection: {

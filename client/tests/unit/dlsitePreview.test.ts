@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { emptyDlsiteState, type DlsiteWorkInfo, type Work } from "@mimimilli/shared";
 import {
-  buildDlsiteApplyBody,
   dlsiteInfoTags,
-  unappliedDlsiteTags,
-} from "../../src/entities/work/dlsitePreview";
+  emptyDlsiteState,
+  type DlsiteWorkInfo,
+  type Work,
+} from "@mimimilli/shared";
+import { buildDlsiteApplyBody, unappliedDlsiteTags } from "../../src/entities/work/dlsitePreview";
 
 const info: DlsiteWorkInfo = {
   rjCode: "RJ123456",

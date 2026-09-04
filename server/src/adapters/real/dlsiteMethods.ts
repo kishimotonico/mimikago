@@ -14,7 +14,7 @@ import { getWorkWithLiveProbe } from "./workRefresh.ts";
 import { createDlsiteFetch } from "./dlsiteFetch.ts";
 import { createDlsiteApply } from "./dlsiteApply.ts";
 import { createDlsiteBulk } from "./dlsiteBulk.ts";
-import { mergeDlsiteTags } from "./dlsite.ts";
+import { mergeDlsiteTags } from "@mimimilli/shared";
 import { readMetaSource } from "./meta.ts";
 import {
   refreshWorkDlsiteProjection,

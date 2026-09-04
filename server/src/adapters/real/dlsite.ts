@@ -9,7 +9,6 @@ import {
 } from "@mimimilli/shared";
 import { DEFAULT_DLSITE_USER_AGENT } from "./dlsiteConfig.ts";
 
-export { mergeDlsiteTags } from "@mimimilli/shared";
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 export interface DlsiteHtmlResponse {

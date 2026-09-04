@@ -111,7 +111,7 @@ export const DLSITE_AGE_RATINGS = ["全年齢", "R15", "R18"] as const;
 export const dlsiteAgeRatingSchema = z.enum(DLSITE_AGE_RATINGS);
 export type DlsiteAgeRating = z.infer<typeof dlsiteAgeRatingSchema>;
 
-/** DLsiteの年齢指定表示を販売区分タグの値へ正規化する。未知表記は捨てる。 */
+/** DLsiteの年齢指定表示をratingタグの値へ正規化する。未知表記は捨てる。 */
 export function normalizeDlsiteAgeRating(raw: string): DlsiteAgeRating | null {
   const value = raw.trim();
   if (value === "全年齢" || value === "全年齢向け") return "全年齢";
@@ -138,7 +138,7 @@ export function dlsiteInfoTags(info: DlsiteWorkInfo): NormalizedTag[] {
   if (info.circle) tags.push(`サークル/${info.circle}`);
   for (const cv of info.cvs) tags.push(`cv/${cv}`);
   for (const genre of info.genreTags) tags.push(`genre/${genre}`);
-  if (info.ageRating) tags.push(`販売区分/${info.ageRating}`);
+  if (info.ageRating) tags.push(`rating/${info.ageRating}`);
   return dedupeTags(normalizeTags(tags));
 }
 

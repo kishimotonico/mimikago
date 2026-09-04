@@ -106,8 +106,8 @@ export const DEFAULT_TAG_PREFIXES: TagPrefix[] = [
     protected: false,
   },
   {
-    prefix: "販売区分",
-    label: "販売区分",
+    prefix: "rating",
+    label: "レーティング",
     color: "cat",
     showAsAxis: true,
     protected: false,

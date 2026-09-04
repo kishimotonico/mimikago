@@ -25,7 +25,7 @@ describe("tagPrefixColorToCss", () => {
       シリーズ: "var(--series-color)",
       カテゴリ: "var(--cat-color)",
       genre: "var(--cat-color)",
-      販売区分: "var(--cat-color)",
+      rating: "var(--cat-color)",
     };
 
     for (const def of DEFAULT_TAG_PREFIXES) {

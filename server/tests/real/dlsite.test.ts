@@ -397,7 +397,7 @@ test("mergeDlsiteTags: prefix 変換と重複排除", () => {
   ]);
 });
 
-test("mergeDlsiteTags: 販売区分タグを追加する", () => {
+test("mergeDlsiteTags: ratingタグを追加する", () => {
   const info: DlsiteWorkInfo = {
     rjCode: "RJ900002",
     title: "x",
@@ -408,10 +408,10 @@ test("mergeDlsiteTags: 販売区分タグを追加する", () => {
     coverUrl: null,
     url: "",
   };
-  assert.deepEqual(dlsiteInfoTags(info), nts(["販売区分/R18"]));
+  assert.deepEqual(dlsiteInfoTags(info), nts(["rating/R18"]));
   assert.deepEqual(
     mergeDlsiteTags(nts(["genre/耳かき"]), info),
-    nts(["genre/耳かき", "販売区分/R18"]),
+    nts(["genre/耳かき", "rating/R18"]),
   );
 });
 

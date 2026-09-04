@@ -47,13 +47,13 @@ describe("DLsite適用プレビュー", () => {
       "cv/水瀬なずな",
       "genre/耳かき",
       "genre/睡眠",
-      "販売区分/R15",
+      "rating/R15",
     ]);
     expect(unappliedDlsiteTags(work, info)).toEqual([
       "cv/水瀬なずな",
       "genre/耳かき",
       "genre/睡眠",
-      "販売区分/R15",
+      "rating/R15",
     ]);
   });
 

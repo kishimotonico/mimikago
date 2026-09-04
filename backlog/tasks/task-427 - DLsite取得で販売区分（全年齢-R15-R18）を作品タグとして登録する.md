@@ -1,11 +1,11 @@
 ---
 id: TASK-427
-title: DLsite取得で販売区分（全年齢/R15/R18）を作品タグとして登録する
+title: DLsite取得で年齢指定（全年齢/R15/R18）をratingタグとして登録する
 status: Done
 assignee:
   - '@cursor'
 created_date: '2026-09-02 17:26'
-updated_date: '2026-09-02 17:35'
+updated_date: '2026-09-04 13:40'
 labels: []
 dependencies: []
 priority: high
@@ -40,6 +40,8 @@ DLsite作品ページの「年齢指定」をパースし、ジャンルと同�
 
 <!-- SECTION:NOTES:BEGIN -->
 検証: pnpm check と pnpm test は成功。年齢指定は作品概要テーブルから取り、全年齢/R15/R18へ正規化して販売区分タグにする。既存ライブラリのprefixはseed済みフラグのため自動追加しない。キャッシュ済みHTMLは apply-missing で再パースできる。
+
+prefix名は 販売区分 → rating（ラベル: レーティング）に変更（2026-09-04ユーザー判断。「販売区分」は同人/商業の区分に読めるため）
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

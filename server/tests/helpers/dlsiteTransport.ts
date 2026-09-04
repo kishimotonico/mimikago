@@ -74,6 +74,7 @@ export function sampleWorkHtml(
     genres?: string[];
     cover?: boolean;
     cvs?: string[] | false;
+    ageRating?: string | null;
   },
 ): string {
   const title = options?.title ?? "耳元ささやきの夜";
@@ -91,6 +92,10 @@ export function sampleWorkHtml(
       : `<tr><th>声優</th><td>${(options?.cvs ?? ["水瀬なずな"])
           .map((name) => `<a href="#">${name}</a>`)
           .join(" / ")}</td></tr>`;
+  const ageRatingBlock =
+    options?.ageRating === undefined || options.ageRating === null
+      ? ""
+      : `<tr><th>年齢指定</th><td><div class="work_genre"><span>${options.ageRating}</span></div></td></tr>`;
   const coverBlock =
     options?.cover === false
       ? ""
@@ -103,6 +108,7 @@ export function sampleWorkHtml(
   <table>
     <tr><th>販売日</th><td>2026年01月01日</td></tr>
     ${cvBlock}
+    ${ageRatingBlock}
   </table>
   <div class="main_genre">
     ${genreLinks}

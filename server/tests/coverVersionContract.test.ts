@@ -40,6 +40,7 @@ test("fixture: カバー内容が変わると version が変わる", async () =>
       circle: null,
       cvs: [],
       genreTags: [],
+      ageRating: null,
       coverUrl: null,
       url: "https://www.dlsite.com/maniax/work/=/product_id/RJ501001.html",
     },

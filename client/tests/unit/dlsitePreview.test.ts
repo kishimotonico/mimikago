@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { emptyDlsiteState, type DlsiteWorkInfo, type Work } from "@mimimilli/shared";
 import {
-  buildDlsiteApplyBody,
   dlsiteInfoTags,
-  unappliedDlsiteTags,
-} from "../../src/entities/work/dlsitePreview";
+  emptyDlsiteState,
+  type DlsiteWorkInfo,
+  type Work,
+} from "@mimimilli/shared";
+import { buildDlsiteApplyBody, unappliedDlsiteTags } from "../../src/entities/work/dlsitePreview";
 
 const info: DlsiteWorkInfo = {
   rjCode: "RJ123456",
@@ -12,6 +13,7 @@ const info: DlsiteWorkInfo = {
   circle: "夜想曲",
   cvs: ["水瀬なずな"],
   genreTags: ["耳かき", "睡眠"],
+  ageRating: "R15",
   coverUrl: "https://example.test/cover.jpg",
   url: "https://example.test/RJ123456",
 };
@@ -45,11 +47,13 @@ describe("DLsite適用プレビュー", () => {
       "cv/水瀬なずな",
       "genre/耳かき",
       "genre/睡眠",
+      "rating/R15",
     ]);
     expect(unappliedDlsiteTags(work, info)).toEqual([
       "cv/水瀬なずな",
       "genre/耳かき",
       "genre/睡眠",
+      "rating/R15",
     ]);
   });
 

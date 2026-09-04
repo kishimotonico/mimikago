@@ -19,7 +19,8 @@ import { buildTagsWithAdded, buildTagsWithRemoved } from "../../../entities/work
 import Tag from "../../../entities/work/ui/Tag";
 import { useTagPrefixes } from "../../../entities/tag/useTagPrefixes";
 import { tagPrefixDefinition } from "../../../entities/tag/tagPrefixDefinition";
-import { buildDlsiteRegistrationBody, dlsiteInfoTags } from "../../../entities/work/dlsitePreview";
+import { dlsiteInfoTags } from "@mimimilli/shared";
+import { buildDlsiteRegistrationBody } from "../../../entities/work/dlsitePreview";
 import { dlsiteFetchErrorMessage } from "../../../entities/work/dlsiteFetchError";
 import { apiErrorMessage } from "../../../shared/lib/apiError";
 import { createWork, fetchDlsiteInfoByCode } from "../api";

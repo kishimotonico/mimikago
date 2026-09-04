@@ -1,4 +1,4 @@
-import { applyDlsiteStatePatch, dedupeTags, hasRjCode, normalizeTags } from "@mimimilli/shared";
+import { applyDlsiteStatePatch, dedupeTags, hasRjCode, mergeDlsiteTags } from "@mimimilli/shared";
 import type {
   DlsiteBulkResult,
   DlsiteFetchResult,
@@ -26,6 +26,7 @@ export function createDlsiteMethods(state: FixtureState): DlsiteAdapter {
         circle: "fixtureサークル",
         cvs: ["fixture CV"],
         genreTags: ["テスト"],
+        ageRating: "全年齢",
         coverUrl: null,
         url: `https://www.dlsite.com/maniax/work/=/product_id/${rjCode}.html`,
       },
@@ -56,9 +57,7 @@ export function createDlsiteMethods(state: FixtureState): DlsiteAdapter {
         }
         const fetched = await dlsiteFetchByCode(work.dlsite.rjCode);
         if (!fetched.ok) continue;
-        const tags = dedupeTags(
-          normalizeTags(["サークル/fixtureサークル", "cv/fixture CV", "genre/テスト"]),
-        ).filter((tag) => !work.tags.includes(tag));
+        const tags = mergeDlsiteTags([], fetched.info).filter((tag) => !work.tags.includes(tag));
         if (tags.length === 0) {
           skipped += 1;
           continue;

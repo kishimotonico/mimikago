@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import type { DlsitePreview, Work } from "@mimimilli/shared";
+import { dlsiteInfoTags, type DlsitePreview, type Work } from "@mimimilli/shared";
 import { applyDlsiteInfo, fetchDlsiteInfo, updateDlsiteState } from "../../../../entities/work/api";
 import {
   dlsiteApplyErrorMessage,
@@ -13,11 +13,7 @@ import { I } from "../../../../shared/ui/Icon";
 import { useDialogModal } from "../../../../shared/ui/useDialogModal";
 import { WORK_QUERY_KEYS } from "../../../../entities/work/queryKeys";
 import { useDlsiteInvalidation } from "../../../../entities/dlsite/useDlsiteInvalidation";
-import {
-  buildDlsiteApplyBody,
-  dlsiteInfoTags,
-  unappliedDlsiteTags,
-} from "../../../../entities/work/dlsitePreview";
+import { buildDlsiteApplyBody, unappliedDlsiteTags } from "../../../../entities/work/dlsitePreview";
 import { formatCoverEditLabel } from "../../../../shared/lib/coverLabel";
 
 export const STATUS_LABEL = {

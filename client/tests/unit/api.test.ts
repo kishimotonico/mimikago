@@ -294,6 +294,7 @@ describe("work api", () => {
       circle: null,
       cvs: [],
       genreTags: [],
+      ageRating: null,
       coverUrl: null,
       url: "",
     };
